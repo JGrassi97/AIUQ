@@ -55,7 +55,15 @@ The framework supports both deterministic and stochastic models. Deterministic m
 </td></tr></table>
 
 
-<img src=docs/neuralgcm_forecast.png width="500">
+<p align="center">
+  <img src="docs/neuralgcm_forecast.png" width="400">
+  <img src="docs/aifs_forecast.png" width="400">
+  <br>
+  <em>
+  NeuralGCM (resolution 1.4°) and AIFS (resolution 0.25°) ensemble forecasts for January 21st, 1988.
+  Both simulations are initialized on January 1st, 1988, using ERA5 reanalysis data.
+  </em>
+</p>
 
 ## Quickstart
 
