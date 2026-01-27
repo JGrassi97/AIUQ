@@ -278,12 +278,12 @@ def main() -> None:
 
     # Format output variables and select
     output_vars = normalize_out_vars(_OUT_VARS)
-    if ['all'] != output_vars:
+    if 'all' not in output_vars:
         final_025 = final_025[output_vars]
     
     # Format output frequency
     if _OUTPUT_FREQ == "daily":
-        predictions_ds = predictions_ds.resample(valid_time="1D").mean()
+        final_025 = final_025.resample(valid_time="1D").mean()
 
     # Create output directory
     os.makedirs(_OUTPUT_PATH, exist_ok=True)

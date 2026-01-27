@@ -113,7 +113,7 @@ def main() -> None:
 
     # Format output variables and select
     output_vars = normalize_out_vars(_OUT_VARS)
-    if ['all'] != output_vars:
+    if 'all' not in output_vars:
         predictions_ds = predictions_ds[output_vars]
 
     # Format output frequency
