@@ -121,9 +121,9 @@ def main() -> None:
         predictions_ds = predictions_ds.resample(valid_time="1D").mean()
     
     # Interpolate on a regular lat-lon 1x1 grid - use xarray
-    latitudes = np.arange(-90, 90.1, 1.0)
-    longitudes = np.arange(0., 360.1, 1.0)
-    predictions_ds = predictions_ds.interp(latitude=latitudes, longitude=longitudes, method="linear")
+    # latitudes = np.arange(-90, 90.1, 1.0)
+    # longitudes = np.arange(0., 360.1, 1.0)
+    # predictions_ds = predictions_ds.interp(latitude=latitudes, longitude=longitudes, method="linear")
 
     # Ensure output path exists
     os.makedirs(_OUTPUT_PATH, exist_ok=True)
