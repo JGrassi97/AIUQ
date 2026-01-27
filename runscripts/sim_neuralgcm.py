@@ -112,7 +112,8 @@ def main() -> None:
 
     # Format output variables and select
     output_vars = normalize_out_vars(_OUT_VARS)
-    predictions_ds = predictions_ds[output_vars]
+    if ['all'] != output_vars:
+        predictions_ds = predictions_ds[output_vars]
 
     # Ensure output path exists
     os.makedirs(_OUTPUT_PATH, exist_ok=True)

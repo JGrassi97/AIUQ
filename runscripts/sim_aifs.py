@@ -279,7 +279,8 @@ def main() -> None:
     if "sim_time" in final_025.variables:
         final_025 = final_025.drop_vars("sim_time")
 
-    final_025 = final_025[output_vars]
+    if ['all'] != output_vars:
+        final_025 = final_025[output_vars]
 
     # Create output directory
     os.makedirs(_OUTPUT_PATH, exist_ok=True)
