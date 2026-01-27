@@ -1,11 +1,11 @@
-# Auto-UQ
+# AIUQ
 
 > ⚠️ **DISCLAIMER**  
 > This project is still experimental and may change drastically from its present form.
 
-Auto-UQ is a framework for running AI-based weather and climate models using Autosubmit. It is designed to efficiently handle different combinations of initial conditions (ICs) and models thanks to its modular architecture.
+AIUQ (Artificial Intelligence weather forecasting models for Uncertainty Quantification) is a framework for running AI-based weather and climate models using Autosubmit. It is designed to efficiently handle different combinations of initial conditions (ICs) and models thanks to its modular architecture. The integration of multiple fallback methods allows the use of different sets of initial conditions, even when they do not fully match the AI model requirements.
 
-The framework supports both deterministic and stochastic models. Deterministic models always produce the same results when initialized with the same ICs, whereas stochastic models are able to generate an ensemble of realizations starting from identical ICs. For this reason, Auto-UQ also implements several classes of methods to perturb the ICs, allowing the generation of ensembles of realizations even from deterministic models.
+The framework supports both deterministic and stochastic models. Deterministic models always produce the same results when initialized with the same ICs, whereas stochastic models are able to generate an ensemble of realizations starting from identical ICs. For this reason, AIUQ also implements several classes of methods to perturb the ICs, allowing the generation of ensembles of realizations even from deterministic models.
 
 <table><tr><td>
 <b>The current implementation supports the following ICs / AI models:</b><br><br>
@@ -60,7 +60,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 
 ### Installation
 To run the framework you need
-- Autosubmit in your local machine. Please refer to the [official documentation](https://autosubmit.readthedocs.io/en/master/) in install it.
+- Autosubmit in your local machine. Please refer to the [official documentation](https://autosubmit.readthedocs.io/en/master/) to install it.
 - The supporting files on your HPC
 
 **Important**: The supporting files must be stored in a folder (from now on <supporting_folder>) which path you will be ask to provide for the execution of the framework.
@@ -69,9 +69,10 @@ The supporting files are the following:
 ```
 <supporting_folder>
 └── AIUQ  
-      ├── models  # Contains the checkpoint for the inference
-      ├── sif     # Contains the images for running the scritps
-      └── static  # Contains static (i.e. orography) files needed for certain models
+      ├── models        # Contains the checkpoint for the inference
+      ├── sif           # Contains the images for running the scripts
+      ├── static        # Contains static (i.e. orography) data for 1st level fallback
+      └── climatology   # Contains climatological data used for 2nd level fallback
 ```
 
 ### Execution
@@ -79,7 +80,7 @@ The supporting files are the following:
 #### Create the experiment
 ```
 autosubmit expid \
-  --description "auto-UQ" \
+  --description "AIUQ" \
   --HPC FELIPE \
   --minimal_configuration \
   --git_as_conf conf/bootstrap/ \
@@ -100,7 +101,6 @@ MODEL:
   CHECKPOINT_NAME: ecmwf/aifs-ens-1.0   # checkpoint name as written in the table above
   ICS: eerie                            # eerie / era5
 
-  # MOVE THIS SECTION FROM HERE
   # Checkpoints
   CHECKPOINT_PATH: ...
   CHECKPOINT: "%MODEL.CHECKPOINT_PATH%/%MODEL.NAME%/%MODEL.CHECKPOINT_NAME%"
@@ -119,14 +119,14 @@ EXPERIMENT:
   CALENDAR: standard
 
   # The following fields are not part of standard Autosubmit experiment
-  OUT_VARS:         # TODO: manage the out name of the models
+  OUT_VARS:       
     - temperature
     - geopotential
-  # LEVELS          # TODO: add pressure levels out
 
-# RETHINK THE PATH MANAGEMENT
 PATHS:
   SIF_FOLDER: ...
+  STATIC_DATA: ...
+  CLIMATOLOGY_DATA: ...
 ```
 
 ## Developer’s Guide
@@ -151,7 +151,7 @@ Since this standard may evolve due to future developments or different user requ
 Below is a brief description of **AIUQ-st/v000**:
 
 - **Storage format:** `.zarr`
-- **Naming conventions:** [ECMWF NetCDF codes](https://codes.ecmwf.int/grib/param-db/?encoding=netcdf)
+- **Naming conventions:** [ECMWF Parameter database](https://codes.ecmwf.int/grib/param-db/?encoding=netcdf)
 - **Coordinates:** latitude / longitude / time / level
 - **Grid:** regular latitude–longitude grid with 0.25° × 0.25° resolution  
   - latitude range: −90° to 90° N  
