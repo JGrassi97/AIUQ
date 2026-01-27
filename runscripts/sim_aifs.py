@@ -285,11 +285,6 @@ def main() -> None:
     if _OUTPUT_FREQ == "daily":
         final_025 = final_025.resample(valid_time="1D").mean()
     
-    # Interpolate on a regular lat-lon 1x1 grid - use xarray
-    # latitudes = np.arange(-90, 90.1, 1.0)
-    # longitudes = np.arange(0., 360.1, 1.0)
-    # final_025 = final_025.interp(latitude=latitudes, longitude=longitudes, method="linear")
-
     # Create output directory
     os.makedirs(_OUTPUT_PATH, exist_ok=True)
 
