@@ -286,8 +286,8 @@ def main() -> None:
         final_025 = final_025.resample(valid_time="1D").mean()
     
     # Interpolate on a regular lat-lon 1x1 grid - use xarray
-    latitudes = np.arange(-89.5, 90.5, 1.0)
-    longitudes = np.arange(0.5, 360.5, 1.0)
+    latitudes = np.arange(-90, 90.1, 1.0)
+    longitudes = np.arange(0., 360.1, 1.0)
     final_025 = final_025.interp(latitude=latitudes, longitude=longitudes, method="linear")
 
     # Create output directory
