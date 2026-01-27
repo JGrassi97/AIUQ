@@ -5,7 +5,7 @@
 
 AIUQ (Artificial Intelligence weather forecasting models for Uncertainty Quantification) is a framework for running AI-based weather and climate models using Autosubmit. It is designed to efficiently handle different combinations of initial conditions (ICs) and models thanks to its modular architecture. The integration of multiple fallback methods allows the use of different sets of initial conditions, even when they do not fully match the AI model requirements.
 
-The framework supports both deterministic and stochastic models. Deterministic models always produce the same results when initialized with the same ICs, whereas stochastic models are able to generate an ensemble of realizations starting from identical ICs. For this reason, AIUQ also implements several classes of methods to perturb the ICs, allowing the generation of ensembles of realizations even from deterministic models.
+The framework supports both deterministic and stochastic models. Deterministic models always produce the same results when initialized with the same ICs, whereas stochastic models are able to generate an ensemble of realizations starting from identical ICs. For this reason, AIUQ also implements several classes of methods to perturb the ICs (still under development), allowing the generation of ensembles of realizations even from deterministic models.
 
 <table><tr><td>
 <b>The current implementation supports the following ICs / AI models:</b><br><br>
@@ -18,23 +18,23 @@ The framework supports both deterministic and stochastic models. Deterministic m
 </tr>
 <tr>
 <td rowspan="2"><b>NeuralGCM</b></td>
-<td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">models_v1_stochastic_1_4_deg</a></td>
+<td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">models_v1_stochastic_1_4_deg.pkl</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
 </tr>
 <tr>
-<td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">stochastic_precip_2_8_deg</a></td>
+<td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">stochastic_precip_2_8_deg.pkl</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
 </tr>
 <tr>
 <td rowspan="2"><b>AIFS</b></td>
-<td><a href="https://huggingface.co/ecmwf/aifs-single-1.1">aifs-single-1.1</a></td>
+<td><a href="https://huggingface.co/ecmwf/aifs-single-1.1">aifs-single-1.1.ckpt</a></td>
 <td align="center">❌</td>
 <td align="center">❌</td>
 </tr>
 <tr>
-<td><a href="https://huggingface.co/ecmwf/aifs-ens-1.0">aifs-ens-crps-1.0</a></td>
+<td><a href="https://huggingface.co/ecmwf/aifs-ens-1.0">aifs-ens-crps-1.0.ckpt</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
 </tr>
@@ -55,6 +55,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 </td></tr></table>
 
 
+<img src=docs/neuralgcm_forecast.png width="500">
 
 ## Quickstart
 
@@ -85,21 +86,21 @@ autosubmit expid \
   --minimal_configuration \
   --git_as_conf conf/bootstrap/ \
   --git_repo https://github.com/JGrassi97/AIUQ.git \
-  --git_branch refactor/cards
+  --git_branch main
 ```
 
 #### Run the experiment
 
-Create the file <EXPID>/conf/main.yml
+Create the file <EXPID>/conf/main.yml. 
 
 ```
 # <EXPID>/conf/main.yml
 
 MODEL:
   # Main settings
-  NAME: aifs                            # aifs / neuralgcm / aurora
-  CHECKPOINT_NAME: ecmwf/aifs-ens-1.0   # checkpoint name as written in the table above
-  ICS: eerie                            # eerie / era5
+  NAME: aifs                                  # aifs / neuralgcm / aurora
+  CHECKPOINT_NAME: ecmwf/aifs-ens-1.0.ckpt    # checkpoint name as written in the table above
+  ICS: eerie                                  # eerie / era5
 
   # Checkpoints
   CHECKPOINT_PATH: ...
@@ -128,6 +129,10 @@ PATHS:
   STATIC_DATA: ...
   CLIMATOLOGY_DATA: ...
 ```
+
+Note that some ICs requires credential to be retrieved. 
+- ERA5  -> Google Cloud Store - No credentials required
+- EERIE -> MARS - ECMWF Web API credentials required ([read here](https://www.ecmwf.int/en/computing/software/ecmwf-web-api))
 
 ## Developer’s Guide
 
