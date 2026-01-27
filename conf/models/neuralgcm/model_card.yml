@@ -1,0 +1,22 @@
+model : neuralgcm
+producer : google
+
+variables:
+  31  : sea_ice_cover
+  34  : sea_surface_temperature
+  129 : geopotential
+  130 : temperature
+  131 : u_component_of_wind
+  132 : v_component_of_wind
+  133 : specific_humidity
+  246 : specific_cloud_liquid_water_content
+  247 : specific_cloud_ice_water_content
+
+pressure_levels :
+  values : [
+        1, 2, 3, 5, 7, 10, 20, 30, 50, 70, 100,
+        125, 150, 175, 200, 225, 250, 300, 350, 400,
+        450, 500, 550, 600, 650, 700, 750, 775, 800,
+        825, 850, 875, 900, 925, 950, 975, 1000
+    ]
+  unit : hPa

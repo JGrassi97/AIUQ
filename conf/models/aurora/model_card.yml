@@ -1,0 +1,53 @@
+model : aurora
+producer : microsoft
+
+variables:
+  2m_temperature:
+    type : sfc
+    ifs_code : 2t
+    ecmwf_code : 167
+  10m_u_component_of_wind:
+    type : sfc
+    ifs_code : 10u
+    ecmwf_code : 165
+  10m_v_component_of_wind:
+    type : sfc
+    ifs_code : 10v
+    ecmwf_code : 166
+  mean_sea_level_pressure:
+    type : sfc
+    ifs_code : msl
+    ecmwf_code : 151
+  land_sea_mask:
+    type : sfc_fc
+    ifs_code : lsm
+  elevation:
+    type : sfc_fc
+    ifs_code : z
+  soil_type:
+    type : sfc_fc
+    ifs_code : slt
+  specific_humidity:
+    type : pl
+    ifs_code : q
+    ecmwf_code : 133
+  temperature:
+    type : pl
+    ifs_code : t
+    ecmwf_code : 130
+  u_component_of_wind:
+    type : pl
+    ifs_code : u
+    ecmwf_code : 131
+  v_component_of_wind:
+    type : pl
+    ifs_code : v
+    ecmwf_code : 132
+  geopotential:
+    type : pl
+    ifs_code : gh
+    ecmwf_code : 129
+
+pressure_levels :
+  values : [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
+  unit : hPa

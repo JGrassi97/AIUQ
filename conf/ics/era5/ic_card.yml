@@ -1,0 +1,52 @@
+ic_name: era5
+ic_source: google_cloud_storage
+
+pressure_levels:
+  name : level
+  units : Hectopascal(hPa)
+  values : [  
+    1,    2,    3,    5,    7,   10,   20,   30,   50,   70,  100,  125,
+    150,  175,  200,  225,  250,  300,  350,  400,  450,  500,  550,  600,
+    650,  700,  750,  775,  800,  825,  850,  875,  900,  925,  950,  975,
+    1000
+  ]
+
+variables:
+  31  : 
+    name : sea_ice_cover
+  34  : 
+    name : sea_surface_temperature
+  129 : 
+    name : geopotential
+  130 : 
+    name : temperature
+  131 : 
+    name : u_component_of_wind
+  132 : 
+    name : v_component_of_wind
+  133 : 
+    name : specific_humidity
+  134 : 
+    name : surface_pressure
+  135 : 
+    name : vertical_velocity
+  136 : 
+    name : total_column_water
+  151 : 
+    name : mean_sea_level_pressure
+  165 : 
+    name : 10m_u_component_of_wind
+  166 : 
+    name : 10m_v_component_of_wind
+  167 : 
+    name : 2m_temperature
+  168 : 
+    name : 2m_dewpoint_temperature
+  235 : 
+    name : skin_temperature
+  246 : 
+    name : specific_cloud_liquid_water_content
+  247 : 
+    name : specific_cloud_ice_water_content
+  260360 : 
+    name : soil_temperature

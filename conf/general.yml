@@ -1,0 +1,10 @@
+DIRS:
+  INPUT_DIR: "%HPCROOTDIR%/%MODEL.NAME%"
+  OUTPUT_DIR: "%HPCROOTDIR%/output"
+  INI_DATA_PATH: "%HPCROOTDIR%/ics/%MODEL.ICS%"
+
+JOBS:
+  SYNCHRONIZE:
+    FILE: templates/synchronize.sh
+    PLATFORM: local
+    RUNNING: once

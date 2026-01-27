@@ -1,0 +1,10 @@
+ic_name: climatology
+ic_source: ERA5 postprocessed
+
+variables:
+  246 : 
+    name : clwc
+  247 : 
+    name : ciwc
+
+  

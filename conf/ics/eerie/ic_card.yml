@@ -1,0 +1,62 @@
+ic_name: eerie
+ic_source: mars
+
+pressure_levels:
+  name : isobaricInhPa
+  units : hPa
+  values : [  
+    1, 5, 10, 20, 30, 50, 70, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000
+  ]
+
+variables:
+  31  : 
+    name : c1
+    levtype : sfc
+  34  : 
+    name : sst
+    levtype : sfc
+  129 : 
+    name : z
+    levtype : pl
+  130 : 
+    name : t
+    levtype : pl
+  131 : 
+    name : u
+    levtype : pl
+  132 : 
+    name : v
+    levtype : pl
+  133 : 
+    name : q
+    levtype : pl
+  134 : 
+    name : sp
+    levtype : sfc
+  135 : 
+    name : w
+    levtype : pl
+  136 : 
+    name : tcw
+    levtype : sfc
+  151 : 
+    name : msl
+    levtype : sfc
+  165 : 
+    name : u10
+    levtype : sfc
+  166 : 
+    name : v10
+    levtype : sfc
+  167 : 
+    name : t2m
+    levtype : sfc
+  168 : 
+    name : d2m
+    levtype : sfc
+  235 : 
+    name : skt
+    levtype : sfc
+  260360 : 
+    name : sot
+    levtype : sol

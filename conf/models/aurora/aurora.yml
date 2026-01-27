@@ -1,0 +1,12 @@
+JOBS:
+  PREPARE_ICS:
+    FILE: templates/prepare_ics.sh
+
+  SIM:
+    FILE: templates/sim_aurora.sh,templates/config.yml
+    PLATFORM: "FELIPE"
+    DEPENDENCIES: SIM-1 PREPARE_ICS
+    RUNNING: CHUNK
+    NODES: 1
+    PROCESSORS: 20
+    CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"

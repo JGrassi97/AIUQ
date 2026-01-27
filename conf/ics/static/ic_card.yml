@@ -1,0 +1,13 @@
+ic_name: static
+ic_source: ecmwf
+
+variables:
+  160 : 
+    name : sdor
+  163 : 
+    name : slor
+  172 : 
+    name : lsm
+  999999 : 
+    name : z
+  
