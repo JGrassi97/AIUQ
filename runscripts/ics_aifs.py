@@ -184,49 +184,10 @@ def main():
                 v = "z"
             fields[v] = da.values.astype(np.float32, copy=False)
 
-
-    # Fix geopotential naming: gh_<level> -> z_<level>
-    # Some datasets may have used 'gh_<lev>' names after previous processing; handle that case.
-    # for k in list(fields.keys()):
-    #     if k.startswith("gh_"):
-    #         lev = k.split("_", 1)[1]
-    #         fields[f"z_{lev}"] = fields.pop(k)
-
-    # # Soil temperature: if any sot_* slipped through (shouldn't if we created stl1/stl2 earlier), map to stl*
-    # if "sot_1" in fields:
-    #     fields["stl1"] = fields.pop("sot_1")
-    # if "sot_2" in fields:
-    #     fields["stl2"] = fields.pop("sot_2")
-
-    # # Safety: if d2m slipped through
-    # if "d2m" in fields and "2d" not in fields:
-    #     fields["2d"] = fields.pop("d2m")
-
-    # # Safety: if u10/v10 slipped through (rare because we renamed earlier), make sure pipeline uses 10u/10v keys
-    # if "u10" in fields and "10u" not in fields:
-    #     fields["10u"] = fields.pop("u10")
-    # if "v10" in fields and "10v" not in fields:
-    #     fields["10v"] = fields.pop("v10")
-
-    # Convert time to Python datetime (required)
-    # Use second timestep (index 1) because model expects lagged inputs; keep the "current" as time=1.
-
-
     t64 = data_n320["time"].isel(time=1).values
     DATE = datetime.utcfromtimestamp(t64.astype("datetime64[s]").astype(int))
 
-    # # Define allowed keys exactly as pipeline expects
-    # allowed_keys = set(SFC_VARS) | set(SOIL_VARS)
-    # allowed_keys |= {f"{v}_{lev}" for v in PL_BASE_VARS for lev in LEVELS}
 
-    # dropped = sorted([k for k in fields.keys() if k not in allowed_keys])
-    # if dropped:
-    #     logging.warning("Dropping %d keys not in allowed set (first 50): %s",
-    #                     len(dropped), dropped[:50])
-
-    # fields = {k: v for k, v in fields.items() if k in allowed_keys}
-
-        # --- prepara filename pulito e metadata ---
     timestamp = int(DATE.replace(tzinfo=timezone.utc).timestamp())
 
     # use YYYYMMDD in filename to avoid spaces/colons
