@@ -20,7 +20,7 @@ from anemoi.inference.checkpoint import Checkpoint
 from anemoi.inference.runners.simple import SimpleRunner
 
 # Local
-from runscripts.AIUQst_lib.functions import parse_arguments, read_config, normalize_out_vars
+from AIUQst_lib.functions import parse_arguments, read_config, normalize_out_vars
 from AIUQst_lib.pressure_levels import check_pressure_levels
 from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
 from AIUQst_lib.variables import name_mapper_for_model
