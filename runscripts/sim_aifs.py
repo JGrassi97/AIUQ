@@ -207,6 +207,7 @@ def main() -> None:
     _OUTPUT_PATH        = config.get("OUTPUT_PATH", "")
     _OUT_VARS           = config.get("OUT_VARS", [])
     _ICS_TEMP_DIR       = config.get("ICS_TEMP_DIR", "")
+    _OUTPUT_FREQ        = config.get("OUTPUT_FREQ", "")
 
     # IC settings
     model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
@@ -254,10 +255,6 @@ def main() -> None:
     # Regrid back N320 -> regular 0.25
     final_025 = regrid_n320_to_regular025(states)
 
-    # Format output variables and select
-    output_vars = normalize_out_vars(_OUT_VARS)
-    final_025 = final_025[output_vars]
-
     # --- Build valid_time/step coords consistent with produced outputs ---
     delta_t = np.timedelta64(int(_INNER_STEPS), "h")
 
@@ -279,8 +276,14 @@ def main() -> None:
     if "sim_time" in final_025.variables:
         final_025 = final_025.drop_vars("sim_time")
 
+    # Format output variables and select
+    output_vars = normalize_out_vars(_OUT_VARS)
     if ['all'] != output_vars:
         final_025 = final_025[output_vars]
+    
+    # Format output frequency
+    if _OUTPUT_FREQ == "daily":
+        predictions_ds = predictions_ds.resample(valid_time="1D").mean()
 
     # Create output directory
     os.makedirs(_OUTPUT_PATH, exist_ok=True)
