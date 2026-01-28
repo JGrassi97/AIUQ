@@ -50,8 +50,8 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <tr>
 <td rowspan="2"><b>AIFS</b></td>
 <td><a href="https://huggingface.co/ecmwf/aifs-single-1.1">aifs-single-1.1.ckpt</a></td>
-<td align="center">❌</td>
-<td align="center">❌</td>
+<td align="center">⚠️</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td><a href="https://huggingface.co/ecmwf/aifs-ens-1.0">aifs-ens-crps-1.0.ckpt</a></td>
@@ -62,7 +62,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td rowspan="1"><b>MS Aurora</b></td>
 <td><a href="https://huggingface.co/microsoft/aurora">aurora-0.25-finetuned</a></td>
 <td align="center">❌</td>
-<td align="center">⚠️</td>
+<td align="center">❌</td>
 </tr>
 </table>
 </td>
@@ -73,6 +73,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 ⚠️ work in progress<br>
 ❌ not implemented<br>
 </td></tr></table>
+
 
 
 
@@ -152,7 +153,8 @@ PATHS:
   SUPPORT_FOLDER: /gpfs/scratch/ehpc536/bsc850074/AIUQ
   SIF_FOLDER: "%PATHS.SUPPORT_FOLDER%/sif"
 
-PLATFORM_NAME: ...  # FELIPE / MARENOSTRUM
+PLATFORM:
+  NAME: ...  # FELIPE / MARENOSTRUM
 ```
 
 Note that some ICs requires credential to be retrieved. 
