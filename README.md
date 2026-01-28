@@ -17,13 +17,33 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <th>EERIE (AMIP)</th>
 </tr>
 <tr>
-<td rowspan="2"><b>NeuralGCM</b></td>
+<td rowspan="6"><b>NeuralGCM</b></td>
 <td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">models_v1_stochastic_1_4_deg.pkl</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
 </tr>
 <tr>
 <td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">stochastic_precip_2_8_deg.pkl</a></td>
+<td align="center">✅</td>
+<td align="center">✅</td>
+</tr>
+<tr>
+<td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">stochastic_evap_2_8_deg.pkl</a></td>
+<td align="center">✅</td>
+<td align="center">✅</td>
+</tr>
+<tr>
+<td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">deterministic_0_7_deg.pkl</a></td>
+<td align="center">✅</td>
+<td align="center">✅</td>
+</tr>
+<tr>
+<td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">deterministic_1_4_deg.pkl</a></td>
+<td align="center">✅</td>
+<td align="center">✅</td>
+</tr>
+<tr>
+<td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">deterministic_2_8_deg.pkl</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
 </tr>
@@ -53,6 +73,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 ⚠️ work in progress<br>
 ❌ not implemented<br>
 </td></tr></table>
+
 
 
 <p align="center">

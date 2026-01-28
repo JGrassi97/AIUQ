@@ -61,7 +61,7 @@ models:
         download_url: https://huggingface.co/microsoft/aurora/blob/main/aurora-0.25-finetuned.ckpt
         size: 5,04GB
 
-# Status per IC x checkpoint_id
+# Status IC x checkpoint_id
 status:
   ERA5:
     ngcm_stoc_1_4: "available"
