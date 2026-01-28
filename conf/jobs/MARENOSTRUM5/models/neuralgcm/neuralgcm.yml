@@ -4,9 +4,9 @@ JOBS:
 
   SIM:
     FILE: templates/sim_neuralgcm.sh,templates/config.yml
-    PLATFORM: "FELIPE"
+    PLATFORM: "MARENOSTRUM5ACC"
     DEPENDENCIES: SIM-1 PREPARE_ICS
     RUNNING: CHUNK
     NODES: 1
     PROCESSORS: 20
-    CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
+    CUSTOM_DIRECTIVES: ["#SBATCH --gres=gpu:1", "ml singularity"]
