@@ -9,4 +9,4 @@ DEFAULT:
       - "%PROJDIR%/conf/jobs/%PLATFORM.NAME%/ics/%MODEL.NAME%/%MODEL.NAME%.yml"
 
       # Initial conditions specific
-      - "%PROJDIR%/conf/jobs/%PLATFORM.NAME%/ics/%MODEL.ICS%/%MODEL.ICS%.yml"
+      - "%PROJDIR%/conf/jobs/%PLATFORM.NAME%/models/%MODEL.ICS%/%MODEL.ICS%.yml"
