@@ -39,6 +39,7 @@ def main() -> None:
     _RNG_KEY            = config.get("RNG_KEY", 1)
     _OUTPUT_PATH        = config.get("OUTPUT_PATH", "")
     _OUT_VARS           = config.get("OUT_VARS", [])
+    _OUTPUT_FREQ         = config.get("OUTPUT_FREQ", "")
 
     # IC settings
     model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
@@ -112,8 +113,13 @@ def main() -> None:
 
     # Format output variables and select
     output_vars = normalize_out_vars(_OUT_VARS)
-    predictions_ds = predictions_ds[output_vars]
+    if 'all' not in output_vars:
+        predictions_ds = predictions_ds[output_vars]
 
+    # Format output frequency
+    if _OUTPUT_FREQ == "daily":
+        predictions_ds = predictions_ds.resample(valid_time="1D").mean()
+    
     # Ensure output path exists
     os.makedirs(_OUTPUT_PATH, exist_ok=True)
 
