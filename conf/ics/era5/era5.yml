@@ -1,6 +1,6 @@
 JOBS:
   PREPARE_ICS:
     FILE: templates/prepare_ics.sh,templates/config.yml
-    PLATFORM: "FELIPE"
+    PLATFORM: "platform_conf/%HPCARCH.PREPARE_ICS_ERA%.yml"
     RUNNING: DATE
     DEPENDENCIES: SYNCHRONIZE
