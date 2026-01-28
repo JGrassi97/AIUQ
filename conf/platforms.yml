@@ -7,12 +7,9 @@ PLATFORMS:
     USER: bsc850074
     QUEUE: acc_ehpc
     SCRATCH_DIR: /gpfs/scratch
-    FDB_DIR: /gpfs/scratch/ehpc01/experiments
-    FDB_PROD: /gpfs/projects/ehpc01/fdb_prod_old
     ADD_PROJECT_TO_HOST: False
     TEMP_DIR: ''
     PROCESSORS_PER_NODE: 112
-    CUSTOM_DIRECTIVES: "['#SBATCH --export=ALL', '#SBATCH --hint=nomultithread']"
     MAX_WALLCLOCK: '00:30'
 
   MARENOSTRUM5ACC:
@@ -22,13 +19,10 @@ PLATFORMS:
     USER: bsc850074
     QUEUE: acc_ehpc
     SCRATCH_DIR: /gpfs/scratch
-    FDB_DIR: /gpfs/scratch/ehpc01/experiments
-    FDB_PROD: /gpfs/projects/ehpc01/fdb_prod_old
     ADD_PROJECT_TO_HOST: False
     TEMP_DIR: ''
     PROCESSORS_PER_NODE: 80
     MAX_PROCESSORS: 80
-    CUSTOM_DIRECTIVES: "['#SBATCH --export=ALL', '#SBATCH --hint=nomultithread']"
     MAX_WALLCLOCK: '00:30'
 
   MARENOSTRUM5-LOGIN:
@@ -38,8 +32,6 @@ PLATFORMS:
     USER: bsc850074
     QUEUE: acc_ehpc
     SCRATCH_DIR: /gpfs/scratch
-    FDB_DIR: /gpfs/scratch/ehpc01/experiments
-    FDB_PROD: /gpfs/projects/ehpc01/fdb_prod_old
     ADD_PROJECT_TO_HOST: False
     TEMP_DIR: ''
     PROCESSORS_PER_NODE: 112

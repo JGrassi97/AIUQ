@@ -1,0 +1,87 @@
+ics:
+  - ERA5
+  - EERIE (AMIP)
+
+models:
+  - name: NeuralGCM
+    label: neuralgcm
+    checkpoints:
+      - id: ngcm_stoc_1_4
+        label: models_v1_stochastic_1_4_deg.pkl
+        url: https://neuralgcm.readthedocs.io/en/latest/checkpoints.html
+        download_url: https://storage.cloud.google.com/neuralgcm/models/v1/stochastic_1_4_deg.pkl
+        size: 46,8MB
+      - id: ngcm_stoc_2_8_precip
+        label: stochastic_precip_2_8_deg.pkl
+        url: https://neuralgcm.readthedocs.io/en/latest/checkpoints.html
+        download_url: https://storage.cloud.google.com/neuralgcm/models/v1_precip/stochastic_precip_2_8_deg.pkl
+        size: 44,9MB
+      - id: ngcm_stoc_2_8_evap
+        label: stochastic_evap_2_8_deg.pkl
+        url: https://neuralgcm.readthedocs.io/en/latest/checkpoints.html
+        download_url: https://storage.cloud.google.com/neuralgcm/models/v1_precip/stochastic_evap_2_8_deg.pkl
+        size: 44,6MB
+      - id: ngcm_det_0_7
+        label: deterministic_0_7_deg.pkl
+        url: https://neuralgcm.readthedocs.io/en/latest/checkpoints.html
+        download_url: https://storage.cloud.google.com/neuralgcm/models/v1/deterministic_0_7_deg.pkl
+        size: 126,7MB
+      - id: ngcm_det_1_4
+        label: deterministic_1_4_deg.pkl
+        url: https://neuralgcm.readthedocs.io/en/latest/checkpoints.html
+        download_url: https://storage.cloud.google.com/neuralgcm/models/v1/deterministic_1_4_deg.pkl
+        size: 74MB
+      - id: ngcm_det_2_8
+        label: deterministic_2_8_deg.pkl
+        url: https://neuralgcm.readthedocs.io/en/latest/checkpoints.html
+        download_url: https://storage.cloud.google.com/neuralgcm/models/v1/deterministic_2_8_deg.pkl
+        size: 58,3MB
+
+  - name: AIFS
+    label: aifs
+    checkpoints:
+      - id: aifs_single_1_1
+        label: aifs-single-1.1.ckpt
+        url: https://huggingface.co/ecmwf/aifs-single-1.1
+        download_url: https://huggingface.co/ecmwf/aifs-single-1.1/blob/main/aifs-single-mse-1.1.ckpt
+        size: 994MB
+      - id: aifs_ens_1_0
+        label: aifs-ens-crps-1.0.ckpt
+        url: https://huggingface.co/ecmwf/aifs-ens-1.0
+        download_url: https://huggingface.co/ecmwf/aifs-ens-1.0/blob/main/aifs-ens-crps-1.0.ckpt
+        size: 922MB
+      
+
+  - name: MS Aurora
+    label: aurora
+    checkpoints:
+      - id: aurora_.025_finetuned
+        label: aurora-0.25-finetuned
+        url: https://huggingface.co/microsoft/aurora
+        download_url: https://huggingface.co/microsoft/aurora/blob/main/aurora-0.25-finetuned.ckpt
+        size: 5,04GB
+
+# Status IC x checkpoint_id
+status:
+  ERA5:
+    ngcm_stoc_1_4: "available"
+    ngcm_stoc_2_8_precip: "available"
+    ngcm_stoc_2_8_evap: "available"
+    ngcm_det_0_7: "available"
+    ngcm_det_1_4: "available"
+    ngcm_det_2_8: "available"
+    aifs_single_1_1: "wip"
+    aifs_ens_1_0: "available"
+    aurora_.025_finetuned: "not_implemented"
+
+
+  EERIE (AMIP):
+    ngcm_stoc_1_4: "available"
+    ngcm_stoc_2_8_precip: "available"
+    ngcm_stoc_2_8_evap: "available"
+    ngcm_det_0_7: "available"
+    ngcm_det_1_4: "available"
+    ngcm_det_2_8: "available"
+    aifs_single_1_1: "wip"
+    aifs_ens_1_0: "available"
+    aurora_.025_finetuned: "not_implemented"

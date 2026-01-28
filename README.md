@@ -17,7 +17,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <th>EERIE (AMIP)</th>
 </tr>
 <tr>
-<td rowspan="2"><b>NeuralGCM</b></td>
+<td rowspan="6"><b>NeuralGCM</b></td>
 <td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">models_v1_stochastic_1_4_deg.pkl</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
@@ -28,10 +28,30 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td align="center">✅</td>
 </tr>
 <tr>
+<td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">stochastic_evap_2_8_deg.pkl</a></td>
+<td align="center">✅</td>
+<td align="center">✅</td>
+</tr>
+<tr>
+<td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">deterministic_0_7_deg.pkl</a></td>
+<td align="center">✅</td>
+<td align="center">✅</td>
+</tr>
+<tr>
+<td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">deterministic_1_4_deg.pkl</a></td>
+<td align="center">✅</td>
+<td align="center">✅</td>
+</tr>
+<tr>
+<td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">deterministic_2_8_deg.pkl</a></td>
+<td align="center">✅</td>
+<td align="center">✅</td>
+</tr>
+<tr>
 <td rowspan="2"><b>AIFS</b></td>
 <td><a href="https://huggingface.co/ecmwf/aifs-single-1.1">aifs-single-1.1.ckpt</a></td>
-<td align="center">❌</td>
-<td align="center">❌</td>
+<td align="center">⚠️</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td><a href="https://huggingface.co/ecmwf/aifs-ens-1.0">aifs-ens-crps-1.0.ckpt</a></td>
@@ -42,7 +62,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td rowspan="1"><b>MS Aurora</b></td>
 <td><a href="https://huggingface.co/microsoft/aurora">aurora-0.25-finetuned</a></td>
 <td align="center">❌</td>
-<td align="center">⚠️</td>
+<td align="center">❌</td>
 </tr>
 </table>
 </td>
@@ -53,6 +73,8 @@ The framework supports both deterministic and stochastic models. Deterministic m
 ⚠️ work in progress<br>
 ❌ not implemented<br>
 </td></tr></table>
+
+
 
 
 <p align="center">
@@ -84,17 +106,19 @@ The supporting files are the following:
       └── climatology   # Contains climatological data used for 2nd level fallback
 ```
 
+*Section still in development*
+
 ### Execution
 
 #### Create the experiment
 ```
 autosubmit expid \
   --description "AIUQ" \
-  --HPC FELIPE \
+  --HPC MareNostrum5ACC \
   --minimal_configuration \
   --git_as_conf conf/bootstrap/ \
   --git_repo https://github.com/JGrassi97/AIUQ.git \
-  --git_branch main
+  --git_branch platform/marenostrum
 ```
 
 #### Run the experiment
@@ -107,16 +131,8 @@ Create the file <EXPID>/conf/main.yml.
 MODEL:
   # Main settings
   NAME: aifs                                  # aifs / neuralgcm / aurora
-  CHECKPOINT_NAME: ecmwf/aifs-ens-1.0.ckpt    # checkpoint name as written in the table above
+  CHECKPOINT_NAME: aifs-ens-crps-1.0.ckpt     # checkpoint name as written in the table above
   ICS: eerie                                  # eerie / era5
-
-  # Checkpoints
-  CHECKPOINT_PATH: ...
-  CHECKPOINT: "%MODEL.CHECKPOINT_PATH%/%MODEL.NAME%/%MODEL.CHECKPOINT_NAME%"
-
-  # REMOVE THIS PART
-  # Simulation specs
-  REGENERATE_ICS: "true"
 
 # See autosubmit documentation
 EXPERIMENT:
@@ -131,11 +147,14 @@ EXPERIMENT:
   OUT_VARS:       
     - temperature
     - geopotential
+  OUT_FREQ: daily
 
 PATHS:
-  SIF_FOLDER: ...
-  STATIC_DATA: ...
-  CLIMATOLOGY_DATA: ...
+  SUPPORT_FOLDER: /gpfs/scratch/ehpc536/bsc850074/AIUQ
+  SIF_FOLDER: "%PATHS.SUPPORT_FOLDER%/sif"
+
+PLATFORM:
+  NAME: ...  # FELIPE / MARENOSTRUM
 ```
 
 Note that some ICs requires credential to be retrieved. 

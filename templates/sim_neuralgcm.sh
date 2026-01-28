@@ -12,6 +12,12 @@ logs_dir=${HPCROOTDIR}/LOG_${EXPID}
 configfile=$logs_dir/config_${JOBNAME_WITHOUT_EXPID}
 
 BIND_PATHS="$HPCROOTDIR"
+PLATFORM_NAME=%PLATFORM.NAME%
+
+# Load Singularity module only on MareNostrum5
+if [ "$PLATFORM_NAME" = "MARENOSTRUM5" ]; then
+    ml singularity
+fi
 
 singularity exec --nv \
     --bind ${BIND_PATHS} \
