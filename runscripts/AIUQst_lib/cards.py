@@ -3,7 +3,7 @@ import yaml
 
 def read_model_card(hpcrootdir: str, model: str) -> list:
 
-    yaml_path = os.path.abspath(f"{hpcrootdir}/conf/cards/models/{model}/model_card.yml")
+    yaml_path = os.path.abspath(f"{hpcrootdir}/conf/cards/models/{model}_card.yml")
     print(f"Reading model card from: {yaml_path}")
     with open(yaml_path, "r") as f:
         model_card = yaml.safe_load(f)
