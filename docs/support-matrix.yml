@@ -7,7 +7,7 @@ models:
     label: neuralgcm
     checkpoints:
       - id: ngcm_stoc_1_4
-        label: models_v1_stochastic_1_4_deg.pkl
+        label: stochastic_1_4_deg.pkl
         url: https://neuralgcm.readthedocs.io/en/latest/checkpoints.html
         download_url: https://storage.cloud.google.com/neuralgcm/models/v1/stochastic_1_4_deg.pkl
         size: 46,8MB
