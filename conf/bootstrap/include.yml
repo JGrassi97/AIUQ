@@ -6,7 +6,7 @@ DEFAULT:
       - "%PROJDIR%/conf/general.yml"
 
       # Model specific
-      - "%PROJDIR%/conf/jobs/%HPCARCH%/models/%MODEL.NAME%/%MODEL.NAME%.yml"
+      - "%PROJDIR%/conf/jobs/%HPCARCH%/models/%^MODEL.NAME%/%^MODEL.NAME%.yml"
 
       # Initial conditions specific
-      - "%PROJDIR%/conf/jobs/%HPCARCH%/ics/%MODEL.ICS%/%MODEL.ICS%.yml"
+      - "%PROJDIR%/conf/jobs/%HPCARCH%/ics/%^MODEL.ICS%/%^MODEL.ICS%.yml"
