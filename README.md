@@ -105,6 +105,8 @@ The supporting files are the following:
       └── climatology   # Contains climatological data used for 2nd level fallback
 ```
 
+*Section still in development*
+
 ### Execution
 
 #### Create the experiment
@@ -128,16 +130,8 @@ Create the file <EXPID>/conf/main.yml.
 MODEL:
   # Main settings
   NAME: aifs                                  # aifs / neuralgcm / aurora
-  CHECKPOINT_NAME: ecmwf/aifs-ens-1.0.ckpt    # checkpoint name as written in the table above
+  CHECKPOINT_NAME: aifs-ens-crps-1.0.ckpt     # checkpoint name as written in the table above
   ICS: eerie                                  # eerie / era5
-
-  # Checkpoints
-  CHECKPOINT_PATH: ...
-  CHECKPOINT: "%MODEL.CHECKPOINT_PATH%/%MODEL.NAME%/%MODEL.CHECKPOINT_NAME%"
-
-  # REMOVE THIS PART
-  # Simulation specs
-  REGENERATE_ICS: "true"
 
 # See autosubmit documentation
 EXPERIMENT:
@@ -155,9 +149,8 @@ EXPERIMENT:
   OUT_FREQ: daily
 
 PATHS:
-  SIF_FOLDER: ...
-  STATIC_DATA: ...
-  CLIMATOLOGY_DATA: ...
+  SUPPORT_FOLDER: /gpfs/scratch/ehpc536/bsc850074/AIUQ
+  SIF_FOLDER: "%PATHS.SUPPORT_FOLDER%/sif"
 
 PLATFORM_NAME: ...  # FELIPE / MARENOSTRUM
 ```
