@@ -131,6 +131,7 @@ EXPERIMENT:
   OUT_VARS:       
     - temperature
     - geopotential
+  OUT_FREQ: daily
 
 PATHS:
   SIF_FOLDER: ...
