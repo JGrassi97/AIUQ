@@ -3,7 +3,7 @@ JOBS:
     FILE: templates/prepare_ics.sh
 
   SIM:
-    FILE: templates/sim_aurora.sh,templates/config.yml
+    FILE: templates/sim_neuralgcm.sh,templates/config.yml
     PLATFORM: "FELIPE"
     DEPENDENCIES: SIM-1 PREPARE_ICS
     RUNNING: CHUNK
