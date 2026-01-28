@@ -90,7 +90,7 @@ The supporting files are the following:
 ```
 autosubmit expid \
   --description "AIUQ" \
-  --HPC FELIPE \
+  --HPC MareNostrum5ACC \
   --minimal_configuration \
   --git_as_conf conf/bootstrap/ \
   --git_repo https://github.com/JGrassi97/AIUQ.git \

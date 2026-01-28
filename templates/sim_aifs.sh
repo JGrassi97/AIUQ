@@ -11,7 +11,10 @@ JOBNAME_WITHOUT_EXPID=$(echo ${JOBNAME} | sed 's/^[^_]*_//')
 logs_dir=${HPCROOTDIR}/LOG_${EXPID}
 configfile=$logs_dir/config_${JOBNAME_WITHOUT_EXPID}
 
-# ml singularity
+# Load Singularity module only on MareNostrum5
+if [ "$PLATFORM_NAME" = "MARENOSTRUM5" ]; then
+    ml singularity
+fi
 
 singularity exec --nv \
     --bind $HPCROOTDIR \

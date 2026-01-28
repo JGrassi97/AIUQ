@@ -18,6 +18,8 @@ GSV_CONTAINER=%GSV.CONTAINER%
 
 FDB_HOME=%DIRS.FDB_PATH%
 
+PLATFORM_NAME=%PLATFORM.NAME%
+
 # Derived paths
 JOBNAME_WITHOUT_EXPID=$(echo ${JOBNAME} | sed 's/^[^_]*_//')
 LOGS_DIR=${HPCROOTDIR}/LOG_${EXPID}
@@ -26,8 +28,11 @@ REQUESTS_DIR=${HPCROOTDIR}/requests
 
 DATA_PATH="${INI_DATA_PATH}/${MODEL_NAME}/${MODEL_CHECKPOINT_NAME}/${CHUNK_START_DATE}"
 
-# Load Singularity module
-# ml singularity
+
+# Load Singularity module only on MareNostrum5
+if [ "$PLATFORM_NAME" = "MARENOSTRUM5" ]; then
+    ml singularity
+fi
 
 LIBDIR=${HPCROOTDIR}/lib
 
