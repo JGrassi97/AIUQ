@@ -155,7 +155,7 @@ EXPERIMENT:
   # Here reported from https://github.com/PCMDI/cmip6-cmor-tables/blob/087fe45d21c082e28723e0f930e4266abe91b853/Tables/CMIP6_coordinate.json#L1640
 
 PATHS:
-  SUPPORT_FOLDER: /gpfs/scratch/ehpc536/bsc850074/AIUQ
+  SUPPORT_FOLDER: /gpfs/scratch/ehpc536/AIUQ
   SIF_FOLDER: "%PATHS.SUPPORT_FOLDER%/sif"
 
 PLATFORM:
