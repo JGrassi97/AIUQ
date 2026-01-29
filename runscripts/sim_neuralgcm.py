@@ -129,13 +129,13 @@ def main() -> None:
     elif _OUT_RES == "0.5":
         latitudes = np.arange(-90, 90.5, 0.5)
         longitudes = np.arange(0, 360, 0.5)
-    elif _OUT_RES == "1.0":
+    elif _OUT_RES == "1":
         latitudes = np.arange(-90, 91, 1.0)
         longitudes = np.arange(0, 360, 1.0)
     elif _OUT_RES == "1.5":
         latitudes = np.arange(-90, 91.5, 1.5)
         longitudes = np.arange(0, 360, 1.5)
-    elif _OUT_RES == "2.0":
+    elif _OUT_RES == "2":
         latitudes = np.arange(-90, 92, 2.0)
         longitudes = np.arange(0, 360, 2.0)
     else:
