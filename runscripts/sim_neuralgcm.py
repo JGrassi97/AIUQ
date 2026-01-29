@@ -39,7 +39,9 @@ def main() -> None:
     _RNG_KEY            = config.get("RNG_KEY", 1)
     _OUTPUT_PATH        = config.get("OUTPUT_PATH", "")
     _OUT_VARS           = config.get("OUT_VARS", [])
-    _OUTPUT_FREQ         = config.get("OUTPUT_FREQ", "")
+    _OUT_FREQ           = config.get("OUT_FREQ", "")
+    _OUT_RES            = config.get("OUT_RES", "")
+    _OUT_LEVS           = config.get("OUT_LEVS", "")
 
     # IC settings
     model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
@@ -117,20 +119,43 @@ def main() -> None:
         predictions_ds = predictions_ds[output_vars]
 
     # Format output frequency
-    if _OUTPUT_FREQ == "daily":
+    if _OUT_FREQ == "daily":
         predictions_ds = predictions_ds.resample(valid_time="1D").mean()
+
+    # Format output resolution
+    if _OUT_RES == "0.25":
+        latitudes = np.arange(-90, 90.25, 0.25)
+        longitudes = np.arange(0, 360, 0.25)
+    elif _OUT_RES == "0.5":
+        latitudes = np.arange(-90, 90.5, 0.5)
+        longitudes = np.arange(0, 360, 0.5)
+    elif _OUT_RES == "1.0":
+        latitudes = np.arange(-90, 91, 1.0)
+        longitudes = np.arange(0, 360, 1.0)
+    elif _OUT_RES == "1.5":
+        latitudes = np.arange(-90, 91.5, 1.5)
+        longitudes = np.arange(0, 360, 1.5)
+    elif _OUT_RES == "2.0":
+        latitudes = np.arange(-90, 92, 2.0)
+        longitudes = np.arange(0, 360, 2.0)
+    else:
+        latitudes = predictions_ds.latitude.values
+        longitudes = predictions_ds.longitude.values
+    
+    if _OUT_RES in ["0.25", "0.5", "1.0", "1.5", "2.0"]:
+        predictions_ds = predictions_ds.interp(latitude=latitudes, longitude=longitudes, method="linear")
+    
+    # Format output pressure levels
+    if _OUT_LEVS != 'original':
+        desired_levels = [int(plev) for plev in _OUT_LEVS.split(',')]
+        predictions_ds = predictions_ds.interp(pressure_level=desired_levels)
+    
     
     # Ensure output path exists
     os.makedirs(_OUTPUT_PATH, exist_ok=True)
 
-    try:
-        predictions_ds.to_netcdf(f"{_OUTPUT_PATH}/model_state-{_START_TIME}-{_END_TIME}-{_RNG_KEY}.nc")
-    except Exception as e:
-        logging.warning(f"NetCDF save failed: {e}, trying Zarr...")
-        try:
-            predictions_ds.to_zarr(f"{_OUTPUT_PATH}/model_state-{_START_TIME}-{_END_TIME}-{_RNG_KEY}.zarr", mode="w")
-        except Exception as e2:
-            logging.error(f"Zarr save failed too: {e2}")
+    # Save to NetCDF
+    predictions_ds.to_netcdf(f"{_OUTPUT_PATH}/model_state-{_START_TIME}-{_END_TIME}-{_RNG_KEY}.nc")
 
 
 if __name__ == "__main__":
