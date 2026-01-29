@@ -142,7 +142,7 @@ def main() -> None:
         latitudes = predictions_ds.latitude.values
         longitudes = predictions_ds.longitude.values
     
-    if _OUT_RES in ["0.25", "0.5", "1.0", "1.5", "2.0"]:
+    if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
         predictions_ds = predictions_ds.interp(latitude=latitudes, longitude=longitudes, method="linear")
     
     # Format output pressure levels
