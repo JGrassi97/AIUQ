@@ -205,9 +205,11 @@ def main() -> None:
     _INNER_STEPS        = config.get("INNER_STEPS", 1)
     _RNG_KEY            = config.get("RNG_KEY", 1)
     _OUTPUT_PATH        = config.get("OUTPUT_PATH", "")
-    _OUT_VARS           = config.get("OUT_VARS", [])
     _ICS_TEMP_DIR       = config.get("ICS_TEMP_DIR", "")
-    _OUTPUT_FREQ        = config.get("OUTPUT_FREQ", "")
+    _OUT_VARS           = config.get("OUT_VARS", [])
+    _OUT_FREQ           = config.get("OUT_FREQ", "")
+    _OUT_RES            = config.get("OUT_RES", "")
+    _OUT_LEVS           = config.get("OUT_LEVS", "")
 
     # IC settings
     model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
@@ -282,8 +284,39 @@ def main() -> None:
         final_025 = final_025[output_vars]
     
     # Format output frequency
-    if _OUTPUT_FREQ == "daily":
+    if _OUT_FREQ == "daily":
         final_025 = final_025.resample(valid_time="1D").mean()
+    
+    # Format output resolution
+    if _OUT_RES == "0.25":
+        latitudes = np.arange(-90, 90.25, 0.25)
+        longitudes = np.arange(0, 360, 0.25)
+    elif _OUT_RES == "0.5":
+        latitudes = np.arange(-90, 90.5, 0.5)
+        longitudes = np.arange(0, 360, 0.5)
+    elif _OUT_RES == "1":
+        latitudes = np.arange(-90, 91, 1.0)
+        longitudes = np.arange(0, 360, 1.0)
+    elif _OUT_RES == "1.5":
+        latitudes = np.arange(-90, 91.5, 1.5)
+        longitudes = np.arange(0, 360, 1.5)
+    elif _OUT_RES == "2":
+        latitudes = np.arange(-90, 92, 2.0)
+        longitudes = np.arange(0, 360, 2.0)
+    else:
+        latitudes = final_025.latitude.values
+        longitudes = final_025.longitude.values
+    
+    if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
+        final_025 = final_025.interp(latitude=latitudes, longitude=longitudes, method="linear")
+
+    # Format output pressure levels
+    if _OUT_LEVS != 'original':
+        desired_levels = [
+            int(plev)
+            for plev in _OUT_LEVS.strip('[]').split(',')
+        ]
+        final_025 = final_025.interp(level=desired_levels)
     
     # Create output directory
     os.makedirs(_OUTPUT_PATH, exist_ok=True)
