@@ -1,6 +1,6 @@
 JOBS:
   PREPARE_ICS:
     FILE: templates/prepare_ics.sh,templates/config.yml
-    PLATFORM: "MARENOSTRUM5-LOGIN"
+    PLATFORM: "MARENOSTRUM5CPU"
     RUNNING: DATE
     DEPENDENCIES: SYNCHRONIZE
