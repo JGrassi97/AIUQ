@@ -118,7 +118,7 @@ autosubmit expid \
   --minimal_configuration \
   --git_as_conf conf/bootstrap/ \
   --git_repo https://github.com/JGrassi97/AIUQ.git \
-  --git_branch main
+  --git_branch features/eerie-from-local
 ```
 
 MareNostrum5ACC
@@ -132,15 +132,15 @@ Create the file <EXPID>/conf/main.yml.
 
 MODEL:
   # Main settings
-  NAME: aifs                                  # aifs / neuralgcm / aurora
-  CHECKPOINT_NAME: aifs-ens-crps-1.0.ckpt     # checkpoint name as written in the table above
-  ICS: eerie                                  # eerie / era5
+  NAME: neuralgcm                                   # aifs / neuralgcm / aurora
+  CHECKPOINT_NAME: stochastic_precip_2_8_deg.pkl    # checkpoint name as written in the table above
+  ICS: eerie                                        # eerie / era5
 
 # See autosubmit documentation
 EXPERIMENT:
   MEMBERS: "1 2"
   CHUNKSIZEUNIT: day
-  DATELIST: 19880101
+  DATELIST: 20100101
   CHUNKSIZE: 2
   NUMCHUNKS: 1
   CALENDAR: standard
@@ -159,7 +159,7 @@ PATHS:
   SIF_FOLDER: "%PATHS.SUPPORT_FOLDER%/sif"
 
 PLATFORM:
-  NAME: ...  # FELIPE / MARENOSTRUM5
+  NAME: MARENOSTRUM5  # FELIPE / MARENOSTRUM5
 ```
 
 Note that some ICs requires credential to be retrieved. 

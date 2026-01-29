@@ -21,146 +21,6 @@ from AIUQst_lib.pressure_levels import check_pressure_levels
 from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
 from AIUQst_lib.variables import reassign_long_names_units, define_mappers
 
-# MARS has problems if 2m variables (167, 168) are requested together with other sfc variables.
-# Here we define the codes to be requested separately.
-_SFC_SEPARATE_2M_CODES: Set[int] = {167, 168}  # 2t, 2d
-
-def build_base_request(start_date: str, grid: str) -> dict:
-    return {
-        "activity": "cmip6",
-        "class": "ed",
-        "dataset": "research",
-        "date": f"{start_date}",
-        "experiment": "hist",
-        "expver": "0002",
-        "generation": "1",
-        "grid": grid,
-        "model": "ifs",
-        "realization": "1",
-        "resolution": "high",
-        "stream": "clte",
-        "time": "00:00:00/06:00:00",
-        "type": "fc",
-    }
-
-def _dedupe_preserve_order(vals: List[int]) -> List[int]:
-    seen = set()
-    out: List[int] = []
-    for v in vals:
-        v = int(v)
-        if v not in seen:
-            seen.add(v)
-            out.append(v)
-    return out
-
-def _params_to_str(params: List[int]) -> str:
-    return "/".join(str(int(p)) for p in params)
-    
-def build_request(base: dict, var_type: str, params: List[int]) -> dict:
-
-    req = dict(base)
-    req["levtype"] = var_type
-    req["param"] = _params_to_str(params)
-
-    req.pop("levelist", None)
-
-    if var_type == "pl":
-        req["levelist"] = "1/5/10/20/30/50/70/100/150/200/250/300/400/500/600/700/850/925/1000"
-
-    if var_type == "sol":
-        req["levelist"] = "1/2"
-
-    return req
-
-def _split_sfc_separate_2m(vars_to_take_mars: Dict[str, List[int]]) -> Tuple[Dict[str, List[int]], List[int]]:
-    out = {k: list(v) for k, v in vars_to_take_mars.items()}
-    sfc = [int(x) for x in out.get("sfc", [])]
-
-    params_2m = [p for p in sfc if p in _SFC_SEPARATE_2M_CODES]
-    if params_2m:
-        out["sfc"] = [p for p in sfc if p not in _SFC_SEPARATE_2M_CODES]
-
-    return out, _dedupe_preserve_order(params_2m)
-
-def retrieve_ecmwf(request: dict, target_path: str) -> None:
-    request = dict(request)
-    request["target"] = target_path
-    server = ECMWFDataServer()
-    server.retrieve(request)
-
-def download_datasets(
-    start_date: str,
-    temp_dir: str,
-    vars_to_take_mars: Dict[str, List[int]],
-    grid: str,
-) -> Dict[str, str]:
-    os.makedirs(temp_dir, exist_ok=True)
-
-    base = build_base_request(start_date, grid)
-    outputs: Dict[str, str] = {}
-
-    vars_main, params_2m = _split_sfc_separate_2m(vars_to_take_mars)
-
-    with ThreadPoolExecutor(max_workers=5) as ex:
-        futures = []
-
-        for var_type, params in vars_main.items():
-            if not params:
-                continue
-
-            out_path = os.path.join(temp_dir, f"output_{var_type}.grib")
-            req = build_request(base, var_type, params)
-            futures.append((var_type, out_path, ex.submit(retrieve_ecmwf, req, out_path)))
-
-        if params_2m:
-            out_path_2m = os.path.join(temp_dir, "output_sfc_2m.grib")
-            req_2m = build_request(base, "sfc", params_2m)
-            futures.append(("sfc_2m", out_path_2m, ex.submit(retrieve_ecmwf, req_2m, out_path_2m)))
-
-        for key, out_path, fut in futures:
-            fut.result()
-            outputs[key] = out_path
-
-    return outputs
-
-
-
-
-def open_and_prepare_datasets(grib_paths: Dict[str, str]) -> xr.Dataset:
-
-    datasets = []
-
-    sfc_ds = None
-    pl_ds = None
-
-    if "sfc" in grib_paths:
-        sfc_ds = xr.open_dataset(grib_paths["sfc"], engine="cfgrib")
-        datasets.append(sfc_ds)
-
-    if "sfc_2m" in grib_paths:
-        sfc_2m_ds = xr.open_dataset(grib_paths["sfc_2m"], engine="cfgrib")
-        datasets.append(sfc_2m_ds)
-
-        if sfc_ds is None:
-            sfc_ds = sfc_2m_ds
-
-    if "pl" in grib_paths:
-        pl_ds = xr.open_dataset(grib_paths["pl"], engine="cfgrib")
-        datasets.append(pl_ds)
-
-    for k, path in grib_paths.items():
-        if k in {"sfc", "sfc_2m", "pl"}:
-            continue
-        datasets.append(xr.open_dataset(path, engine="cfgrib"))
-
-    dataset = xr.merge(datasets, compat='override')
-
-    for var in ["tclw", "tciw", "r", "entireAtmosphere", "step", "surface", "valid_time"]:
-        if var in dataset:
-            dataset = dataset.drop_vars(var)
-
-    return dataset
-
 
 
 def main() -> None:
@@ -179,6 +39,7 @@ def main() -> None:
     _IC             = config.get("IC_NAME", "")
     _STD_VERSION    = config.get("STD_VERSION", "")
     _TEMP_DIR       = config.get("TEMP_DIR", "")
+    _EERIE_PATH     = config.get("EERIE_PATH", "")
 
     # IC settings
     model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
@@ -195,34 +56,19 @@ def main() -> None:
         standard_dict['variables']
         )
     
-    vars_to_take_mars = {}
+    # Select vars to take from EERIE
+    vars_to_take_eerie = list(ic_names.values())
 
-    for k in list(ic_names.keys()):
-        lev = ic_card['variables'][k]['levtype']
-        vars_to_take_mars.setdefault(lev, []).append(k)
+    # Remove - from strt_time and end_time
+    base_date = _START_TIME.replace("-", "")
 
-    vars_to_take_mars
+    # Build the paths 
+    eerie_paths = [os.path.join(_EERIE_PATH, var, f"{var}_{base_date}.nc") for var in vars_to_take_eerie]
 
-    # Here the specific code to retrieve EERIE from GCS
-    grib_paths = download_datasets(
-        start_date=_START_TIME,
-        temp_dir=_TEMP_DIR,
-        vars_to_take_mars=vars_to_take_mars,
-        grid=".25/.25",
-    )
-    
-    dataset = open_and_prepare_datasets(grib_paths)
-
-    # Standard pipeline to make the data consistent with Auto-UQ requirements
-    selected = (
-        dataset[list(ic_names.values())]
-        .rename(rename_dict)
-        .sel(time=slice(_START_TIME, _END_TIME))
-        .isel(time=slice(0, 2))
-        .pipe(reassign_long_names_units, long_names_dict, units_dict)
-        .pipe(check_pressure_levels, ic_card, standard_dict['pressure_levels'])
-        .compute()
-        )
+    selected = xr.open_mfdataset(
+        eerie_paths,
+        combine="by_coords",
+        parallel=True).isel(time=slice(0,2))    
     
     # Adjust longitudes to -0 - 360
     #selected['longitude'] = selected['longitude'] % 360
