@@ -67,11 +67,13 @@ def main() -> None:
     print("EERIE PATHS: ", eerie_paths)
     print("VARS TO TAKE FROM EERIE: ", vars_to_take_eerie)
 
-    selected = xr.open_mfdataset(
-        eerie_paths,
-        combine="by_coords",
-        parallel=True).isel(time=slice(0,2))    
+    selected = []
+    for path in eerie_paths:
+        dat = xr.open_dataset(path).isel(time=slice(0,2))   
+        selected.append(dat)
     
+    selected = xr.merge(selected)
+
     # Adjust longitudes to -0 - 360
     #selected['longitude'] = selected['longitude'] % 360
     
