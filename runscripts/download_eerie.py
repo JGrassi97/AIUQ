@@ -69,7 +69,7 @@ def main() -> None:
 
     selected = []
     for path in eerie_paths:
-        dat = xr.open_dataset(path).isel(time=slice(0,2))   
+        dat = xr.open_dataset(path).isel(time=slice(0,2)).drop_vars("step")   
         selected.append(dat)
     
     selected = xr.merge(selected)
