@@ -114,7 +114,7 @@ The supporting files are the following:
 ```
 autosubmit expid \
   --description "AIUQ" \
-  --HPC FELIPE \
+  --HPC MareNostrum5ACC \
   --minimal_configuration \
   --git_as_conf conf/bootstrap/ \
   --git_repo https://github.com/JGrassi97/AIUQ.git \
@@ -149,7 +149,7 @@ EXPERIMENT:
   OUT_VARS:       
     - all                 # If you want to store only a subset of variables - make sure to use the specific out names of the model
   OUT_FREQ: daily         # original / daily
-  OUT_RES: 1              # original / 0.25 / 0.5 / 1 / 1.5 / 2
+  OUT_RES: "1"              # original / 0.25 / 0.5 / 1 / 1.5 / 2
   OUT_LEVS: [1000, 850, 700, 500, 250, 100, 50, 10]              # List of values in hPa or 'original' - 
   
   # Here reported from https://github.com/PCMDI/cmip6-cmor-tables/blob/087fe45d21c082e28723e0f930e4266abe91b853/Tables/CMIP6_coordinate.json#L1640
