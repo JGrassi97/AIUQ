@@ -147,8 +147,11 @@ def main() -> None:
     
     # Format output pressure levels
     if _OUT_LEVS != 'original':
-        desired_levels = [int(plev) for plev in _OUT_LEVS.split(',')]
-        predictions_ds = predictions_ds.interp(pressure_level=desired_levels)
+        desired_levels = [
+            int(plev)
+            for plev in _OUT_LEVS.strip('[]').split(',')
+        ]
+        predictions_ds = predictions_ds.interp(level=desired_levels)
     
     
     # Ensure output path exists
