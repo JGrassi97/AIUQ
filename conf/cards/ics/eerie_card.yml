@@ -10,7 +10,7 @@ pressure_levels:
 
 variables:
   31  : 
-    name : c1
+    name : ci
     levtype : sfc
   34  : 
     name : sst
