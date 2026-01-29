@@ -64,6 +64,8 @@ def main() -> None:
 
     # Build the paths 
     eerie_paths = [os.path.join(_EERIE_PATH, var, f"{var}_{base_date}.nc") for var in vars_to_take_eerie]
+    print("EERIE PATHS: ", eerie_paths)
+    print("VARS TO TAKE FROM EERIE: ", vars_to_take_eerie)
 
     selected = xr.open_mfdataset(
         eerie_paths,
