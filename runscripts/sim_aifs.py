@@ -304,11 +304,19 @@ def main() -> None:
         latitudes = np.arange(-90, 92, 2.0)
         longitudes = np.arange(0, 360, 2.0)
     else:
-        latitudes = predictions_ds.latitude.values
-        longitudes = predictions_ds.longitude.values
+        latitudes = final_025.latitude.values
+        longitudes = final_025.longitude.values
     
     if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
-        predictions_ds = predictions_ds.interp(latitude=latitudes, longitude=longitudes, method="linear")
+        final_025 = final_025.interp(latitude=latitudes, longitude=longitudes, method="linear")
+
+    # Format output pressure levels
+    if _OUT_LEVS != 'original':
+        desired_levels = [
+            int(plev)
+            for plev in _OUT_LEVS.strip('[]').split(',')
+        ]
+        final_025 = final_025.interp(level=desired_levels)
     
     # Create output directory
     os.makedirs(_OUTPUT_PATH, exist_ok=True)
