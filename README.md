@@ -118,7 +118,7 @@ autosubmit expid \
   --minimal_configuration \
   --git_as_conf conf/bootstrap/ \
   --git_repo https://github.com/JGrassi97/AIUQ.git \
-  --git_branch platform/marenostrum
+  --git_branch main
 ```
 
 #### Run the experiment
@@ -154,7 +154,7 @@ PATHS:
   SIF_FOLDER: "%PATHS.SUPPORT_FOLDER%/sif"
 
 PLATFORM:
-  NAME: ...  # FELIPE / MARENOSTRUM
+  NAME: ...  # FELIPE / MARENOSTRUM5
 ```
 
 Note that some ICs requires credential to be retrieved. 
