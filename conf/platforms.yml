@@ -1,7 +1,7 @@
 PLATFORMS:
 
   MARENOSTRUM5CPU:
-    TYPE: ps
+    TYPE: SLURM
     HOST: glogin1.bsc.es
     PROJECT: ehpc536
     USER: bsc850074
