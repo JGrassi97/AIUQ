@@ -93,8 +93,15 @@ def main() -> None:
             .compute()
         )
 
-        static_dataset['longitude'] = selected['longitude']
-        static_dataset['latitude'] = selected['latitude']
+        latitudes = static_dataset['latitude'].values
+        longitudes = static_dataset['longitude'].values
+        
+        # Interpolate selected to static grid
+        selected = selected.interp(
+            latitude=latitudes,
+            longitude=longitudes,
+            method="linear"
+        )
 
         selected = (
             xr.merge([selected, static_dataset], join="exact")
