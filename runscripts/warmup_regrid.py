@@ -8,13 +8,16 @@ import os
 # CONFIG.set("cache-policy", "user")
 # CONFIG.set("user-cache-directory", EARTHKIT_REGRID_CACHE)
 
-dummy = np.zeros((30, 30), dtype=np.float32)
+nlat = 720
+nlon = 1440
+
+dummy_ll = np.zeros((nlat, nlon), dtype=np.float32)
 
 in_grid = {"grid": (0.25, 0.25)}
 out_grid = {"grid": "N320"}
 
 ekr.interpolate(
-    dummy,
+    dummy_ll,
     in_grid=in_grid,
     out_grid=out_grid,
     method="linear",
@@ -22,11 +25,15 @@ ekr.interpolate(
 
 print('Saved regrid N320 to 0.25° and back test successfully.')
 
+
+npoints_n320 = 2 * 320 * 321  # 205440
+dummy_n320 = np.zeros(npoints_n320, dtype=np.float32)
+
 in_grid = {"grid": "N320"}
 out_grid = {"grid": [0.25, 0.25]}
 
 ekr.interpolate(
-    dummy,
+    dummy_n320,
     in_grid=in_grid,
     out_grid=out_grid,
     method="linear",
