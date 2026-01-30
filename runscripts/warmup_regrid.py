@@ -3,10 +3,10 @@ import earthkit.regrid as ekr
 import os
 
 # Set the earthkit regrid cache directory
-from earthkit.regrid.utils.config import CONFIG
-EARTHKIT_REGRID_CACHE = os.environ.get('EARTHKIT_REGRID_CACHE', '')
-CONFIG.set("cache-policy", "user")
-CONFIG.set("user-cache-directory", EARTHKIT_REGRID_CACHE)
+# from earthkit.regrid.utils.config import CONFIG
+# EARTHKIT_REGRID_CACHE = os.environ.get('EARTHKIT_REGRID_CACHE', '')
+# CONFIG.set("cache-policy", "user")
+# CONFIG.set("user-cache-directory", EARTHKIT_REGRID_CACHE)
 
 dummy = np.zeros((30, 30), dtype=np.float32)
 
