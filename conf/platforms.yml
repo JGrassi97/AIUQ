@@ -3,15 +3,15 @@ PLATFORMS:
   MARENOSTRUM5CPU:
     TYPE: ps
     HOST: glogin1.bsc.es
-    PROJECT: bsc32
+    PROJECT: ehpc536
     USER: bsc850074
     QUEUE: gp_bsces
     SCRATCH_DIR: /gpfs/scratch
     ADD_PROJECT_TO_HOST: False
     TEMP_DIR: ''
     PROCESSORS_PER_NODE: 112
-    HPCROOTDIR: /gpfs/scratch/ehpc536/bsc850074/%EXPID%
     MAX_WALLCLOCK: '00:30'
+    # HPCROOTDIR: /gpfs/scratch/ehpc536/bsc850074/%EXPID%
 
   MARENOSTRUM5ACC:
     TYPE: SLURM
