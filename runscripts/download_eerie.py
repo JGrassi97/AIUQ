@@ -133,12 +133,21 @@ def main() -> None:
             )
 
             climatology_dataset['time'] = selected['time']
-            climatology_dataset['latitude'] = selected['latitude']
-            climatology_dataset['longitude'] = selected['longitude']
+
+            latitudes = climatology_dataset['latitude'].values
+            longitudes = climatology_dataset['longitude'].values
+            
+            # Interpolate selected to static grid
+            selected = selected.interp(
+                latitude=latitudes,
+                longitude=longitudes,
+                method="linear"
+            )
 
             selected = (
                 xr.merge([selected, climatology_dataset], join="exact")
-            ) 
+            )
+            
             
     # Rename soilLayer in SoilLevel
     selected = selected.rename({'soilLayer': 'SoilLevel'}) 
