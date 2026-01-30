@@ -232,6 +232,9 @@ def main() -> None:
     delta_t = np.timedelta64(_INNER_STEPS, 'h')
     times = np.arange(outer_steps) * _INNER_STEPS  # in hours
 
+    print(f"Running from {_START_TIME} to {_END_TIME} ({days_to_run} days)")
+    print(f"Total outer steps: {outer_steps} (inner steps: {_INNER_STEPS}h)")
+
     # Load model
     runner = SimpleRunner(str(_MODEL_CHECKPOINT), device="cuda")
 
@@ -260,6 +263,7 @@ def main() -> None:
         states.append(state_to_xarray_points(state))
 
     states = xr.concat(states, dim="time")
+    print(states)
 
     # Regrid back N320 -> regular 0.25
     final_025 = regrid_n320_to_regular025(states)
