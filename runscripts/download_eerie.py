@@ -154,6 +154,14 @@ def main() -> None:
     # Rename soilLayer in SoilLevel
     if 'soilLayer' in selected.coords:
         selected = selected.rename({'soilLayer': 'SoilLevel'}) 
+
+    # Vars to remove
+    vars_to_remove = [
+        'heightAboveGround', 'surface', 'entireAtmosphere', 'meanSea',
+    ]
+    for var in vars_to_remove:
+        if var in selected.coords:
+            selected = selected.drop_vars(var)
         
     # Final part - Savimg in zarr
     final = selected.chunk({"time": 1})        # Chunking by time for efficient access
