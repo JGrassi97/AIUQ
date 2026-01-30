@@ -2,11 +2,19 @@ JOBS:
   
   PREPARE_ICS:
     FILE: templates/prepare_ics.sh
+
+  WARMUP_REGRID:
+    FILE: templates/warmup_regrid.sh,templates/config.yml
+    PLATFORM: "MARENOSTRUM5-LOGIN"
+    RUNNING: ONCE
+    DEPENDENCIES: PREPARE_ICS
+    NODES: 1
+    PROCESSORS: 80
   
   SAVE_ICS:
     FILE: templates/ics_aifs.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5CPU"
-    DEPENDENCIES: PREPARE_ICS
+    DEPENDENCIES: WARMUP_REGRID
     RUNNING: DATE
     NODES: 1
     PROCESSORS: 80

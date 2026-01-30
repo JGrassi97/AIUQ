@@ -3,4 +3,4 @@ JOBS:
     FILE: templates/prepare_ics.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5CPU"
     RUNNING: DATE
-    DEPENDENCIES: WARMUP_REGRID
+    DEPENDENCIES: SYNCHRONIZE
