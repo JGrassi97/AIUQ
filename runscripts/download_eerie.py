@@ -76,10 +76,12 @@ def main() -> None:
     selected = xr.decode_cf(selected)
     selected = (
         selected
+        .rename(rename_dict)
         .pipe(reassign_long_names_units, long_names_dict, units_dict)
         .pipe(check_pressure_levels, ic_card, standard_dict['pressure_levels'])
         .compute()
         )
+    
     # Adjust longitudes to -0 - 360
     #selected['longitude'] = selected['longitude'] % 360
     

@@ -27,3 +27,4 @@ JOBS:
     NODES: 1
     PROCESSORS: 20
     CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
+    
