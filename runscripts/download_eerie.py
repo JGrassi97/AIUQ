@@ -150,7 +150,8 @@ def main() -> None:
             
             
     # Rename soilLayer in SoilLevel
-    selected = selected.rename({'soilLayer': 'SoilLevel'}) 
+    if 'soilLayer' in selected.coords:
+        selected = selected.rename({'soilLayer': 'SoilLevel'}) 
         
     # Final part - Savimg in zarr
     final = selected.chunk({"time": 1})        # Chunking by time for efficient access
