@@ -25,4 +25,4 @@ singularity exec --nv \
     --env HPCROOTDIR=$HPCROOTDIR \
     --env configfile=$configfile \
     ${SIF_PATH} \
-    python3 $HPCROOTDIR/runscripts/warmup_aifs.py -c $configfile
+    python3 $HPCROOTDIR/runscripts/warmup_regrid.py -c $configfile
