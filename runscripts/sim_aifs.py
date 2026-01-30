@@ -228,9 +228,8 @@ def main() -> None:
     end_date = datetime.strptime(_END_TIME, '%Y-%m-%d')
 
     days_to_run = (end_date - start_date).days + 1
-    outer_steps = days_to_run * 24 // _INNER_STEPS
+    outer_steps = days_to_run * 24
     delta_t = np.timedelta64(_INNER_STEPS, 'h')
-    times = np.arange(outer_steps) * _INNER_STEPS  # in hours
 
     print(f"Running from {_START_TIME} to {_END_TIME} ({days_to_run} days)")
     print(f"Total outer steps: {outer_steps} (inner steps: {_INNER_STEPS}h)")
