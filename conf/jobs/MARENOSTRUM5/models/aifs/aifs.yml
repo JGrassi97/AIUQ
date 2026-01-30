@@ -4,7 +4,7 @@ JOBS:
   
   SAVE_ICS:
     FILE: templates/ics_aifs.sh,templates/config.yml
-    PLATFORM: "MARENOSTRUM5-LOGIN"
+    PLATFORM: "MARENOSTRUM5CPU"
     DEPENDENCIES: PREPARE_ICS
     RUNNING: DATE
     NODES: 1
