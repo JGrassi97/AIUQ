@@ -63,7 +63,8 @@ def main() -> None:
     base_date = _START_TIME.replace("-", "")
 
     # Build the paths 
-    eerie_paths = [os.path.join(_EERIE_PATH, var, "1",f"{var}_{base_date}.nc") for var in vars_to_take_eerie]
+    starting_member = "1"
+    eerie_paths = [os.path.join(_EERIE_PATH, var, starting_member, f"{var}_{base_date}.nc") for var in vars_to_take_eerie]
     print("EERIE PATHS: ", eerie_paths)
     print("VARS TO TAKE FROM EERIE: ", vars_to_take_eerie)
 
