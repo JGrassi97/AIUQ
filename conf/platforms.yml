@@ -5,7 +5,7 @@ PLATFORMS:
     HOST: glogin1.bsc.es
     PROJECT: ehpc536
     USER: bsc850074
-    QUEUE: acc_ehpc
+    QUEUE: gp_bsces
     SCRATCH_DIR: /gpfs/scratch
     ADD_PROJECT_TO_HOST: False
     TEMP_DIR: ''
