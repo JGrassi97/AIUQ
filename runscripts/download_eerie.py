@@ -92,26 +92,27 @@ def main() -> None:
             standard_dict['variables']
         )
 
-        static_dataset = (
-            (xr.open_dataset(_STATIC_DATA)[list(ic_names_static.values())])
-            .rename(rename_dict_static)
-            .pipe(reassign_long_names_units, long_names_dict_static, units_dict_static)
-            .compute()
-        )
+        if list(ic_names_static.values()) != []:
+            static_dataset = (
+                (xr.open_dataset(_STATIC_DATA)[list(ic_names_static.values())])
+                .rename(rename_dict_static)
+                .pipe(reassign_long_names_units, long_names_dict_static, units_dict_static)
+                .compute()
+            )
 
-        latitudes = static_dataset['latitude'].values
-        longitudes = static_dataset['longitude'].values
-        
-        # Interpolate selected to static grid
-        selected = selected.interp(
-            latitude=latitudes,
-            longitude=longitudes,
-            method="linear"
-        )
+            latitudes = static_dataset['latitude'].values
+            longitudes = static_dataset['longitude'].values
+            
+            # Interpolate selected to static grid
+            selected = selected.interp(
+                latitude=latitudes,
+                longitude=longitudes,
+                method="linear"
+            )
 
-        selected = (
-            xr.merge([selected, static_dataset], join="exact")
-        )
+            selected = (
+                xr.merge([selected, static_dataset], join="exact")
+            )
 
         # FALLBACK FOR CLIMATOLOGY VARIABLES
         if missing_vars_static is not None:
