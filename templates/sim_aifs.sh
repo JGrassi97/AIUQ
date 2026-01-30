@@ -17,6 +17,9 @@ if [ "$PLATFORM_NAME" = "MARENOSTRUM5" ]; then
     ml singularity
 fi
 
+EARTHKIT_CACHE=${HPCROOTDIR}/earthkit_cache
+export EARTHKIT_REGRID_CACHE=EARTHKIT_CACHE
+
 singularity exec --nv \
     --bind $HPCROOTDIR \
     --env HPCROOTDIR=$HPCROOTDIR \

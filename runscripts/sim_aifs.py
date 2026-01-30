@@ -163,6 +163,7 @@ def regrid_n320_to_regular025(ds_points: xr.Dataset) -> xr.Dataset:
                         da.values[ti, li, :],
                         in_grid,
                         out_grid,
+                        method="linear",
                     ).astype(np.float32, copy=False)
             data_vars[v] = (("time", "level", "latitude", "longitude"), out)
         else:
