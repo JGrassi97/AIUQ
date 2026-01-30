@@ -21,6 +21,11 @@ from AIUQst_lib.variables import reassign_long_names_units, define_mappers
 
 logging.basicConfig(level=logging.DEBUG)
 
+# Set the earthkit regrid cache directory
+from earthkit.regrid.utils.config import CONFIG
+EARTHKIT_REGRID_CACHE = os.environ.get('EARTHKIT_REGRID_CACHE', '')
+CONFIG.set("cache-policy", "user")
+CONFIG.set("user-cache-directory", EARTHKIT_REGRID_CACHE)
 
 def regrid_n320_to_regular025(ds_points: xr.Dataset) -> xr.Dataset:
     """

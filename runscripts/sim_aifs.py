@@ -28,6 +28,12 @@ from AIUQst_lib.variables import name_mapper_for_model
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
+# Set the earthkit regrid cache directory
+from earthkit.regrid.utils.config import CONFIG
+EARTHKIT_REGRID_CACHE = os.environ.get('EARTHKIT_REGRID_CACHE', '')
+CONFIG.set("cache-policy", "user")
+CONFIG.set("user-cache-directory", EARTHKIT_REGRID_CACHE)
+
 
 LEVELS = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
 SOIL_LEVELS = [1, 2]
