@@ -1,9 +1,9 @@
 PLATFORMS:
 
   MARENOSTRUM5CPU:
-    TYPE: ps
+    TYPE: SLURM
     HOST: glogin1.bsc.es
-    PROJECT: ehpc536
+    PROJECT: bsc32
     USER: bsc850074
     QUEUE: gp_bsces
     SCRATCH_DIR: /gpfs/scratch
