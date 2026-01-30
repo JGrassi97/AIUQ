@@ -52,5 +52,5 @@ rsync_to_remote "${HPCUSER}" "${HPCHOST}" "${PROJDEST}"/conf "${HPCROOTDIR}"
 #fi
 
 # MAKE LOG DIR
-LOG_DIR="${HPCROOTDIR}"/LOG_${EXPID}
-ssh "${HPCUSER}"@"${HPCHOST}" "mkdir -p ${LOG_DIR}"
+# LOG_DIR="${HPCROOTDIR}"/LOG_${EXPID}
+# ssh "${HPCUSER}"@"${HPCHOST}" "mkdir -p ${LOG_DIR}"
