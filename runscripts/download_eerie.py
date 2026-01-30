@@ -133,6 +133,8 @@ def main() -> None:
             )
 
             climatology_dataset['time'] = selected['time']
+            climatology_dataset['latitude'] = selected['latitude']
+            climatology_dataset['longitude'] = selected['longitude']
 
             selected = (
                 xr.merge([selected, climatology_dataset], join="exact")
