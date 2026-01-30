@@ -160,8 +160,10 @@ def main() -> None:
         'heightAboveGround', 'surface', 'entireAtmosphere', 'meanSea',
     ]
     for var in vars_to_remove:
-        if var in selected.coords:
+        try:
             selected = selected.drop_vars(var)
+        except:
+            pass
         
     # Final part - Savimg in zarr
     final = selected.chunk({"time": 1})        # Chunking by time for efficient access
