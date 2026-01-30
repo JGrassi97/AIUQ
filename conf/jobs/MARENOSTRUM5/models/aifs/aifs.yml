@@ -6,7 +6,7 @@ JOBS:
   WARMUP_REGRID:
     FILE: templates/warmup_regrid.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5-LOGIN"
-    RUNNING: ONCE
+    RUNNING: DATE
     DEPENDENCIES: PREPARE_ICS
     NODES: 1
     PROCESSORS: 80
