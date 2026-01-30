@@ -69,11 +69,11 @@ def main() -> None:
 
     selected = []
     for path in eerie_paths:
-        dat = xr.open_dataset(path).isel(time=slice(0,2)).drop_vars("step")   
+        dat = xr.open_dataset(path, decode_cf=False).isel(time=slice(0,2)).drop_vars('step')
         selected.append(dat)
     
-    selected = xr.merge(selected)
-
+    selected = xr.merge(selected, compat='override')
+    selected = xr.decode_cf(selected)
     # Adjust longitudes to -0 - 360
     #selected['longitude'] = selected['longitude'] % 360
     
