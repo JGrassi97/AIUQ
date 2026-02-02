@@ -14,6 +14,8 @@ PROJDEST=${5:-%PROJECT.PROJECT_DESTINATION%}
 
 # END_HEADER
 
+EXPID=${6:-%EXPID%}
+
 #####################################################
 # Synchronizes file or directory to remote
 # Globals:
@@ -48,3 +50,7 @@ rsync_to_remote "${HPCUSER}" "${HPCHOST}" "${PROJDEST}"/lib "${HPCROOTDIR}"
 rsync_to_remote "${HPCUSER}" "${HPCHOST}" "${PROJDEST}"/runscripts "${HPCROOTDIR}"
 rsync_to_remote "${HPCUSER}" "${HPCHOST}" "${PROJDEST}"/conf "${HPCROOTDIR}"
 #fi
+
+# MAKE LOG DIR
+# LOG_DIR="${HPCROOTDIR}"/LOG_${EXPID}
+# ssh "${HPCUSER}"@"${HPCHOST}" "mkdir -p ${LOG_DIR}"

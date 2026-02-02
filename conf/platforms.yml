@@ -5,12 +5,13 @@ PLATFORMS:
     HOST: glogin1.bsc.es
     PROJECT: ehpc536
     USER: bsc850074
-    QUEUE: acc_ehpc
+    QUEUE: gp_bsces
     SCRATCH_DIR: /gpfs/scratch
     ADD_PROJECT_TO_HOST: False
     TEMP_DIR: ''
     PROCESSORS_PER_NODE: 112
-    MAX_WALLCLOCK: '00:30'
+    MAX_WALLCLOCK: '01:30'
+    # HPCROOTDIR: /gpfs/scratch/ehpc536/bsc850074/%EXPID%
 
   MARENOSTRUM5ACC:
     TYPE: SLURM
@@ -23,7 +24,7 @@ PLATFORMS:
     TEMP_DIR: ''
     PROCESSORS_PER_NODE: 80
     MAX_PROCESSORS: 80
-    MAX_WALLCLOCK: '00:30'
+    MAX_WALLCLOCK: '01:30'
 
   MARENOSTRUM5-LOGIN:
     TYPE: ps
@@ -36,7 +37,7 @@ PLATFORMS:
     TEMP_DIR: ''
     PROCESSORS_PER_NODE: 112
     CUSTOM_DIRECTIVES: ''
-    MAX_WALLCLOCK: '00:30'
+    MAX_WALLCLOCK: '01:30'
 
   ###############################################################
   #####                   POLITO MACHINE                    #####

@@ -12,17 +12,17 @@ logs_dir=${HPCROOTDIR}/LOG_${EXPID}
 configfile=$logs_dir/config_${JOBNAME_WITHOUT_EXPID}
 PLATFORM_NAME=%PLATFORM.NAME%
 
+EARTHKIT_CACHE=${HPCROOTDIR}/earthkit_cache
+export EARTHKIT_REGRID_CACHE=EARTHKIT_CACHE
+
 # Load Singularity module only on MareNostrum5
 if [ "$PLATFORM_NAME" = "MARENOSTRUM5" ]; then
     ml singularity
 fi
-
-EARTHKIT_CACHE=${HPCROOTDIR}/earthkit_cache
-export EARTHKIT_REGRID_CACHE=EARTHKIT_CACHE
 
 singularity exec --nv \
     --bind $HPCROOTDIR \
     --env HPCROOTDIR=$HPCROOTDIR \
     --env configfile=$configfile \
     ${SIF_PATH} \
-    python3 $HPCROOTDIR/runscripts/ics_aifs.py -c $configfile
+    python3 $HPCROOTDIR/runscripts/warmup_regrid.py -c $configfile

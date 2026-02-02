@@ -21,6 +21,11 @@ from AIUQst_lib.variables import reassign_long_names_units, define_mappers
 
 logging.basicConfig(level=logging.DEBUG)
 
+# Set the earthkit regrid cache directory
+# from earthkit.regrid.utils.config import CONFIG
+# EARTHKIT_REGRID_CACHE = os.environ.get('EARTHKIT_REGRID_CACHE', '')
+# CONFIG.set("cache-policy", "user")
+# CONFIG.set("user-cache-directory", EARTHKIT_REGRID_CACHE)
 
 def regrid_n320_to_regular025(ds_points: xr.Dataset) -> xr.Dataset:
     """
@@ -50,6 +55,7 @@ def regrid_n320_to_regular025(ds_points: xr.Dataset) -> xr.Dataset:
                         da.values[ti, li, :],
                         in_grid,
                         out_grid,
+                        method="linear",
                     ).astype(np.float32, copy=False)
             data_vars[v] = (("time", "level", "latitude", "longitude"), out)
         else:
@@ -59,6 +65,7 @@ def regrid_n320_to_regular025(ds_points: xr.Dataset) -> xr.Dataset:
                     da.values[ti, :],
                     in_grid,
                     out_grid,
+                    method="linear",
                 ).astype(np.float32, copy=False)
             data_vars[v] = (("time", "latitude", "longitude"), out)
 
@@ -139,6 +146,7 @@ def main():
                         da.values[ti, li, :, :],
                         {"grid": (0.25, 0.25)},
                         {"grid": "N320"},
+                        method="linear",
                     ).astype(np.float32, copy=False)
 
             regridded_vars[v] = (("time", "level", "point"), out)
@@ -153,6 +161,7 @@ def main():
                     da.values[ti, :, :],
                     {"grid": (0.25, 0.25)},
                     {"grid": "N320"},
+                    method="linear",
                 ).astype(np.float32, copy=False)
 
             regridded_vars[v] = (("time", "point"), out)

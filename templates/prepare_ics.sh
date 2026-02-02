@@ -18,6 +18,7 @@ GSV_CONTAINER=%GSV.CONTAINER%
 FDB_HOME=%DIRS.FDB_PATH%
 
 PLATFORM_NAME=%PLATFORM.NAME%
+LOCAL_ICS=%MODEL.USE_LOCAL_ICS%
 
 # Derived paths
 JOBNAME_WITHOUT_EXPID=$(echo ${JOBNAME} | sed 's/^[^_]*_//')
@@ -38,14 +39,20 @@ LIBDIR=${HPCROOTDIR}/lib
 source ${LIBDIR}/functions.sh
 
 
-if [ "$IC_SOURCE" = "fdb" ]; then
-    prepare_ics_fdb $HPCROOTDIR $FDB_HOME $REQUESTS_DIR $CHUNK_START_DATE $DATA_PATH $GSV_CONTAINER $CHUNK_END_DATE
-elif [ "$IC_SOURCE" = "era5" ]; then
+if [ "$IC_SOURCE" = "era5" ]; then
     SIF_PATH=%PATHS.SIF_FOLDER%/image_era.sif
     prepare_ics_era5 $HPCROOTDIR $LOGS_DIR $CONFIGFILE $SIF_PATH
+
 elif [ "$IC_SOURCE" = "eerie" ]; then
     SIF_PATH=%PATHS.SIF_FOLDER%/image_eerie.sif
-    prepare_ics_eerie $HPCROOTDIR $LOGS_DIR $CONFIGFILE $SIF_PATH
+    if [ "$LOCAL_ICS" = "true" ]; then
+        prepare_ics_eerie_local $HPCROOTDIR $LOGS_DIR $CONFIGFILE $SIF_PATH
+    fi
+
+    if [ "$LOCAL_ICS" = "false" ]; then
+        prepare_ics_eerie_mars $HPCROOTDIR $LOGS_DIR $CONFIGFILE $SIF_PATH
+    fi
+    
 else
     echo "Invalid IC source specified. Please use 'fdb' / 'era5' / 'eerie'."
     exit 1
