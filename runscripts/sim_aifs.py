@@ -109,7 +109,7 @@ def main() -> None:
     initial_conditions = initial_conditions.rename(mapper)
 
 
-    os.mkdir(_OUTPUT_TEMP_PATH, exist_ok=True)
+    os.makedirs(_OUTPUT_TEMP_PATH, exist_ok=True)
     
     for state in runner.run(input_state=input_state, lead_time=outer_steps):
         state_name = state['date'].strftime('%Y%m%d%H')
