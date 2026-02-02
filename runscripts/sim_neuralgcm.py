@@ -113,10 +113,7 @@ def main() -> None:
     predictions_ds = predictions_ds.assign_coords(step=("valid_time", steps))
     predictions_ds = predictions_ds.drop_vars('sim_time')
 
-    # Format output variables and select
-    output_vars = normalize_out_vars(_OUT_VARS)
-    if 'all' not in output_vars:
-        predictions_ds = predictions_ds[output_vars]
+    
 
     # Format output frequency
     if _OUT_FREQ == "daily":
@@ -154,11 +151,15 @@ def main() -> None:
         predictions_ds = predictions_ds.interp(level=desired_levels)
     
     
-    # Ensure output path exists
-    os.makedirs(_OUTPUT_PATH, exist_ok=True)
+    # Format output variables and select
+    output_vars = normalize_out_vars(_OUT_VARS)
+    for var in output_vars:
+        predictions_datarray = predictions_ds[var]
+        OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var}/{str(_RNG_KEY)}"
+        os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
+        OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}.nc"
+        predictions_datarray.to_netcdf(OUTPUT_FILE)
 
-    # Save to NetCDF
-    predictions_ds.to_netcdf(f"{_OUTPUT_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}.nc")
 
 
 if __name__ == "__main__":
