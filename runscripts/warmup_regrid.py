@@ -40,3 +40,17 @@ ekr.interpolate(
 )
 
 print('Saved regrid 0.25° to N320 and back test successfully.')
+
+
+
+in_grid = {"grid": "N320"}
+out_grid = {"grid": [1, 1]}
+
+ekr.interpolate(
+    dummy_n320,
+    in_grid=in_grid,
+    out_grid=out_grid,
+    method="linear",
+)
+
+print('Saved regrid N320 to 1° and back test successfully.')
