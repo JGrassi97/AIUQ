@@ -158,7 +158,7 @@ def main() -> None:
     os.makedirs(_OUTPUT_PATH, exist_ok=True)
 
     # Save to NetCDF
-    predictions_ds.to_netcdf(f"{_OUTPUT_PATH}/model_state-{_START_TIME}-{_END_TIME}-{_RNG_KEY}.nc")
+    predictions_ds.to_netcdf(f"{_OUTPUT_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}.nc")
 
 
 if __name__ == "__main__":

@@ -46,6 +46,7 @@ def main() -> None:
     _OUT_FREQ           = config.get("OUT_FREQ", "")
     _OUT_RES            = config.get("OUT_RES", "")
     _OUT_LEVS           = config.get("OUT_LEVS", "")
+    _RNG_KEY            = config.get("RNG_KEY", "")
     _OUTPUT_TEMP_PATH   = config.get("OUTPUT_TEMP_PATH", "")
 
     files = os.listdir(_OUTPUT_TEMP_PATH)
@@ -166,7 +167,7 @@ def main() -> None:
     os.makedirs(_OUTPUT_PATH, exist_ok=True)
 
     # Write output
-    final_file = f"{_OUTPUT_PATH}/model_state-{_START_TIME}-{_END_TIME}-{_RNG_KEY}_regular025.nc"
+    final_file = f"{_OUTPUT_PATH}/aifs-{_START_TIME}-{_END_TIME}-{_RNG_KEY}.nc"
     dataset_complete.to_netcdf(final_file)
     logging.info("Wrote: %s", final_file)
 
