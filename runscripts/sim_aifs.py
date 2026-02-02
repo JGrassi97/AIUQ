@@ -109,6 +109,8 @@ def main() -> None:
     initial_conditions = initial_conditions.rename(mapper)
 
 
+    os.mkdir(_OUTPUT_TEMP_PATH, exist_ok=True)
+    
     for state in runner.run(input_state=input_state, lead_time=outer_steps):
         state_name = state['date'].strftime('%Y%m%d%H')
         print(f"Generated state for {state_name}")
@@ -121,8 +123,6 @@ def main() -> None:
         output_npz = os.path.join(_OUTPUT_TEMP_PATH, f"sim_aifs_{state_name}.npz")
         np.savez_compressed(output_npz, timestamp=int(state['date'].timestamp()), **output_fields)
         print(f"Saved output to {output_npz}")
-    
-    # Save outputs
 
 
 
