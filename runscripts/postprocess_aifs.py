@@ -128,7 +128,7 @@ def main() -> None:
 
         dataset_final.append(dataset_complete)
 
-    dataset_complete = xr.concat(dataset_final, dim='time')
+    dataset_complete = xr.concat(dataset_final, dim='time').sortby('time')
 
 
 
