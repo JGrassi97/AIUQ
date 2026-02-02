@@ -10,6 +10,7 @@ import ast
 import json
 import pickle
 import logging
+from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 
 # Third party
@@ -259,82 +260,83 @@ def main() -> None:
 
     states = []
     for state in runner.run(input_state=input_state, lead_time=outer_steps):
-        states.append(state_to_xarray_points(state))
+        #states.append(state_to_xarray_points(deepcopy(state)))
+        states.append(deepcopy(state))
 
-    states = xr.concat(states, dim="time")
-    print(states)
+    # states = xr.concat(states, dim="time")
+    # print(states)
 
-    # Regrid back N320 -> regular 0.25
-    final_025 = regrid_n320_to_regular025(states)
+    # # Regrid back N320 -> regular 0.25
+    # final_025 = regrid_n320_to_regular025(states)
 
-    # --- Build valid_time/step coords consistent with produced outputs ---
-    delta_t = np.timedelta64(int(_INNER_STEPS), "h")
+    # # --- Build valid_time/step coords consistent with produced outputs ---
+    # delta_t = np.timedelta64(int(_INNER_STEPS), "h")
 
-    initial_time = initial_conditions.time.isel(time=0).values
+    # initial_time = initial_conditions.time.isel(time=0).values
 
-    # how many forecast steps we actually have
-    n_out = final_025.sizes["time"]
+    # # how many forecast steps we actually have
+    # n_out = final_025.sizes["time"]
 
-    valid_time = initial_time + np.arange(n_out) * delta_t
-    steps = np.arange(n_out) * delta_t
+    # valid_time = initial_time + np.arange(n_out) * delta_t
+    # steps = np.arange(n_out) * delta_t
 
-    # rename time -> valid_time and attach coords with matching length
-    final_025 = final_025.rename({"time": "valid_time"})
-    final_025 = final_025.assign_coords(valid_time=("valid_time", valid_time))
-    final_025 = final_025.assign_coords(time=initial_time)
-    final_025 = final_025.assign_coords(step=("valid_time", steps))
+    # # rename time -> valid_time and attach coords with matching length
+    # final_025 = final_025.rename({"time": "valid_time"})
+    # final_025 = final_025.assign_coords(valid_time=("valid_time", valid_time))
+    # final_025 = final_025.assign_coords(time=initial_time)
+    # final_025 = final_025.assign_coords(step=("valid_time", steps))
 
-    # Drop sim_time if present
-    if "sim_time" in final_025.variables:
-        final_025 = final_025.drop_vars("sim_time")
+    # # Drop sim_time if present
+    # if "sim_time" in final_025.variables:
+    #     final_025 = final_025.drop_vars("sim_time")
 
-    # Format output variables and select
-    output_vars = normalize_out_vars(_OUT_VARS)
-    if 'all' not in output_vars:
-        final_025 = final_025[output_vars]
+    # # Format output variables and select
+    # output_vars = normalize_out_vars(_OUT_VARS)
+    # if 'all' not in output_vars:
+    #     final_025 = final_025[output_vars]
     
-    # Format output frequency
-    if _OUT_FREQ == "daily":
-        final_025 = final_025.resample(valid_time="1D").mean()
+    # # Format output frequency
+    # if _OUT_FREQ == "daily":
+    #     final_025 = final_025.resample(valid_time="1D").mean()
     
-    # Format output resolution
-    if _OUT_RES == "0.25":
-        latitudes = np.arange(-90, 90.25, 0.25)
-        longitudes = np.arange(0, 360, 0.25)
-    elif _OUT_RES == "0.5":
-        latitudes = np.arange(-90, 90.5, 0.5)
-        longitudes = np.arange(0, 360, 0.5)
-    elif _OUT_RES == "1":
-        latitudes = np.arange(-90, 91, 1.0)
-        longitudes = np.arange(0, 360, 1.0)
-    elif _OUT_RES == "1.5":
-        latitudes = np.arange(-90, 91.5, 1.5)
-        longitudes = np.arange(0, 360, 1.5)
-    elif _OUT_RES == "2":
-        latitudes = np.arange(-90, 92, 2.0)
-        longitudes = np.arange(0, 360, 2.0)
-    else:
-        latitudes = final_025.latitude.values
-        longitudes = final_025.longitude.values
+    # # Format output resolution
+    # if _OUT_RES == "0.25":
+    #     latitudes = np.arange(-90, 90.25, 0.25)
+    #     longitudes = np.arange(0, 360, 0.25)
+    # elif _OUT_RES == "0.5":
+    #     latitudes = np.arange(-90, 90.5, 0.5)
+    #     longitudes = np.arange(0, 360, 0.5)
+    # elif _OUT_RES == "1":
+    #     latitudes = np.arange(-90, 91, 1.0)
+    #     longitudes = np.arange(0, 360, 1.0)
+    # elif _OUT_RES == "1.5":
+    #     latitudes = np.arange(-90, 91.5, 1.5)
+    #     longitudes = np.arange(0, 360, 1.5)
+    # elif _OUT_RES == "2":
+    #     latitudes = np.arange(-90, 92, 2.0)
+    #     longitudes = np.arange(0, 360, 2.0)
+    # else:
+    #     latitudes = final_025.latitude.values
+    #     longitudes = final_025.longitude.values
     
-    if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
-        final_025 = final_025.interp(latitude=latitudes, longitude=longitudes, method="linear")
+    # if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
+    #     final_025 = final_025.interp(latitude=latitudes, longitude=longitudes, method="linear")
 
-    # Format output pressure levels
-    if _OUT_LEVS != 'original':
-        desired_levels = [
-            int(plev)
-            for plev in _OUT_LEVS.strip('[]').split(',')
-        ]
-        final_025 = final_025.interp(level=desired_levels)
+    # # Format output pressure levels
+    # if _OUT_LEVS != 'original':
+    #     desired_levels = [
+    #         int(plev)
+    #         for plev in _OUT_LEVS.strip('[]').split(',')
+    #     ]
+    #     final_025 = final_025.interp(level=desired_levels)
     
-    # Create output directory
-    os.makedirs(_OUTPUT_PATH, exist_ok=True)
+    # # Create output directory
+    # os.makedirs(_OUTPUT_PATH, exist_ok=True)
 
-    # Write output
-    final_file = f"{_OUTPUT_PATH}/model_state-{_START_TIME}-{_END_TIME}-{_RNG_KEY}_regular025.nc"
-    final_025.to_netcdf(final_file)
-    logging.info("Wrote: %s", final_file)
+    # # Write output
+    # final_file = f"{_OUTPUT_PATH}/model_state-{_START_TIME}-{_END_TIME}-{_RNG_KEY}_regular025.nc"
+    # final_025.to_netcdf(final_file)
+    # logging.info("Wrote: %s", final_file)
 
 
 if __name__ == "__main__":
