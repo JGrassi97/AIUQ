@@ -215,5 +215,5 @@ prepare_ics_eerie() {
         --env HPCROOTDIR="$hpc_rootdir" \
         --env configfile="$configfile" \
         "$sif_path" \
-        python3 "$hpc_rootdir/runscripts/download_eerie.py" --config "$configfile"
+        python3 "$hpc_rootdir/runscripts/retrieve_eerie_local.py" --config "$configfile"
 }
