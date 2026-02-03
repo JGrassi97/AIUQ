@@ -49,6 +49,12 @@ def main() -> None:
     _RNG_KEY            = config.get("RNG_KEY", "")
     _OUTPUT_TEMP_PATH   = config.get("OUTPUT_TEMP_PATH", "")
 
+    if _OUT_LEVS != 'original':
+        desired_levels = [
+            int(plev)
+            for plev in _OUT_LEVS.strip('[]').split(',')
+        ]
+
     files = os.listdir(_OUTPUT_TEMP_PATH)
     files = [os.path.join(_OUTPUT_TEMP_PATH, f) for f in files]
 
@@ -92,7 +98,7 @@ def main() -> None:
         for field in pl_fields:
             var_name = field.split('_')[0]
 
-            for level in _OUT_LEVS:
+            for level in desired_levels:
                 field_name = f'f__{var_name}_{level}'
 
                 if field_name in data:
