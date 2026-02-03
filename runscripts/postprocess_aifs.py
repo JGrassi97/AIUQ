@@ -77,7 +77,7 @@ def main() -> None:
                         var,
                         {"grid": "N320"},
                         {"grid": grid_out},
-                        'linear'
+                        "linear"
                     )
 
             dataarray = xr.DataArray(
@@ -102,7 +102,7 @@ def main() -> None:
                         var,
                         {"grid": "N320"},
                         {"grid": grid_out},
-                        'linear'
+                        "linear"
                     )
 
                     dataarray = xr.DataArray(

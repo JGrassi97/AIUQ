@@ -20,6 +20,8 @@ if [ "$PLATFORM_NAME" = "MARENOSTRUM5" ]; then
     ml singularity
 fi
 
+rm -r ~/.cache/earthkit-regrid
+
 singularity exec --nv \
     --bind $HPCROOTDIR \
     --env HPCROOTDIR=$HPCROOTDIR \
