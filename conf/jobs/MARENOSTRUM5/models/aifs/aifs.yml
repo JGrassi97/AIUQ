@@ -1,20 +1,20 @@
 JOBS:
-  
-  PREPARE_ICS:
-    FILE: templates/prepare_ics.sh
 
   WARMUP_REGRID:
     FILE: templates/warmup_regrid.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5-LOGIN"
-    RUNNING: DATE
-    DEPENDENCIES: PREPARE_ICS
+    RUNNING: ONCE
+    DEPENDENCIES: SYNCHRONIZE
     NODES: 1
     PROCESSORS: 80
   
+  PREPARE_ICS:
+    FILE: templates/prepare_ics.sh
+
   SAVE_ICS:
     FILE: templates/ics_aifs.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5CPU"
-    DEPENDENCIES: WARMUP_REGRID
+    DEPENDENCIES: PREPARE_ICS
     RUNNING: DATE
     NODES: 1
     PROCESSORS: 80
@@ -28,18 +28,10 @@ JOBS:
     PROCESSORS: 20
     CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
   
-  WARMUP_REGRID_2:
-    FILE: templates/warmup_regrid.sh,templates/config.yml
-    PLATFORM: "MARENOSTRUM5-LOGIN"
-    RUNNING: CHUNK
-    DEPENDENCIES: SIM
-    NODES: 1
-    PROCESSORS: 80
-  
   POSTPROCESS:
     FILE: templates/postprocess_aifs.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5ACC"
-    DEPENDENCIES: WARMUP_REGRID_2
+    DEPENDENCIES: SIM
     RUNNING: CHUNK
     NODES: 1
     PROCESSORS: 20
