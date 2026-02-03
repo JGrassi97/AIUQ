@@ -175,13 +175,19 @@ def main() -> None:
 
     # Write output
     # Format output variables and select
+
     output_vars = normalize_out_vars(_OUT_VARS)
-    for var in output_vars:
-        predictions_datarray = dataset[var]
-        OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var}/{str(_RNG_KEY)}"
-        os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
-        OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}.nc"
-        predictions_datarray.to_netcdf(OUTPUT_FILE)
+
+    try:
+        for var in output_vars:
+            predictions_datarray = dataset[var]
+            OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var}/{str(_RNG_KEY)}"
+            os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
+            OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}.nc"
+            predictions_datarray.to_netcdf(OUTPUT_FILE)
+    except:
+        dataset.to_netcdf(f"{_OUTPUT_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-full.nc")
+
 
 
 if __name__ == "__main__":
