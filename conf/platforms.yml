@@ -13,6 +13,7 @@ PLATFORMS:
     MAX_WALLCLOCK: '01:30'
     HPCROOTDIR: /gpfs/scratch/ehpc536/bsc850074/%EXPID%
     CURRENT_ROOTDIR: /gpfs/scratch/ehpc536/bsc850074/%EXPID%
+    CURRENT_SCRATCH_DIR: /gpfs/scratch/ehpc536/bsc850074/%EXPID%
 
   MARENOSTRUM5ACC:
     TYPE: SLURM
