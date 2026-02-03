@@ -39,6 +39,19 @@ PLATFORMS:
     CUSTOM_DIRECTIVES: ''
     MAX_WALLCLOCK: '01:30'
 
+  MARENOSTRUM5-LOGIN-ACC:
+    TYPE: ps
+    HOST: alogin4.bsc.es
+    PROJECT: ehpc536
+    USER: bsc850074
+    QUEUE: acc_ehpc
+    SCRATCH_DIR: /gpfs/scratch
+    ADD_PROJECT_TO_HOST: False
+    TEMP_DIR: ''
+    PROCESSORS_PER_NODE: 112
+    CUSTOM_DIRECTIVES: ''
+    MAX_WALLCLOCK: '01:30'
+
   ###############################################################
   #####                   POLITO MACHINE                    #####
   ###############################################################
