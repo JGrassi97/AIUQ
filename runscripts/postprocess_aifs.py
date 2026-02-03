@@ -151,7 +151,7 @@ def main() -> None:
         dataset = dataset.resample(valid_time="1D").mean()
 
     # Format output resolution
-    elif _OUT_RES == "0.5":
+    if _OUT_RES == "0.5":
         latitudes = np.arange(-90, 90.5, 0.5)
         longitudes = np.arange(0, 360, 0.5)
     elif _OUT_RES == "1":
