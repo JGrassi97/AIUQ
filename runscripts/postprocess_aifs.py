@@ -52,15 +52,7 @@ def main() -> None:
     files = os.listdir(_OUTPUT_TEMP_PATH)
     files = [os.path.join(_OUTPUT_TEMP_PATH, f) for f in files]
 
-    if _OUT_RES == "0.25":
-        lat = np.linspace(90.0, -90.0, int(180 / 0.25) + 1, dtype=np.float32)
-        lon = np.linspace(0.0, 360.0 - 0.25, int(360 / 0.25), dtype=np.float32)
-        grid_out = [0.25, 0.25] 
-    
-    if _OUT_RES == "1":
-        lat = np.linspace(90.0, -90.0, int(180 / 1) + 1, dtype=np.float32)  
-        lon = np.linspace(0.0, 360.0 - 1, int(360 / 1), dtype=np.float32)
-        grid_out = [1.0, 1.0]
+    grid_out = [0.25, 0.25]
 
     dataset_final = []
 
@@ -162,6 +154,27 @@ def main() -> None:
     # Format output frequency
     if _OUT_FREQ == "daily":
         dataset_complete = dataset_complete.resample(valid_time="1D").mean()
+
+    # Format output resolution
+    elif _OUT_RES == "0.5":
+        latitudes = np.arange(-90, 90.5, 0.5)
+        longitudes = np.arange(0, 360, 0.5)
+    elif _OUT_RES == "1":
+        latitudes = np.arange(-90, 91, 1.0)
+        longitudes = np.arange(0, 360, 1.0)
+    elif _OUT_RES == "1.5":
+        latitudes = np.arange(-90, 91.5, 1.5)
+        longitudes = np.arange(0, 360, 1.5)
+    elif _OUT_RES == "2":
+        latitudes = np.arange(-90, 92, 2.0)
+        longitudes = np.arange(0, 360, 2.0)
+    else:
+        latitudes = dataset_complete.latitude.values
+        longitudes = dataset_complete.longitude.values
+    
+    if _OUT_RES in ["0.5", "1", "1.5", "2"]:
+        dataset_complete = dataset_complete.interp(latitude=latitudes, longitude=longitudes, method="linear")
+    
     
     # Create output directory
     os.makedirs(_OUTPUT_PATH, exist_ok=True)
