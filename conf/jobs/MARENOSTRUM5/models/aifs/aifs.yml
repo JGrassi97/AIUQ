@@ -38,7 +38,7 @@ JOBS:
   
   POSTPROCESS:
     FILE: templates/postprocess_aifs.sh,templates/config.yml
-    PLATFORM: "MARENOSTRUM5-LOGIN"
+    PLATFORM: "MARENOSTRUM5CPU"
     DEPENDENCIES: SIM
     RUNNING: CHUNK
     NODES: 1
