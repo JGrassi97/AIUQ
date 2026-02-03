@@ -11,7 +11,7 @@ PLATFORMS:
     TEMP_DIR: ''
     PROCESSORS_PER_NODE: 112
     MAX_WALLCLOCK: '01:30'
-    # HPCROOTDIR: /gpfs/scratch/ehpc536/bsc850074/%EXPID%
+    HPCROOTDIR: /gpfs/scratch/ehpc536/bsc850074/%EXPID%
 
   MARENOSTRUM5ACC:
     TYPE: SLURM
