@@ -28,10 +28,18 @@ JOBS:
     PROCESSORS: 20
     CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
   
+  WARMUP_REGRID_2:
+    FILE: templates/warmup_regrid.sh,templates/config.yml
+    PLATFORM: "MARENOSTRUM5-LOGIN"
+    RUNNING: CHUNK
+    DEPENDENCIES: SIM
+    NODES: 1
+    PROCESSORS: 80
+  
   POSTPROCESS:
     FILE: templates/postprocess_aifs.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5ACC"
-    DEPENDENCIES: SIM
+    DEPENDENCIES: WARMUP_REGRID_2
     RUNNING: CHUNK
     NODES: 1
     PROCESSORS: 20
