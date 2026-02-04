@@ -34,7 +34,7 @@ def post_process_aifs(var_name, data, date, _OUT_LEVS) -> None:
             for plev in _OUT_LEVS.strip('[]').split(',')
         ]
 
-    dt_object = datetime.fromtimestamp(date)
+    dt_object = date
 
     dataarrays = []
     if '_' not in var_name:
