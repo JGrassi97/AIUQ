@@ -27,6 +27,8 @@ from AIUQst_lib.pressure_levels import check_pressure_levels
 from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
 from AIUQst_lib.variables import name_mapper_for_model
 
+from ics_aifs import ics_aifs
+
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
@@ -62,52 +64,25 @@ def main() -> None:
     _END_TIME           = config.get("END_TIME", "")
     _HPCROOTDIR         = config.get("HPCROOTDIR", "")
     _MODEL_NAME         = config.get("MODEL_NAME", "")
-    _STD_VERSION        = config.get("STD_VERSION", "")
     _MODEL_CHECKPOINT   = config.get("MODEL_CHECKPOINT", "")
     _INNER_STEPS        = config.get("INNER_STEPS", 1)
     _OUTPUT_TEMP_PATH   = config.get("OUTPUT_TEMP_PATH", "")
-    _ICS_TEMP_DIR       = config.get("ICS_TEMP_DIR", "")
-
-
-    # IC settings
-    model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
-    standard_dict = read_std_version(_HPCROOTDIR, _STD_VERSION)
 
     # Format time settings
     start_date = datetime.strptime(_START_TIME, '%Y-%m-%d')
-    input_end_date = datetime.strptime(_START_TIME, '%Y-%m-%d') + timedelta(days=1)
     end_date = datetime.strptime(_END_TIME, '%Y-%m-%d')
 
     days_to_run = (end_date - start_date).days + 1
     outer_steps = days_to_run * 24
-    delta_t = np.timedelta64(_INNER_STEPS, 'h')
 
     print(f"Running from {_START_TIME} to {_END_TIME} ({days_to_run} days)")
     print(f"Total outer steps: {outer_steps} (inner steps: {_INNER_STEPS}h)")
 
     # Load model
     runner = SimpleRunner(str(_MODEL_CHECKPOINT), device="cuda")
-
-    # Load also the zarr to have the starting time
-    initial_conditions = xr.open_zarr(_INI_DATA_PATH, chunks=None).load()
-
-    # Real ICS are stored in npz files
-    ics_basename = f"ics_aifs_{start_date.strftime('%Y%m%d')}"
-    ics_npz = os.path.join(_ICS_TEMP_DIR, f"{ics_basename}.npz")
-    npz = np.load(ics_npz, allow_pickle=False)
-    timestamp = int(npz["timestamp"][0]) if "timestamp" in npz.files else None
-    if timestamp is None:
-        raise RuntimeError(f"No 'timestamp' found in {ics_npz}")
-    input_state = {"date": datetime.fromtimestamp(timestamp, tz=timezone.utc), "fields": {}}
-    for key in npz.files:
-        if key.startswith("f__"):
-            fname = key[len("f__"):]
-            input_state["fields"][fname] = npz[key]
-
-    # Map names for model specifics
-    mapper = name_mapper_for_model(model_card['variables'], standard_dict['variables'])
-    initial_conditions = initial_conditions.rename(mapper)
-
+    
+    input_state = ics_aifs(_INI_DATA_PATH, _START_TIME, _HPCROOTDIR, _MODEL_NAME)
+    
 
     os.makedirs(_OUTPUT_TEMP_PATH, exist_ok=True)
     

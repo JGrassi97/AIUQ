@@ -21,76 +21,13 @@ from AIUQst_lib.variables import reassign_long_names_units, define_mappers
 
 logging.basicConfig(level=logging.DEBUG)
 
-# Set the earthkit regrid cache directory
-# from earthkit.regrid.utils.config import CONFIG
-# EARTHKIT_REGRID_CACHE = os.environ.get('EARTHKIT_REGRID_CACHE', '')
-# CONFIG.set("cache-policy", "user")
-# CONFIG.set("user-cache-directory", EARTHKIT_REGRID_CACHE)
 
-def regrid_n320_to_regular025(ds_points: xr.Dataset) -> xr.Dataset:
-    """
-    Regrid from N320 (dim: point) to regular_ll 0.25° (dim: latitude, longitude).
-    Assumes the point order is ECMWF N320.
-    """
-    in_grid = {"grid": "N320"}
-    out_grid = {"grid": [0.25, 0.25]}
+def ics_aifs(_INI_DATA_PATH, _START_TIME, _HPCROOTDIR, _MODEL_NAME) -> None:
 
-    lat = np.linspace(90.0, -90.0, int(180 / 0.25) + 1, dtype=np.float32)     # 721
-    lon = np.linspace(0.0, 360.0 - 0.25, int(360 / 0.25), dtype=np.float32)  # 1440
-
-    data_vars = {}
-    time = ds_points["time"].values
-    has_level = "level" in ds_points.dims
-
-    for v in ds_points.data_vars:
-        da = ds_points[v]
-        if "point" not in da.dims:
-            continue
-
-        if has_level and "level" in da.dims:
-            out = np.empty((da.sizes["time"], da.sizes["level"], lat.size, lon.size), dtype=np.float32)
-            for ti in range(da.sizes["time"]):
-                for li in range(da.sizes["level"]):
-                    out[ti, li, :, :] = ekr.interpolate(
-                        da.values[ti, li, :],
-                        in_grid,
-                        out_grid,
-                        method="linear",
-                    ).astype(np.float32, copy=False)
-            data_vars[v] = (("time", "level", "latitude", "longitude"), out)
-        else:
-            out = np.empty((da.sizes["time"], lat.size, lon.size), dtype=np.float32)
-            for ti in range(da.sizes["time"]):
-                out[ti, :, :] = ekr.interpolate(
-                    da.values[ti, :],
-                    in_grid,
-                    out_grid,
-                    method="linear",
-                ).astype(np.float32, copy=False)
-            data_vars[v] = (("time", "latitude", "longitude"), out)
-
-    coords = {"time": time, "latitude": lat, "longitude": lon}
-    if has_level:
-        coords["level"] = ds_points["level"].values
-
-    ds_out = xr.Dataset(data_vars=data_vars, coords=coords)
-    ds_out["latitude"].attrs["units"] = "degrees_north"
-    ds_out["longitude"].attrs["units"] = "degrees_east"
-    if has_level:
-        ds_out["level"].attrs["units"] = "hPa"
-    return ds_out
-
-def main():
-
-    # Read config
-    args = parse_arguments()
-    config = read_config(args.config)
-
-    _INI_DATA_PATH      = config.get('INI_DATA_PATH', "")
-    _START_TIME         = config.get("START_TIME", "")
-    _HPCROOTDIR         = config.get("HPCROOTDIR", "")
-    _MODEL_NAME         = config.get("MODEL_NAME", "")
-    _ICS_TEMP_DIR       = config.get("ICS_TEMP_DIR", "")
+    # _INI_DATA_PATH      = config.get('INI_DATA_PATH', "")
+    # _START_TIME         = config.get("START_TIME", "")
+    # _HPCROOTDIR         = config.get("HPCROOTDIR", "")
+    # _MODEL_NAME         = config.get("MODEL_NAME", "")
 
     # Reading model card for variable/level info
     model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
@@ -199,37 +136,6 @@ def main():
 
     timestamp = int(DATE.replace(tzinfo=timezone.utc).timestamp())
 
-    # use YYYYMMDD in filename to avoid spaces/colons
-    ics_basename = f"ics_aifs_{start_date.strftime('%Y%m%d')}"
-    ics_file = os.path.join(_ICS_TEMP_DIR, f"{ics_basename}.npz")
-    ics_names_file = os.path.join(_ICS_TEMP_DIR, f"{ics_basename}.names.json")
+    input_state = {"date": datetime.fromtimestamp(timestamp, tz=timezone.utc), "fields": fields}
 
-    # Ensure dir exists
-    os.makedirs(_ICS_TEMP_DIR, exist_ok=True)
-    print(f"Writing ICs to {ics_file} ...")
-
-    # Prepare dict for np.savez: prefix field arrays to avoid name collisions
-    np_dict = {}
-    field_names = []
-    for k, arr in fields.items():
-        # Ensure ndarray of known dtype (float32)
-        a = np.asarray(arr, dtype=np.float32)
-        np_dict[f"f__{k}"] = a
-        field_names.append(k)
-
-    # Add timestamp as scalar array
-    np_dict["timestamp"] = np.array([timestamp], dtype=np.int64)
-
-    # Save compressed .npz
-    np.savez_compressed(ics_file, **np_dict)
-
-    # Save the ordered list of field names in json for human inspection
-    with open(ics_names_file, "w") as nf:
-        json.dump({"fields": field_names, "timestamp": timestamp}, nf)
-
-    print(f"Wrote: {ics_file}")
-    print(f"Wrote names meta: {ics_names_file}")
-
-
-if __name__ == "__main__":
-    main()
+    return input_state

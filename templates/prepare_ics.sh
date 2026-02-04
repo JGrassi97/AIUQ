@@ -29,7 +29,6 @@ REQUESTS_DIR=${HPCROOTDIR}/requests
 
 DATA_PATH="${INI_DATA_PATH}/${MODEL_NAME}/${MODEL_CHECKPOINT_NAME}/${CHUNK_START_DATE}"
 
-
 # Load Singularity module only on MareNostrum5
 if [ "$PLATFORM_NAME" = "MARENOSTRUM5" ]; then
     ml singularity
