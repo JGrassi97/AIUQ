@@ -3,4 +3,6 @@ JOBS:
     FILE: templates/prepare_ics.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5-LOGIN"
     RUNNING: DATE
-    DEPENDENCIES: WARMUP_REGRID_ACC
+    DEPENDENCIES: 
+      - WARMUP_REGRID_ACC 
+      - WARMUP_REGRID
