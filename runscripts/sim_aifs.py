@@ -28,6 +28,7 @@ from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
 from AIUQst_lib.variables import name_mapper_for_model
 
 from ics_aifs import ics_aifs
+from postprocess_aifs import post_process_aifs
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -66,7 +67,15 @@ def main() -> None:
     _MODEL_NAME         = config.get("MODEL_NAME", "")
     _MODEL_CHECKPOINT   = config.get("MODEL_CHECKPOINT", "")
     _INNER_STEPS        = config.get("INNER_STEPS", 1)
-    _OUTPUT_TEMP_PATH   = config.get("OUTPUT_TEMP_PATH", "")
+    _OUTPUT_PATH        = config.get("OUTPUT_PATH", "")
+    _OUT_VARS           = config.get("OUT_VARS", [])
+    _OUT_FREQ           = config.get("OUT_FREQ", "")
+    _OUT_RES            = config.get("OUT_RES", "")
+    _RNG_KEY            = config.get("RNG_KEY", "")
+    _OUT_LEVS           = config.get("OUT_LEVS", "")
+
+    output_vars = normalize_out_vars(_OUT_VARS)
+
 
     # Format time settings
     start_date = datetime.strptime(_START_TIME, '%Y-%m-%d')
@@ -83,24 +92,74 @@ def main() -> None:
     
     input_state = ics_aifs(_INI_DATA_PATH, _START_TIME, _HPCROOTDIR, _MODEL_NAME)
     
-
-    os.makedirs(_OUTPUT_TEMP_PATH, exist_ok=True)
+    os.makedirs(_OUTPUT_PATH, exist_ok=True)
     
+    dataset = []
     for state in runner.run(input_state=input_state, lead_time=outer_steps):
         state_name = state['date'].strftime('%Y%m%d%H')
         print(f"Generated state for {state_name}")
 
-        # Save state dict to npz
-        output_fields = {}
         for var_name, data in state['fields'].items():
-            output_fields[f"f__{var_name}"] = data.astype(np.float32)
-        
-        output_npz = os.path.join(_OUTPUT_TEMP_PATH, f"sim_aifs_{state_name}.npz")
-        np.savez_compressed(output_npz, timestamp=int(state['date'].timestamp()), **output_fields)
-        print(f"Saved output to {output_npz}")
+            if var_name in output_vars:
+                dataset.append(post_process_aifs(var_name, data, _OUT_LEVS))
+    
+    dataset = xr.concat(dataset, dim='time').sortby('time')
 
 
+    # --- Build valid_time/step coords consistent with produced outputs ---
+    delta_t = np.timedelta64(int(_INNER_STEPS), "h")
 
+    initial_conditions = xr.open_zarr(_INI_DATA_PATH).load()
+    initial_time = initial_conditions.time.isel(time=0).values
+
+    # how many forecast steps we actually have
+    n_out = dataset.sizes["time"]
+
+    valid_time = initial_time + np.arange(n_out) * delta_t
+    steps = np.arange(n_out) * delta_t
+
+    # rename time -> valid_time and attach coords with matching length
+    dataset = dataset.rename({"time": "valid_time"})
+    dataset = dataset.assign_coords(valid_time=("valid_time", valid_time))
+    dataset = dataset.assign_coords(time=initial_time)
+    dataset = dataset.assign_coords(step=("valid_time", steps))
+
+    # Drop sim_time if present
+    if "sim_time" in dataset.variables:
+        dataset = dataset.drop_vars("sim_time")
+
+    # Format output frequency
+    if _OUT_FREQ == "daily":
+        dataset = dataset.resample(valid_time="1D").mean()
+
+    # Format output resolution
+    if _OUT_RES == "0.5":
+        latitudes = np.arange(-90, 90.5, 0.5)
+        longitudes = np.arange(0, 360, 0.5)
+    elif _OUT_RES == "1":
+        latitudes = np.arange(-90, 91, 1.0)
+        longitudes = np.arange(0, 360, 1.0)
+    elif _OUT_RES == "1.5":
+        latitudes = np.arange(-90, 91.5, 1.5)
+        longitudes = np.arange(0, 360, 1.5)
+    elif _OUT_RES == "2":
+        latitudes = np.arange(-90, 92, 2.0)
+        longitudes = np.arange(0, 360, 2.0)
+    else:
+        latitudes = dataset.latitude.values
+        longitudes = dataset.longitude.values
+    
+    if _OUT_RES in ["0.5", "1", "1.5", "2"]:
+        dataset = dataset.interp(latitude=latitudes, longitude=longitudes, method="linear")
+    
+
+    for var in output_vars:
+        predictions_datarray = dataset[var]
+        OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var}/{str(_RNG_KEY)}"
+        os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
+        OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}.nc"
+        predictions_datarray.to_netcdf(OUTPUT_FILE)
+            
     
 
 if __name__ == "__main__":
