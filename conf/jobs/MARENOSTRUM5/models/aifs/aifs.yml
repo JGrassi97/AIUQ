@@ -12,7 +12,7 @@ JOBS:
     FILE: templates/warmup_regrid.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5-LOGIN-ACC"
     RUNNING: ONCE
-    DEPENDENCIES: SYNCHRONIZE
+    DEPENDENCIES: WARMUP_REGRID
     NODES: 1
     PROCESSORS: 80
   
