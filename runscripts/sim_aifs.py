@@ -101,7 +101,7 @@ def main() -> None:
 
         for var_name, data in state['fields'].items():
             if var_name in output_vars:
-                dataset.append(post_process_aifs(var_name, data, _OUT_LEVS))
+                dataset.append(post_process_aifs(var_name, data, state['date'], _OUT_LEVS))
     
     dataset = xr.concat(dataset, dim='time').sortby('time')
 

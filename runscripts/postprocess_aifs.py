@@ -26,7 +26,7 @@ from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
 from AIUQst_lib.variables import name_mapper_for_model
 
 
-def post_process_aifs(var_name, data, _OUT_LEVS) -> None:
+def post_process_aifs(var_name, data, date, _OUT_LEVS) -> None:
 
     if _OUT_LEVS != 'original':
         desired_levels = [
@@ -34,7 +34,6 @@ def post_process_aifs(var_name, data, _OUT_LEVS) -> None:
             for plev in _OUT_LEVS.strip('[]').split(',')
         ]
 
-    date = data['timestamp']
     dt_object = datetime.fromtimestamp(date)
 
     dataarrays = []
