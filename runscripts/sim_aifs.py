@@ -73,6 +73,7 @@ def main() -> None:
     _OUT_RES            = config.get("OUT_RES", "")
     _RNG_KEY            = config.get("RNG_KEY", "")
     _OUT_LEVS           = config.get("OUT_LEVS", "")
+    _ICS_TEMP_DIR       = config.get("ICS_TEMP_DIR", "")
 
     output_vars = normalize_out_vars(_OUT_VARS)
 
@@ -95,7 +96,18 @@ def main() -> None:
     # Load model
     runner = SimpleRunner(str(_MODEL_CHECKPOINT), device="cuda")
     
-    input_state = ics_aifs(_INI_DATA_PATH, _START_TIME, _HPCROOTDIR, _MODEL_NAME)
+    # Real ICS are stored in npz files
+    ics_basename = f"ics_aifs_{start_date.strftime('%Y%m%d')}"
+    ics_npz = os.path.join(_ICS_TEMP_DIR, f"{ics_basename}.npz")
+    npz = np.load(ics_npz, allow_pickle=False)
+    timestamp = int(npz["timestamp"][0]) if "timestamp" in npz.files else None
+    if timestamp is None:
+        raise RuntimeError(f"No 'timestamp' found in {ics_npz}")
+    input_state = {"date": datetime.fromtimestamp(timestamp, tz=timezone.utc), "fields": {}}
+    for key in npz.files:
+        if key.startswith("f__"):
+            fname = key[len("f__"):]
+            input_state["fields"][fname] = npz[key]
     
     os.makedirs(_OUTPUT_PATH, exist_ok=True)
     
