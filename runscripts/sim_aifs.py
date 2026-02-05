@@ -175,7 +175,5 @@ def main() -> None:
         OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}.nc"
         predictions_datarray.to_netcdf(OUTPUT_FILE)
             
-    
-
 if __name__ == "__main__":
     main()
