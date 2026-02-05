@@ -109,7 +109,7 @@ def main() -> None:
         datasets_per_time.append(ds_t)
 
     dataset = xr.concat(datasets_per_time, dim="time", join="exact").sortby("time")
-    dataset.to_netcdf(f'{_OUTPUT_PATH}/intermediate_output.nc')  # Save intermediate output for debugging
+    #dataset.to_netcdf(f'{_OUTPUT_PATH}/intermediate_output.nc')  # Save intermediate output for debugging
     print("Concatenated dataset")
 
     # --- Build valid_time/step coords consistent with produced outputs ---
@@ -164,7 +164,7 @@ def main() -> None:
     if _OUT_RES in ["0.5", "1", "1.5", "2"]:
         dataset = dataset.interp(latitude=latitudes, longitude=longitudes, method="linear")
     dataset.to_netcdf(f'{_OUTPUT_PATH}/formatted_res_output.nc')  # Save formatted output for debugging
-    
+
     print("Formatted output resolution")
     
 
