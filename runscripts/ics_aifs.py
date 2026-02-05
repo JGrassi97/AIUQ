@@ -22,7 +22,17 @@ from AIUQst_lib.variables import reassign_long_names_units, define_mappers
 logging.basicConfig(level=logging.DEBUG)
 
 
-def ics_aifs(_INI_DATA_PATH, _START_TIME, _HPCROOTDIR, _MODEL_NAME) -> None:
+def main():
+
+    # Read config
+    args = parse_arguments()
+    config = read_config(args.config)
+
+    _INI_DATA_PATH      = config.get('INI_DATA_PATH', "")
+    _START_TIME         = config.get("START_TIME", "")
+    _HPCROOTDIR         = config.get("HPCROOTDIR", "")
+    _MODEL_NAME         = config.get("MODEL_NAME", "")
+    _ICS_TEMP_DIR       = config.get("ICS_TEMP_DIR", "")
 
     # Reading model card for variable/level info
     model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
@@ -128,8 +138,40 @@ def ics_aifs(_INI_DATA_PATH, _START_TIME, _HPCROOTDIR, _MODEL_NAME) -> None:
     t64 = data_n320["time"].isel(time=1).values
     DATE = datetime.utcfromtimestamp(t64.astype("datetime64[s]").astype(int))
 
+
     timestamp = int(DATE.replace(tzinfo=timezone.utc).timestamp())
 
-    input_state = {"date": datetime.fromtimestamp(timestamp, tz=timezone.utc), "fields": fields}
+    # use YYYYMMDD in filename to avoid spaces/colons
+    ics_basename = f"ics_aifs_{start_date.strftime('%Y%m%d')}"
+    ics_file = os.path.join(_ICS_TEMP_DIR, f"{ics_basename}.npz")
+    ics_names_file = os.path.join(_ICS_TEMP_DIR, f"{ics_basename}.names.json")
 
-    return input_state
+    # Ensure dir exists
+    os.makedirs(_ICS_TEMP_DIR, exist_ok=True)
+    print(f"Writing ICs to {ics_file} ...")
+
+    # Prepare dict for np.savez: prefix field arrays to avoid name collisions
+    np_dict = {}
+    field_names = []
+    for k, arr in fields.items():
+        # Ensure ndarray of known dtype (float32)
+        a = np.asarray(arr, dtype=np.float32)
+        np_dict[f"f__{k}"] = a
+        field_names.append(k)
+
+    # Add timestamp as scalar array
+    np_dict["timestamp"] = np.array([timestamp], dtype=np.int64)
+
+    # Save compressed .npz
+    np.savez_compressed(ics_file, **np_dict)
+
+    # Save the ordered list of field names in json for human inspection
+    with open(ics_names_file, "w") as nf:
+        json.dump({"fields": field_names, "timestamp": timestamp}, nf)
+
+    print(f"Wrote: {ics_file}")
+    print(f"Wrote names meta: {ics_names_file}")
+
+
+if __name__ == "__main__":
+    main()
