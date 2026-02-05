@@ -5,7 +5,7 @@ import earthkit.regrid as ekr
 
 GRID_IN = {"grid": "N320"}
 GRID_OUT = {"grid": [0.25, 0.25]}
-
+N_POINTS = 542080
 # coordinate standard per una 0.25° globale (ECMWF-style: lon 0..360)
 LATS = np.arange(90.0, -90.25, -0.25)   # 721
 LONS = np.arange(0.0, 360.0, 0.25)      # 1440
@@ -13,7 +13,8 @@ LONS = np.arange(0.0, 360.0, 0.25)      # 1440
 LEVEL_RE = re.compile(r"^(?P<base>.+)_(?P<lev>\d+)$")
 
 def interp_to_025(data):
-    return ekr.interpolate(data, GRID_IN, GRID_OUT, "linear")
+    #return ekr.interpolate(data, GRID_IN, GRID_OUT, "linear")
+    return data
 
 def parse_level_name(var_name: str):
     """
@@ -52,8 +53,8 @@ def build_dataset_for_state(state, output_vars, output_levels):
 
         da2d = xr.DataArray(
             data_interp,
-            dims=["latitude", "longitude"],
-            coords={"latitude": LATS, "longitude": LONS},
+            dims=["points"],
+            coords={"points": np.arange(N_POINTS)},
             name=base if lev is not None else var_name,
             attrs={"long_name": var_name, "units": "unknown"},
         )
