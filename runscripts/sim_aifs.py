@@ -109,6 +109,7 @@ def main() -> None:
         datasets_per_time.append(ds_t)
 
     dataset = xr.concat(datasets_per_time, dim="time", join="exact").sortby("time")
+    dataset.to_netcdf(f'{_OUTPUT_PATH}/intermediate_output.nc')  # Save intermediate output for debugging
     print("Concatenated dataset")
 
     # --- Build valid_time/step coords consistent with produced outputs ---
@@ -133,11 +134,13 @@ def main() -> None:
     if "sim_time" in dataset.variables:
         dataset = dataset.drop_vars("sim_time")
 
+    dataset.to_netcdf(f'{_OUTPUT_PATH}/formatted_time_output.nc')  # Save formatted output for debugging
     print("Formatted time coordinates")
 
     # Format output frequency
     if _OUT_FREQ == "daily":
         dataset = dataset.resample(valid_time="1D").mean()
+    dataset.to_netcdf(f'{_OUTPUT_PATH}/formatted_freq_output.nc')  # Save formatted output for debugging
 
     print("Formatted output frequency")
 
@@ -160,6 +163,7 @@ def main() -> None:
     
     if _OUT_RES in ["0.5", "1", "1.5", "2"]:
         dataset = dataset.interp(latitude=latitudes, longitude=longitudes, method="linear")
+    dataset.to_netcdf(f'{_OUTPUT_PATH}/formatted_res_output.nc')  # Save formatted output for debugging
     
     print("Formatted output resolution")
     
