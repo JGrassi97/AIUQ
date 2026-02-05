@@ -24,11 +24,6 @@ logging.basicConfig(level=logging.DEBUG)
 
 def ics_aifs(_INI_DATA_PATH, _START_TIME, _HPCROOTDIR, _MODEL_NAME) -> None:
 
-    # _INI_DATA_PATH      = config.get('INI_DATA_PATH', "")
-    # _START_TIME         = config.get("START_TIME", "")
-    # _HPCROOTDIR         = config.get("HPCROOTDIR", "")
-    # _MODEL_NAME         = config.get("MODEL_NAME", "")
-
     # Reading model card for variable/level info
     model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
 
@@ -132,6 +127,10 @@ def ics_aifs(_INI_DATA_PATH, _START_TIME, _HPCROOTDIR, _MODEL_NAME) -> None:
 
     t64 = data_n320["time"].isel(time=1).values
     DATE = datetime.utcfromtimestamp(t64.astype("datetime64[s]").astype(int))
+
+    for level in required_pressure_levels:
+        z = fields.pop(f"z_{level}")
+        fields[f"z_{level}"] = z * 9.80665
 
 
     timestamp = int(DATE.replace(tzinfo=timezone.utc).timestamp())
