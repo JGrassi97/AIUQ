@@ -25,7 +25,7 @@ def parse_level_name(var_name: str):
     return m.group("base"), int(m.group("lev"))
 
 
-def build_dataset_for_state(state, output_vars):
+def build_dataset_for_state(state, output_vars, output_levels):
     """
     state: dict con state['date'] e state['fields'] (var_name -> data)
     output_vars: set/list di variabili da tenere (nomi originali: '2t', 't_500', ...)
@@ -39,10 +39,14 @@ def build_dataset_for_state(state, output_vars):
     level_groups = {}
 
     for var_name, data in state["fields"].items():
-        if var_name not in output_vars:
-            continue
 
         base, lev = parse_level_name(var_name)
+
+        if base not in output_vars:
+            continue
+
+        if lev is not None and lev not in output_levels:
+            continue
 
         data_interp = interp_to_025(data)  # UNA sola interpolazione per campo
 

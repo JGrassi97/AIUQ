@@ -76,6 +76,11 @@ def main() -> None:
 
     output_vars = normalize_out_vars(_OUT_VARS)
 
+    if _OUT_LEVS != 'original':
+        desired_levels = [
+            int(plev)
+            for plev in _OUT_LEVS.strip('[]').split(',')
+        ]
 
     # Format time settings
     start_date = datetime.strptime(_START_TIME, '%Y-%m-%d')
@@ -100,11 +105,11 @@ def main() -> None:
         state_name = state["date"].strftime("%Y%m%d%H")
         print(f"Generated state for {state_name}")
 
-        ds_t = build_dataset_for_state(state, output_vars)
+        ds_t = build_dataset_for_state(state, output_vars, desired_levels)
         datasets_per_time.append(ds_t)
 
     dataset = xr.concat(datasets_per_time, dim="time", join="exact").sortby("time")
-    print("Concatenated dataset shape:", dataset.shape)
+    print("Concatenated dataset")
 
     # --- Build valid_time/step coords consistent with produced outputs ---
     delta_t = np.timedelta64(int(_INNER_STEPS), "h")
