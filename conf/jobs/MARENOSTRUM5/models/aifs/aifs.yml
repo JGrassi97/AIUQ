@@ -20,10 +20,10 @@ JOBS:
     FILE: templates/prepare_ics.sh
   
   SAVE_ICS:
-    FILE: templates/sim_aifs.sh,templates/config.yml
+    FILE: templates/ics_aifs.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5ACC"
     DEPENDENCIES: PREPARE_ICS
-    RUNNING: CHUNK
+    RUNNING: DATE
     NODES: 1
     PROCESSORS: 20
     CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
@@ -31,7 +31,7 @@ JOBS:
   SIM:
     FILE: templates/sim_aifs.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5ACC"
-    DEPENDENCIES: PREPARE_ICS
+    DEPENDENCIES: SAVE_ICS
     RUNNING: CHUNK
     NODES: 1
     PROCESSORS: 20
