@@ -28,7 +28,7 @@ from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
 from AIUQst_lib.variables import name_mapper_for_model
 
 from ics_aifs import ics_aifs
-from postprocess_aifs import post_process_aifs
+from postprocess_aifs import build_dataset_for_state
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -94,17 +94,17 @@ def main() -> None:
     
     os.makedirs(_OUTPUT_PATH, exist_ok=True)
     
-    dataset = []
+    datasets_per_time = []
+
     for state in runner.run(input_state=input_state, lead_time=outer_steps):
-        state_name = state['date'].strftime('%Y%m%d%H')
+        state_name = state["date"].strftime("%Y%m%d%H")
         print(f"Generated state for {state_name}")
 
-        for var_name, data in state['fields'].items():
-            if var_name in output_vars:
-                dataset.append(post_process_aifs(var_name, data, state['date'], _OUT_LEVS))
-    
-    dataset = xr.concat(dataset, dim='time').sortby('time')
+        ds_t = build_dataset_for_state(state, output_vars)
+        datasets_per_time.append(ds_t)
 
+    dataset = xr.concat(datasets_per_time, dim="time", join="exact").sortby("time")
+    print("Concatenated dataset shape:", dataset.shape)
 
     # --- Build valid_time/step coords consistent with produced outputs ---
     delta_t = np.timedelta64(int(_INNER_STEPS), "h")
