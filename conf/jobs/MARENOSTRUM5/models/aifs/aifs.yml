@@ -28,10 +28,10 @@ JOBS:
     PROCESSORS: 20
     CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
   
-  CLEAN:
-    FILE: templates/clean.sh
-    PLATFORM: "MARENOSTRUM5-LOGIN"
-    DEPENDENCIES: SIM
-    RUNNING: DATE
-    NODES: 1
-    PROCESSORS: 1
+  # CLEAN:
+  #   FILE: templates/clean.sh
+  #   PLATFORM: "MARENOSTRUM5-LOGIN"
+  #   DEPENDENCIES: SIM
+  #   RUNNING: DATE
+  #   NODES: 1
+  #   PROCESSORS: 1

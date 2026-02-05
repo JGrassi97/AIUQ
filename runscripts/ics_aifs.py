@@ -128,11 +128,6 @@ def ics_aifs(_INI_DATA_PATH, _START_TIME, _HPCROOTDIR, _MODEL_NAME) -> None:
     t64 = data_n320["time"].isel(time=1).values
     DATE = datetime.utcfromtimestamp(t64.astype("datetime64[s]").astype(int))
 
-    for level in required_pressure_levels:
-        z = fields.pop(f"z_{level}")
-        fields[f"z_{level}"] = z * 9.80665
-
-
     timestamp = int(DATE.replace(tzinfo=timezone.utc).timestamp())
 
     input_state = {"date": datetime.fromtimestamp(timestamp, tz=timezone.utc), "fields": fields}
