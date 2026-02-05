@@ -133,9 +133,13 @@ def main() -> None:
     if "sim_time" in dataset.variables:
         dataset = dataset.drop_vars("sim_time")
 
+    print("Formatted time coordinates")
+
     # Format output frequency
     if _OUT_FREQ == "daily":
         dataset = dataset.resample(valid_time="1D").mean()
+
+    print("Formatted output frequency")
 
     # Format output resolution
     if _OUT_RES == "0.5":
@@ -156,6 +160,8 @@ def main() -> None:
     
     if _OUT_RES in ["0.5", "1", "1.5", "2"]:
         dataset = dataset.interp(latitude=latitudes, longitude=longitudes, method="linear")
+    
+    print("Formatted output resolution")
     
 
     for var in output_vars:
