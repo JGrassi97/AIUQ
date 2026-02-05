@@ -104,6 +104,7 @@ def main() -> None:
     for state in runner.run(input_state=input_state, lead_time=outer_steps):
         state_name = state["date"].strftime("%Y%m%d%H")
         print(f"Generated state for {state_name}")
+        print(state)
 
         ds_t = build_dataset_for_state(state, output_vars, desired_levels)
         datasets_per_time.append(ds_t)
