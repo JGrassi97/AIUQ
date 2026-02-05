@@ -27,7 +27,6 @@ from AIUQst_lib.pressure_levels import check_pressure_levels
 from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
 from AIUQst_lib.variables import name_mapper_for_model
 
-from ics_aifs import ics_aifs
 from postprocess_aifs import build_dataset_for_state
 
 # Configure logging
