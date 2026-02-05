@@ -104,72 +104,73 @@ def main() -> None:
     for state in runner.run(input_state=input_state, lead_time=outer_steps):
         state_name = state["date"].strftime("%Y%m%d%H")
         print(f"Generated state for {state_name}")
+        print(state)
 
-        ds_t = build_dataset_for_state(state, output_vars, desired_levels)
-        datasets_per_time.append(ds_t)
+    #     ds_t = build_dataset_for_state(state, output_vars, desired_levels)
+    #     datasets_per_time.append(ds_t)
 
-    dataset = xr.concat(datasets_per_time, dim="time", join="exact").sortby("time")
-    #dataset.to_netcdf(f'{_OUTPUT_PATH}/intermediate_output.nc')  # Save intermediate output for debugging
+    # dataset = xr.concat(datasets_per_time, dim="time", join="exact").sortby("time")
+    # #dataset.to_netcdf(f'{_OUTPUT_PATH}/intermediate_output.nc')  # Save intermediate output for debugging
 
-    # --- Build valid_time/step coords consistent with produced outputs ---
-    delta_t = np.timedelta64(int(_INNER_STEPS), "h")
+    # # --- Build valid_time/step coords consistent with produced outputs ---
+    # delta_t = np.timedelta64(int(_INNER_STEPS), "h")
 
-    initial_conditions = xr.open_zarr(_INI_DATA_PATH).load()
-    initial_time = initial_conditions.time.isel(time=0).values
+    # initial_conditions = xr.open_zarr(_INI_DATA_PATH).load()
+    # initial_time = initial_conditions.time.isel(time=0).values
 
-    # how many forecast steps we actually have
-    n_out = dataset.sizes["time"]
+    # # how many forecast steps we actually have
+    # n_out = dataset.sizes["time"]
 
-    valid_time = initial_time + np.arange(n_out) * delta_t
-    steps = np.arange(n_out) * delta_t
+    # valid_time = initial_time + np.arange(n_out) * delta_t
+    # steps = np.arange(n_out) * delta_t
 
-    # rename time -> valid_time and attach coords with matching length
-    dataset = dataset.rename({"time": "valid_time"})
-    dataset = dataset.assign_coords(valid_time=("valid_time", valid_time))
-    dataset = dataset.assign_coords(time=initial_time)
-    dataset = dataset.assign_coords(step=("valid_time", steps))
+    # # rename time -> valid_time and attach coords with matching length
+    # dataset = dataset.rename({"time": "valid_time"})
+    # dataset = dataset.assign_coords(valid_time=("valid_time", valid_time))
+    # dataset = dataset.assign_coords(time=initial_time)
+    # dataset = dataset.assign_coords(step=("valid_time", steps))
 
-    # Drop sim_time if present
-    if "sim_time" in dataset.variables:
-        dataset = dataset.drop_vars("sim_time")
+    # # Drop sim_time if present
+    # if "sim_time" in dataset.variables:
+    #     dataset = dataset.drop_vars("sim_time")
 
-    print("Formatted time coordinates")
+    # print("Formatted time coordinates")
 
-    # Format output frequency
-    if _OUT_FREQ == "daily":
-        dataset = dataset.resample(valid_time="1D").mean()
+    # # Format output frequency
+    # if _OUT_FREQ == "daily":
+    #     dataset = dataset.resample(valid_time="1D").mean()
 
-    print("Formatted output frequency")
+    # print("Formatted output frequency")
 
-    # Format output resolution
-    if _OUT_RES == "0.5":
-        latitudes = np.arange(-90, 90.5, 0.5)
-        longitudes = np.arange(0, 360, 0.5)
-    elif _OUT_RES == "1":
-        latitudes = np.arange(-90, 91, 1.0)
-        longitudes = np.arange(0, 360, 1.0)
-    elif _OUT_RES == "1.5":
-        latitudes = np.arange(-90, 91.5, 1.5)
-        longitudes = np.arange(0, 360, 1.5)
-    elif _OUT_RES == "2":
-        latitudes = np.arange(-90, 92, 2.0)
-        longitudes = np.arange(0, 360, 2.0)
-    else:
-        latitudes = dataset.latitude.values
-        longitudes = dataset.longitude.values
+    # # Format output resolution
+    # if _OUT_RES == "0.5":
+    #     latitudes = np.arange(-90, 90.5, 0.5)
+    #     longitudes = np.arange(0, 360, 0.5)
+    # elif _OUT_RES == "1":
+    #     latitudes = np.arange(-90, 91, 1.0)
+    #     longitudes = np.arange(0, 360, 1.0)
+    # elif _OUT_RES == "1.5":
+    #     latitudes = np.arange(-90, 91.5, 1.5)
+    #     longitudes = np.arange(0, 360, 1.5)
+    # elif _OUT_RES == "2":
+    #     latitudes = np.arange(-90, 92, 2.0)
+    #     longitudes = np.arange(0, 360, 2.0)
+    # else:
+    #     latitudes = dataset.latitude.values
+    #     longitudes = dataset.longitude.values
     
-    if _OUT_RES in ["0.5", "1", "1.5", "2"]:
-        dataset = dataset.interp(latitude=latitudes, longitude=longitudes, method="linear")
+    # if _OUT_RES in ["0.5", "1", "1.5", "2"]:
+    #     dataset = dataset.interp(latitude=latitudes, longitude=longitudes, method="linear")
 
-    print("Formatted output resolution")
+    # print("Formatted output resolution")
     
 
-    for var in output_vars:
-        predictions_datarray = dataset[var]
-        OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var}/{str(_RNG_KEY)}"
-        os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
-        OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}.nc"
-        predictions_datarray.to_netcdf(OUTPUT_FILE)
+    # for var in output_vars:
+    #     predictions_datarray = dataset[var]
+    #     OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var}/{str(_RNG_KEY)}"
+    #     os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
+    #     OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}.nc"
+    #     predictions_datarray.to_netcdf(OUTPUT_FILE)
             
 if __name__ == "__main__":
     main()
