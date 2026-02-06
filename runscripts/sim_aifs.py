@@ -51,6 +51,17 @@ SFC_VARS = {
 SOIL_VARS = {"stl1", "stl2"}
 
 
+def grid_file(file_path, lats, lons):
+    grid_file = os.path.join(file_path)
+    with open(grid_file, "w") as f:
+        f.write("gridtype = unstructured\n")
+        f.write(f"gridsize = {lats.size}\n")
+        f.write("xname = lon\n")
+        f.write("yname = lat\n")
+        f.write("xunits = degrees_east\n")
+        f.write("yunits = degrees_north\n")
+        f.write("xvals = " + " ".join(map(str, lons)) + "\n")
+        f.write("yvals = " + " ".join(map(str, lats)) + "\n")
 
 
 def main() -> None:
@@ -120,6 +131,10 @@ def main() -> None:
         ds_t = build_dataset_for_state(state, output_vars, desired_levels)
         datasets_per_time.append(ds_t)
 
+    lats = state["latitudes"].astype(float)
+    lons = state["longitudes"].astype(float)
+    lons = np.mod(lons, 360.0)
+
     dataset = xr.concat(datasets_per_time, dim="time", join="exact").sortby("time")
     dataset.attrs["Conventions"] = "CF-1.8"
     print(dataset)
@@ -181,8 +196,11 @@ def main() -> None:
     
 
     for var in output_vars:
+
+
         predictions_datarray = dataset[var]
         OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var}/{str(_RNG_KEY)}"
+        grid_file(f"{OUTPUT_BASE_PATH}/grid.txt", lats, lons)
         os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
         OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}.nc"
         predictions_datarray.to_netcdf(OUTPUT_FILE)
