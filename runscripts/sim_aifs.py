@@ -142,32 +142,32 @@ def main() -> None:
 
 
     # # # --- Build valid_time/step coords consistent with produced outputs ---
-    # delta_t = np.timedelta64(int(_INNER_STEPS), "h")
+    delta_t = np.timedelta64(int(_INNER_STEPS), "h")
 
-    # initial_conditions = xr.open_zarr(_INI_DATA_PATH).load()
-    # initial_time = initial_conditions.time.isel(time=0).values
+    initial_conditions = xr.open_zarr(_INI_DATA_PATH).load()
+    initial_time = initial_conditions.time.isel(time=0).values
 
     # # how many forecast steps we actually have
-    # n_out = dataset.sizes["time"]
+    n_out = dataset.sizes["time"]
 
-    # valid_time = initial_time + np.arange(n_out) * delta_t
-    # steps = np.arange(n_out) * delta_t
+    valid_time = initial_time + np.arange(n_out) * delta_t
+    steps = np.arange(n_out) * delta_t
 
     # # rename time -> valid_time and attach coords with matching length
-    # dataset = dataset.rename({"time": "valid_time"})
-    # dataset = dataset.assign_coords(valid_time=("valid_time", valid_time))
-    # dataset = dataset.assign_coords(time=initial_time)
-    # dataset = dataset.assign_coords(step=("valid_time", steps))
+    dataset = dataset.rename({"time": "valid_time"})
+    dataset = dataset.assign_coords(valid_time=("valid_time", valid_time))
+    dataset = dataset.assign_coords(time=initial_time)
+    dataset = dataset.assign_coords(step=("valid_time", steps))
 
     # # Drop sim_time if present
-    # if "sim_time" in dataset.variables:
-    #     dataset = dataset.drop_vars("sim_time")
+    if "sim_time" in dataset.variables:
+        dataset = dataset.drop_vars("sim_time")
 
     # print("Formatted time coordinates")
 
     # # Format output frequency
-    # if _OUT_FREQ == "daily":
-    #     dataset = dataset.resample(valid_time="1D").mean()
+    if _OUT_FREQ == "daily":
+        dataset = dataset.resample(valid_time="1D").mean()
 
     # print("Formatted output frequency")
 
@@ -196,12 +196,12 @@ def main() -> None:
     # print("Formatted output resolution")
     
 
-    # for var in output_vars:
-    #     predictions_datarray = dataset[var]
-    #     OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var}/{str(_RNG_KEY)}"
-    #     os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
-    #     OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}.nc"
-    #     predictions_datarray.to_netcdf(OUTPUT_FILE)
+    for var in output_vars:
+        predictions_datarray = dataset[var]
+        OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var}/{str(_RNG_KEY)}"
+        os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
+        OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}.nc"
+        predictions_datarray.to_netcdf(OUTPUT_FILE)
             
 if __name__ == "__main__":
     main()
