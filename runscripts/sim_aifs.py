@@ -158,7 +158,7 @@ def main() -> None:
         #     grid_file(f"{_OUTPUT_PATH}/grid.txt", lats, lons)
 
         os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
-        OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}.nc"
+        OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}_temp.nc"
         predictions_datarray.to_netcdf(OUTPUT_FILE)
             
 if __name__ == "__main__":
