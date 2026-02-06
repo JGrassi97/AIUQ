@@ -26,6 +26,6 @@ for f in $(find ${OUTPUT_PATH} -type f -name "*_temp.nc"); do
 
     cdo -P 8 -setgrid,${GRID_FILE} ${f} ${gridf}
     rm -f ${f} 
-    cdo -P 8 -f nc4 remapdis,r360x181 ${gridf} ${outf}
+    cdo -P 8 -f nc4 remapnn,r360x181 ${gridf} ${outf}
     rm -f ${gridf}
 done
