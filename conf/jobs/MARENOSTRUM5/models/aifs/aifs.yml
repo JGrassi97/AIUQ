@@ -41,10 +41,9 @@ JOBS:
     FILE: templates/postprocess_aifs.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5-LOGIN"
     DEPENDENCIES: SIM
-    RUNNING: DATE
+    RUNNING: CHUNK
     NODES: 1
     PROCESSORS: 20
-    CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
   
   CLEAN:
     FILE: templates/clean.sh
