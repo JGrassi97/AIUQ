@@ -79,6 +79,14 @@ def build_dataset_for_state(state, output_vars, output_levels):
         arrays = [da for _, da in items]
 
         da3d = xr.concat(arrays, dim=xr.IndexVariable("level", levels))
+        # --- MIN FIX: marca level come asse verticale CF ---
+        da3d["level"].attrs.update({
+            "standard_name": "air_pressure",
+            "long_name": "pressure_level",
+            "units": "hPa",
+            "positive": "down",
+            "axis": "Z",
+        })
         da3d.name = base
         da3d.attrs["long_name"] = base
         data_vars[base] = da3d

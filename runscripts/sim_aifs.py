@@ -115,29 +115,13 @@ def main() -> None:
     for state in runner.run(input_state=input_state, lead_time=outer_steps):
         state_name = state["date"].strftime("%Y%m%d%H")
         print(f"Generated state for {state_name}")
-        
-        # data = {
-        #     "date": np.array(state["date"].timestamp(), dtype=np.float64),
-        #     "latitudes": state["latitudes"],
-        #     "longitudes": state["longitudes"],
-        #     "step_seconds": np.array(state["step"].total_seconds(), dtype=np.float32),
-        # }
 
-        # # aggiunge tutti i campi meteo
-        # for name, field in state["fields"].items():
-        #     data[name] = field
-        
-        # date_str = state["date"].strftime("%Y%m%d%H")
-
-        # filename = os.path.join(_OUTPUT_PATH, f"state_{date_str}.npz")
-        # np.savez_compressed(filename, **data)
-
-        # print(f"Saved state_{date_str}.npz")
 
         ds_t = build_dataset_for_state(state, output_vars, desired_levels)
         datasets_per_time.append(ds_t)
 
     dataset = xr.concat(datasets_per_time, dim="time", join="exact").sortby("time")
+    dataset.attrs["Conventions"] = "CF-1.8"
     print(dataset)
 
 
