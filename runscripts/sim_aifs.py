@@ -129,7 +129,8 @@ def main() -> None:
         
         date_str = state["date"].strftime("%Y%m%d%H")
 
-        np.savez_compressed(_OUTPUT_PATH / f"state_{date_str}.npz", **data)
+        filename = os.path.join(_OUTPUT_PATH, f"state_{date_str}.npz")
+        np.savez_compressed(filename, **data)
 
         print(f"Saved state_{date_str}.npz")
 
