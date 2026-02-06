@@ -33,24 +33,6 @@ from postprocess_aifs import build_dataset_for_state
 logging.basicConfig(level=logging.DEBUG)
 
 
-LEVELS = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
-SOIL_LEVELS = [1, 2]
-
-LEVEL_VAR_RE = re.compile(r"^(?P<var>[a-zA-Z0-9]+)_(?P<level>\d+)$")
-
-# Vars che AIFS usa come PL (base names)
-PL_BASE_VARS = {"t", "u", "v", "w", "q", "z"}   # (z è geopotential)
-
-# Vars di superficie / constant che AIFS usa tipicamente
-# NOTE: use 10u/10v as expected pipeline names (not u10/v10)
-SFC_VARS = {
-    "2t", "2d", "10u", "10v", "msl", "sp", "tcw", "skt",
-    "lsm", "sdor", "slor", "z"   # z qui è *surface geopotential* (static)
-}
-
-SOIL_VARS = {"stl1", "stl2"}
-
-
 def grid_file(file_path, lats, lons):
     grid_file = os.path.join(file_path)
     with open(grid_file, "w") as f:
@@ -191,7 +173,6 @@ def main() -> None:
     
 
     for var in output_vars:
-
 
         predictions_datarray = dataset[var]
         OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var}/{str(_RNG_KEY)}"
