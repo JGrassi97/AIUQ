@@ -17,7 +17,7 @@ GRID_FILE=%PATHS.SUPPORT_FOLDER%/aifs_grid.txt
 
 # Load Singularity module only on MareNostrum5
 if [ "$PLATFORM_NAME" = "MARENOSTRUM5" ]; then
-    ml cdo
+     module load  EB/apps EB/install CDO/2.2.2-gompi-2023b
 fi
 
 for f in $(find ${OUTPUT_PATH} -type f -name "*_temp.nc"); do
@@ -25,7 +25,7 @@ for f in $(find ${OUTPUT_PATH} -type f -name "*_temp.nc"); do
     outf=${f%_temp.nc}.nc
 
     cdo -P 8 -setgrid,${GRID_FILE} ${f} ${gridf}
+    rm -f ${f} 
     cdo -P 8 -f nc4 remapdis,r360x181 ${gridf} ${outf}
-
-    rm -f ${f} ${gridf}
+    rm -f ${gridf}
 done
