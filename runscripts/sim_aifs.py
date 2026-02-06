@@ -162,15 +162,10 @@ def main() -> None:
     if "sim_time" in dataset.variables:
         dataset = dataset.drop_vars("sim_time")
 
-    # print("Formatted time coordinates")
-
     # # Format output frequency
     if _OUT_FREQ == "daily":
         dataset = dataset.resample(valid_time="1D").mean()
 
-    # print("Formatted output frequency")
-
-    # dataset.to_netcdf(f"{_OUTPUT_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-full.nc")
 
     # # Format output resolution
     # if _OUT_RES == "0.5":
@@ -200,7 +195,10 @@ def main() -> None:
 
         predictions_datarray = dataset[var]
         OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var}/{str(_RNG_KEY)}"
-        grid_file(f"{OUTPUT_BASE_PATH}/grid.txt", lats, lons)
+
+        if not os.path.exists(f"{_OUTPUT_PATH}/grid.txt"):
+            grid_file(f"{_OUTPUT_PATH}/grid.txt", lats, lons)
+
         os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
         OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/ngcm-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}.nc"
         predictions_datarray.to_netcdf(OUTPUT_FILE)
