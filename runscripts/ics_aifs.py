@@ -43,6 +43,23 @@ def main():
     # Load ICs
     data_original = xr.open_zarr(_INI_DATA_PATH, chunks=None)
 
+    # Some fields are flipped upside down - flip them back to normal orientation (latitudes should be ascending)
+    orog = data_original.orog.values
+    orog = np.flip(orog, axis=0)
+    data_original['orog'] = (('latitude', 'longitude'), orog)
+
+    slor = data_original.slor.values
+    slor = np.flip(slor, axis=0)
+    data_original['slor'] = (('latitude', 'longitude'), slor)
+
+    sdor = data_original.sdor.values
+    sdor = np.flip(sdor, axis=0)
+    data_original['sdor'] = (('latitude', 'longitude'), sdor)
+
+    lsm = data_original.lsm.values
+    lsm = np.flip(lsm, axis=0)
+    data_original['lsm'] = (('latitude', 'longitude'), lsm)
+
     # Fixing soil level naming
     sot_1 = data_original["sot"].isel(SoilLevel=0).astype(np.float32).rename("stl1")
     sot_2 = data_original["sot"].isel(SoilLevel=1).astype(np.float32).rename("stl2")
