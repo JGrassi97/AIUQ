@@ -135,7 +135,7 @@ MODEL:
   NAME: neuralgcm                                   # aifs / neuralgcm / aurora
   CHECKPOINT_NAME: stochastic_precip_2_8_deg.pkl    # checkpoint name as written in the table above
   ICS: eerie                                        # eerie / era5
-  USE_LOCAL_ICS: true                               # true / false
+  USE_LOCAL_ICS: false                              # true / false
 
 # See autosubmit documentationcdc
 EXPERIMENT:
