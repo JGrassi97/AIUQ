@@ -225,7 +225,8 @@ def main() -> None:
         )
     
     # Adjust longitudes to -0 - 360
-    #selected['longitude'] = selected['longitude'] % 360
+    selected['longitude'] = selected['longitude'] % 360
+    selected = selected.sortby('longitude')
     
     # FALLBACK FOR STATIC VARIABLES
     if missing_vars is not None:

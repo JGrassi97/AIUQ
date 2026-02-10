@@ -150,7 +150,6 @@ def main() -> None:
         ]
         predictions_ds = predictions_ds.interp(level=desired_levels)
     
-    
     # Format output variables and select
     output_vars = normalize_out_vars(_OUT_VARS)
     for var in output_vars:
