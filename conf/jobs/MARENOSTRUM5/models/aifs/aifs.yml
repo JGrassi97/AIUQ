@@ -18,14 +18,15 @@ JOBS:
   
   PREPARE_ICS:
     FILE: templates/prepare_ics.sh
-
+  
   SAVE_ICS:
     FILE: templates/ics_aifs.sh,templates/config.yml
-    PLATFORM: "MARENOSTRUM5CPU"
+    PLATFORM: "MARENOSTRUM5ACC"
     DEPENDENCIES: PREPARE_ICS
     RUNNING: DATE
     NODES: 1
-    PROCESSORS: 80
+    PROCESSORS: 20
+    CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
 
   SIM:
     FILE: templates/sim_aifs.sh,templates/config.yml
@@ -36,19 +37,18 @@ JOBS:
     PROCESSORS: 20
     CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
   
-  POSTPROCESS:
-    FILE: templates/postprocess_aifs.sh,templates/config.yml
-    PLATFORM: "MARENOSTRUM5CPU"
-    DEPENDENCIES: SIM
-    RUNNING: CHUNK
-    NODES: 1
-    PROCESSORS: 20
-    CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
-
   CLEAN:
     FILE: templates/clean.sh
-    PLATFORM: "MARENOSTRUM5CPU"
-    DEPENDENCIES: POSTPROCESS
+    PLATFORM: "MARENOSTRUM5-LOGIN"
+    DEPENDENCIES: SIM
     RUNNING: DATE
     NODES: 1
     PROCESSORS: 1
+
+  POSTPROCESS:
+    FILE: templates/postprocess_aifs.sh,templates/config.yml
+    PLATFORM: "MARENOSTRUM5ACC"
+    DEPENDENCIES: SIM
+    RUNNING: ONCE
+    NODES: 1
+    PROCESSORS: 20

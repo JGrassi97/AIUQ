@@ -27,28 +27,23 @@ from AIUQst_lib.pressure_levels import check_pressure_levels
 from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
 from AIUQst_lib.variables import name_mapper_for_model
 
+from postprocess_aifs import build_dataset_for_state
+
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
 
-LEVELS = [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
-SOIL_LEVELS = [1, 2]
-
-LEVEL_VAR_RE = re.compile(r"^(?P<var>[a-zA-Z0-9]+)_(?P<level>\d+)$")
-
-# Vars che AIFS usa come PL (base names)
-PL_BASE_VARS = {"t", "u", "v", "w", "q", "z"}   # (z è geopotential)
-
-# Vars di superficie / constant che AIFS usa tipicamente
-# NOTE: use 10u/10v as expected pipeline names (not u10/v10)
-SFC_VARS = {
-    "2t", "2d", "10u", "10v", "msl", "sp", "tcw", "skt",
-    "lsm", "sdor", "slor", "z"   # z qui è *surface geopotential* (static)
-}
-
-SOIL_VARS = {"stl1", "stl2"}
-
-
+def grid_file(file_path, lats, lons):
+    grid_file = os.path.join(file_path)
+    with open(grid_file, "w") as f:
+        f.write("gridtype = unstructured\n")
+        f.write(f"gridsize = {lats.size}\n")
+        f.write("xname = lon\n")
+        f.write("yname = lat\n")
+        f.write("xunits = degrees_east\n")
+        f.write("yunits = degrees_north\n")
+        f.write("xvals = " + " ".join(map(str, lons)) + "\n")
+        f.write("yvals = " + " ".join(map(str, lats)) + "\n")
 
 
 def main() -> None:
@@ -62,35 +57,37 @@ def main() -> None:
     _END_TIME           = config.get("END_TIME", "")
     _HPCROOTDIR         = config.get("HPCROOTDIR", "")
     _MODEL_NAME         = config.get("MODEL_NAME", "")
-    _STD_VERSION        = config.get("STD_VERSION", "")
     _MODEL_CHECKPOINT   = config.get("MODEL_CHECKPOINT", "")
     _INNER_STEPS        = config.get("INNER_STEPS", 1)
-    _OUTPUT_TEMP_PATH   = config.get("OUTPUT_TEMP_PATH", "")
+    _OUTPUT_PATH        = config.get("OUTPUT_PATH", "")
+    _OUT_VARS           = config.get("OUT_VARS", [])
+    _OUT_FREQ           = config.get("OUT_FREQ", "")
+    _OUT_RES            = config.get("OUT_RES", "")
+    _RNG_KEY            = config.get("RNG_KEY", "")
+    _OUT_LEVS           = config.get("OUT_LEVS", "")
     _ICS_TEMP_DIR       = config.get("ICS_TEMP_DIR", "")
 
+    output_vars = normalize_out_vars(_OUT_VARS)
 
-    # IC settings
-    model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
-    standard_dict = read_std_version(_HPCROOTDIR, _STD_VERSION)
+    if _OUT_LEVS != 'original':
+        desired_levels = [
+            int(plev)
+            for plev in _OUT_LEVS.strip('[]').split(',')
+        ]
 
     # Format time settings
     start_date = datetime.strptime(_START_TIME, '%Y-%m-%d')
-    input_end_date = datetime.strptime(_START_TIME, '%Y-%m-%d') + timedelta(days=1)
     end_date = datetime.strptime(_END_TIME, '%Y-%m-%d')
 
     days_to_run = (end_date - start_date).days + 1
     outer_steps = days_to_run * 24
-    delta_t = np.timedelta64(_INNER_STEPS, 'h')
 
     print(f"Running from {_START_TIME} to {_END_TIME} ({days_to_run} days)")
     print(f"Total outer steps: {outer_steps} (inner steps: {_INNER_STEPS}h)")
 
     # Load model
     runner = SimpleRunner(str(_MODEL_CHECKPOINT), device="cuda")
-
-    # Load also the zarr to have the starting time
-    initial_conditions = xr.open_zarr(_INI_DATA_PATH, chunks=None).load()
-
+    
     # Real ICS are stored in npz files
     ics_basename = f"ics_aifs_{start_date.strftime('%Y%m%d')}"
     ics_npz = os.path.join(_ICS_TEMP_DIR, f"{ics_basename}.npz")
@@ -103,30 +100,66 @@ def main() -> None:
         if key.startswith("f__"):
             fname = key[len("f__"):]
             input_state["fields"][fname] = npz[key]
-
-    # Map names for model specifics
-    mapper = name_mapper_for_model(model_card['variables'], standard_dict['variables'])
-    initial_conditions = initial_conditions.rename(mapper)
-
-
-    os.makedirs(_OUTPUT_TEMP_PATH, exist_ok=True)
     
+    os.makedirs(_OUTPUT_PATH, exist_ok=True)
+    
+    datasets_per_time = []
+
     for state in runner.run(input_state=input_state, lead_time=outer_steps):
-        state_name = state['date'].strftime('%Y%m%d%H')
+        state_name = state["date"].strftime("%Y%m%d%H")
         print(f"Generated state for {state_name}")
 
-        # Save state dict to npz
-        output_fields = {}
-        for var_name, data in state['fields'].items():
-            output_fields[f"f__{var_name}"] = data.astype(np.float32)
-        
-        output_npz = os.path.join(_OUTPUT_TEMP_PATH, f"sim_aifs_{state_name}.npz")
-        np.savez_compressed(output_npz, timestamp=int(state['date'].timestamp()), **output_fields)
-        print(f"Saved output to {output_npz}")
+
+        ds_t = build_dataset_for_state(state, output_vars, desired_levels)
+        datasets_per_time.append(ds_t)
+
+    lats = state["latitudes"].astype(float)
+    lons = state["longitudes"].astype(float)
+    lons = np.mod(lons, 360.0)
+
+    dataset = xr.concat(datasets_per_time, dim="time", join="exact").sortby("time")
+    dataset.attrs["Conventions"] = "CF-1.8"
+    print(dataset)
 
 
+    # # # --- Build valid_time/step coords consistent with produced outputs ---
+    delta_t = np.timedelta64(int(_INNER_STEPS), "h")
 
-    
+    initial_conditions = xr.open_zarr(_INI_DATA_PATH).load()
+    initial_time = initial_conditions.time.isel(time=0).values
 
+    # # how many forecast steps we actually have
+    n_out = dataset.sizes["time"]
+
+    valid_time = initial_time + np.arange(n_out) * delta_t
+    steps = np.arange(n_out) * delta_t
+
+    # # rename time -> valid_time and attach coords with matching length
+    dataset = dataset.rename({"time": "valid_time"})
+    dataset = dataset.assign_coords(valid_time=("valid_time", valid_time))
+    dataset = dataset.assign_coords(time=initial_time)
+    dataset = dataset.assign_coords(step=("valid_time", steps))
+
+    # # Drop sim_time if present
+    if "sim_time" in dataset.variables:
+        dataset = dataset.drop_vars("sim_time")
+
+    # # Format output frequency
+    if _OUT_FREQ == "daily":
+        dataset = dataset.resample(valid_time="1D").mean()
+
+
+    for var in output_vars:
+
+        predictions_datarray = dataset[var]
+        OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var}/{str(_RNG_KEY)}"
+
+        # if not os.path.exists(f"{_OUTPUT_PATH}/grid.txt"):
+        #     grid_file(f"{_OUTPUT_PATH}/grid.txt", lats, lons)
+
+        os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
+        OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/aifs-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}_temp.nc"
+        predictions_datarray.to_netcdf(OUTPUT_FILE)
+            
 if __name__ == "__main__":
     main()

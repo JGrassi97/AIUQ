@@ -21,64 +21,6 @@ from AIUQst_lib.variables import reassign_long_names_units, define_mappers
 
 logging.basicConfig(level=logging.DEBUG)
 
-# Set the earthkit regrid cache directory
-# from earthkit.regrid.utils.config import CONFIG
-# EARTHKIT_REGRID_CACHE = os.environ.get('EARTHKIT_REGRID_CACHE', '')
-# CONFIG.set("cache-policy", "user")
-# CONFIG.set("user-cache-directory", EARTHKIT_REGRID_CACHE)
-
-def regrid_n320_to_regular025(ds_points: xr.Dataset) -> xr.Dataset:
-    """
-    Regrid from N320 (dim: point) to regular_ll 0.25° (dim: latitude, longitude).
-    Assumes the point order is ECMWF N320.
-    """
-    in_grid = {"grid": "N320"}
-    out_grid = {"grid": [0.25, 0.25]}
-
-    lat = np.linspace(90.0, -90.0, int(180 / 0.25) + 1, dtype=np.float32)     # 721
-    lon = np.linspace(0.0, 360.0 - 0.25, int(360 / 0.25), dtype=np.float32)  # 1440
-
-    data_vars = {}
-    time = ds_points["time"].values
-    has_level = "level" in ds_points.dims
-
-    for v in ds_points.data_vars:
-        da = ds_points[v]
-        if "point" not in da.dims:
-            continue
-
-        if has_level and "level" in da.dims:
-            out = np.empty((da.sizes["time"], da.sizes["level"], lat.size, lon.size), dtype=np.float32)
-            for ti in range(da.sizes["time"]):
-                for li in range(da.sizes["level"]):
-                    out[ti, li, :, :] = ekr.interpolate(
-                        da.values[ti, li, :],
-                        in_grid,
-                        out_grid,
-                        method="linear",
-                    ).astype(np.float32, copy=False)
-            data_vars[v] = (("time", "level", "latitude", "longitude"), out)
-        else:
-            out = np.empty((da.sizes["time"], lat.size, lon.size), dtype=np.float32)
-            for ti in range(da.sizes["time"]):
-                out[ti, :, :] = ekr.interpolate(
-                    da.values[ti, :],
-                    in_grid,
-                    out_grid,
-                    method="linear",
-                ).astype(np.float32, copy=False)
-            data_vars[v] = (("time", "latitude", "longitude"), out)
-
-    coords = {"time": time, "latitude": lat, "longitude": lon}
-    if has_level:
-        coords["level"] = ds_points["level"].values
-
-    ds_out = xr.Dataset(data_vars=data_vars, coords=coords)
-    ds_out["latitude"].attrs["units"] = "degrees_north"
-    ds_out["longitude"].attrs["units"] = "degrees_east"
-    if has_level:
-        ds_out["level"].attrs["units"] = "hPa"
-    return ds_out
 
 def main():
 
@@ -100,6 +42,23 @@ def main():
 
     # Load ICs
     data_original = xr.open_zarr(_INI_DATA_PATH, chunks=None)
+
+    # Some fields are flipped upside down - flip them back to normal orientation (latitudes should be ascending)
+    orog = data_original.orog.values
+    orog = np.flip(orog, axis=0)
+    data_original['orog'] = (('latitude', 'longitude'), orog)
+
+    slor = data_original.slor.values
+    slor = np.flip(slor, axis=0)
+    data_original['slor'] = (('latitude', 'longitude'), slor)
+
+    sdor = data_original.sdor.values
+    sdor = np.flip(sdor, axis=0)
+    data_original['sdor'] = (('latitude', 'longitude'), sdor)
+
+    lsm = data_original.lsm.values
+    lsm = np.flip(lsm, axis=0)
+    data_original['lsm'] = (('latitude', 'longitude'), lsm)
 
     # Fixing soil level naming
     sot_1 = data_original["sot"].isel(SoilLevel=0).astype(np.float32).rename("stl1")
