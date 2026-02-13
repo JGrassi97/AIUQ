@@ -271,7 +271,7 @@ def main() -> None:
                 .pipe(reassign_long_names_units, long_names_dict_climatology, units_dict_climatology)
                 .compute()
             )
-
+            print(climatology_dataset)
             climatology_dataset['time'] = selected['time']
 
             selected = (
