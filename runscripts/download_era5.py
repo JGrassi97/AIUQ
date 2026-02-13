@@ -36,7 +36,6 @@ def main() -> None:
     _STD_VERSION    = config.get("STD_VERSION", "")
 
     # IC settings
-    model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
     ic_card = read_ic_card(_HPCROOTDIR, _IC)
     static_card = read_ic_card(_HPCROOTDIR, 'static')
     climatology_card = read_ic_card(_HPCROOTDIR, 'climatology')
@@ -49,7 +48,6 @@ def main() -> None:
     
     # Create the mappers between model requirement and IC variables
     ic_names, rename_dict, long_names_dict, units_dict, missing_vars = define_mappers(
-        model_card['variables'], 
         ic_card['variables'], 
         standard_dict['variables']
         )

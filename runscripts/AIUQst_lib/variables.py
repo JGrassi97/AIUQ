@@ -1,20 +1,39 @@
 import xarray as xr
 
 
-def define_mappers(model_variables, ic_variables, standard_variables):
+def define_mappers(ic_variables, standard_variables):
 
-    var_to_take = set(model_variables.keys())
+    """
+    Defines the dictionaries for retrieving the variable specs from the card.
+    Before AIUQ-st v010, the variables required to the ICs were the variables needed by the model.
+    Starting from AIUQ-st v010, the vaiable required to the ICs are all the variables defined by the standard.
+    
+    Returns:
+        - ic_names:         {ID: IC_short_name}                         - variables required by the IC card 
+        - missing_vars:     {ID: standard_variable_specs}               - variables required by the standard but missing in the IC card 
+        - rename_dict:      {IC_short_name: standard_short_name}        - renaming dictionary to rename the IC short names to the standard short names 
+        - long_names_dict:  {standard_short_name: standard_long_name}   - dictionary to retrieve the long names of the variables from the standard short names
+        - units_dict:       {standard_short_name: units}                - dictionary to retrieve the units of the variables from the standard short names
+    """
+
+    # Do the intersection between the variables required by the standard by IDs
+    var_to_take = set(standard_variables['data'].keys())
     var_available = set(ic_variables.keys())
-
-    # Check if var_available is a subset of var_to_take
     vars = var_available.intersection(var_to_take)
 
+    # -- Create the ic_names dictionary --
+    ic_names = {
+            v: ic_variables[v]['name']
+            for v in vars
+        }
+
+    # -- Create the missing variables dictionary --
     if vars != var_to_take:
         missing_vars = var_to_take - vars
         print(f"Warning: The following variables are missing in the IC data: {missing_vars}")
 
         missing_vars = {
-            v: model_variables[v]
+            v: standard_variables['data'][v]
             for v in missing_vars
         }
 
@@ -22,15 +41,12 @@ def define_mappers(model_variables, ic_variables, standard_variables):
         missing_vars = None
         print("All required variables are available in the IC data.")
 
+    # Create the mapper between the IC short names and the standard short names
     mapping = {
         v: standard_variables['data'][v]
         for v in vars
     }
 
-    ic_names = {
-        v: ic_variables[v]['name']
-        for v in vars
-    }
 
     rename_dict = {
         ic_names[v]: mapping[v]['short_name']
@@ -47,7 +63,9 @@ def define_mappers(model_variables, ic_variables, standard_variables):
         for v in vars
     }
 
-    return ic_names, rename_dict, long_names_dict, units_dict, missing_vars
+    return ic_names, missing_vars, rename_dict, long_names_dict, units_dict
+
+
 
 def reassign_long_names_units(ds: xr.Dataset, long_names_dict, units_dict) -> xr.Dataset:
     for var in ds.data_vars:
