@@ -3,4 +3,3 @@ JOBS:
     FILE: templates/prepare_ics.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5-LOGIN"
     RUNNING: DATE
-    DEPENDENCIES: SYNCHRONIZE

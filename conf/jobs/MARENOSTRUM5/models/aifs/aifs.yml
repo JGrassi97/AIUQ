@@ -18,6 +18,7 @@ JOBS:
   
   PREPARE_ICS:
     FILE: templates/prepare_ics.sh
+    DEPENDENCIES: WARMUP_REGRID_ACC
   
   SAVE_ICS:
     FILE: templates/ics_aifs.sh,templates/config.yml

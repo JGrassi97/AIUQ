@@ -1,6 +1,7 @@
 JOBS:
   PREPARE_ICS:
     FILE: templates/prepare_ics.sh
+    DEPENDENCIES: SYNCHRONIZE
 
   SIM:
     FILE: templates/sim_neuralgcm.sh,templates/config.yml
@@ -13,7 +14,7 @@ JOBS:
   
   CLEAN:
     FILE: templates/clean.sh
-    PLATFORM: "MARENOSTRUM5CPU"
+    PLATFORM: "MARENOSTRUM5-LOGIN"
     DEPENDENCIES: SIM
     RUNNING: DATE
     NODES: 1
