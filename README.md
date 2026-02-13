@@ -1,7 +1,7 @@
 # AIUQ
 
-> ⚠️ **DISCLAIMER**  
-> This project is still experimental and may change drastically from its present form.
+> ⚠️ **THIS BRANCH IS NOT OPERATIONAL**  
+> Use main branch to run the worflow.
 
 > **V0.0.1**  
 > This is the first functioning version. Still, the documentation is incomplete and using the framework in a new environment may trigger unexpected errors.
