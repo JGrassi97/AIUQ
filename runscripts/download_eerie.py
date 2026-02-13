@@ -1,13 +1,19 @@
 """
+Author: Jacopo Grassi
+Institution: Politecnico di Torino
+Email: jacopo.grassi@polito.it
+
+Created: 2025-01-12
+Last modified: 2025-02-13
+
+Description:
 
 """
 
 # Built-in/Generics
 import os 
 import shutil
-import yaml
-from collections import defaultdict
-from typing import Dict, List, Tuple, Optional, Set
+from typing import Dict, List, Tuple, Set
 from concurrent.futures import ThreadPoolExecutor
 
 # Third party
@@ -230,7 +236,7 @@ def main() -> None:
     # FALLBACK FOR STATIC VARIABLES
     if missing_vars is not None:
 
-        ic_names_static, rename_dict_static, long_names_dict_static, units_dict_static, missing_vars_static = define_mappers(
+        ic_names_static, rename_dict_static, long_names_dict_static, units_dict_static, missing_vars_static = define_ics_mappers(
             missing_vars,
             static_card['variables'],
             standard_dict['variables']
@@ -253,7 +259,7 @@ def main() -> None:
         # FALLBACK FOR CLIMATOLOGY VARIABLES
         if missing_vars_static is not None:
 
-            ic_names_climatology, rename_dict_climatology, long_names_dict_climatology, units_dict_climatology, missing_vars_climatology = define_mappers(
+            ic_names_climatology, rename_dict_climatology, long_names_dict_climatology, units_dict_climatology, missing_vars_climatology = define_ics_mappers(
                 missing_vars_static,
                 climatology_card['variables'],
                 standard_dict['variables']

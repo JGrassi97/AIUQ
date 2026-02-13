@@ -86,7 +86,7 @@ def main() -> None:
     # FALLBACK FOR STATIC VARIABLES
     if missing_vars is not None:
 
-        ic_names_static, rename_dict_static, long_names_dict_static, units_dict_static, missing_vars_static = define_mappers(
+        ic_names_static, rename_dict_static, long_names_dict_static, units_dict_static, missing_vars_static = define_ics_mappers(
             missing_vars,
             static_card['variables'],
             standard_dict['variables']
@@ -110,7 +110,7 @@ def main() -> None:
         # FALLBACK FOR CLIMATOLOGY VARIABLES
         if missing_vars_static is not None:
 
-            ic_names_climatology, rename_dict_climatology, long_names_dict_climatology, units_dict_climatology, missing_vars_climatology = define_mappers(
+            ic_names_climatology, rename_dict_climatology, long_names_dict_climatology, units_dict_climatology, missing_vars_climatology = define_ics_mappers(
                 missing_vars_static,
                 climatology_card['variables'],
                 standard_dict['variables']
