@@ -44,7 +44,7 @@ def define_ics_mappers(ic_variables: dict, standard_variables: dict) -> tuple:
     logging.info("Defining the mappers for the IC variables...")
 
     # Do the intersection between the variables required by the standard by IDs
-    var_to_take = set(standard_variables['data'].keys())
+    var_to_take = set(standard_variables.keys())
     var_available = set(ic_variables.keys())
     vars = var_available.intersection(var_to_take)
 
@@ -60,7 +60,7 @@ def define_ics_mappers(ic_variables: dict, standard_variables: dict) -> tuple:
         logging.warning(f"The following variables are missing in the IC data: {missing_vars}. Falling back to another method if possible.")
 
         missing_vars = {
-            v: standard_variables['data'][v]
+            v: standard_variables[v]
             for v in missing_vars
         }
 
@@ -70,7 +70,7 @@ def define_ics_mappers(ic_variables: dict, standard_variables: dict) -> tuple:
 
     # Create the mapper between the IC short names and the standard short names
     mapping = {
-        v: standard_variables['data'][v]
+        v: standard_variables[v]
         for v in vars
     }
 

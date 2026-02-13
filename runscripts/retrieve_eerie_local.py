@@ -52,7 +52,7 @@ def main() -> None:
     # Create the mappers between model requirement and IC variables
     ic_names, rename_dict, long_names_dict, units_dict, missing_vars = define_ics_mappers(
         ic_card['variables'], 
-        standard_dict['variables']
+        standard_dict['variables']['data']
         )
     
     # Select vars to take from EERIE
@@ -89,9 +89,8 @@ def main() -> None:
     if missing_vars is not None:
 
         ic_names_static, rename_dict_static, long_names_dict_static, units_dict_static, missing_vars_static = define_ics_mappers(
-            missing_vars,
             static_card['variables'],
-            standard_dict['variables']
+            missing_vars
         )
 
         if list(ic_names_static.values()) != []:
@@ -120,9 +119,8 @@ def main() -> None:
         if missing_vars_static is not None:
 
             ic_names_climatology, rename_dict_climatology, long_names_dict_climatology, units_dict_climatology, missing_vars_climatology = define_ics_mappers(
-                missing_vars_static,
                 climatology_card['variables'],
-                standard_dict['variables']
+                missing_vars_static
             )
 
             climatology_dataset = (
