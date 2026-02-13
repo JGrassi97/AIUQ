@@ -15,8 +15,8 @@ import zarr
 # Local
 from AIUQst_lib.functions import parse_arguments, read_config
 from AIUQst_lib.pressure_levels import check_pressure_levels
-from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
-from AIUQst_lib.variables import reassign_long_names_units, define_mappers
+from AIUQst_lib.cards import read_ic_card, read_std_version
+from AIUQst_lib.variables import reassign_long_names_units, define_ics_mappers
 
 
 def main() -> None:
@@ -47,7 +47,7 @@ def main() -> None:
     full_era5 = xr.open_zarr(gcs.get_mapper(ini_data_path_remote), chunks={"time":1})
     
     # Create the mappers between model requirement and IC variables
-    ic_names, rename_dict, long_names_dict, units_dict, missing_vars = define_mappers(
+    ic_names, rename_dict, long_names_dict, units_dict, missing_vars = define_ics_mappers(
         ic_card['variables'], 
         standard_dict['variables']
         )

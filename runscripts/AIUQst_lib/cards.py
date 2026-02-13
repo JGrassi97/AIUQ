@@ -1,5 +1,26 @@
-import os
+"""
+Author: Jacopo Grassi
+Institution: Politecnico di Torino
+Email: jacopo.grassi@polito.it
+
+Created: 2025-01-12
+Last modified: 2025-02-13
+
+Description:
+    
+"""   
+
+# Built-in/Generics
+import logging
 import yaml
+import os
+
+# Third party
+
+# Local
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def read_model_card(hpcrootdir: str, model: str) -> list:
 

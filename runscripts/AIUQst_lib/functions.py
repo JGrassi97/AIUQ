@@ -1,8 +1,29 @@
+"""
+Author: Jacopo Grassi
+Institution: Politecnico di Torino
+Email: jacopo.grassi@polito.it
+
+Created: 2025-01-12
+Last modified: 2025-02-13
+
+Description:
+    
+"""   
+
+# Built-in/Generics
+import logging
 import argparse
 import yaml
 import ast
-import os
 from typing import Any, List
+
+# Third party
+
+# Local
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 
 def normalize_out_vars(v: Any) -> List[str]:

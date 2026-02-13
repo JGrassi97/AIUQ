@@ -19,7 +19,7 @@ from ecmwfapi import ECMWFDataServer
 from AIUQst_lib.functions import parse_arguments, read_config
 from AIUQst_lib.pressure_levels import check_pressure_levels
 from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
-from AIUQst_lib.variables import reassign_long_names_units, define_mappers
+from AIUQst_lib.variables import reassign_long_names_units, define_ics_mappers
 
 # MARS has problems if 2m variables (167, 168) are requested together with other sfc variables.
 # Here we define the codes to be requested separately.
@@ -189,7 +189,7 @@ def main() -> None:
 
 
     # Create the mappers between model requirement and IC variables
-    ic_names, rename_dict, long_names_dict, units_dict, missing_vars = define_mappers(
+    ic_names, rename_dict, long_names_dict, units_dict, missing_vars = define_ics_mappers(
         ic_card['variables'], 
         standard_dict['variables']
         )
