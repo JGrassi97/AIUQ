@@ -65,6 +65,7 @@ data:
     short_name  : tcw
     long_name   : Total column water
     units       : kg m**-2
+    type        : sfc
 
   151 : 
     short_name  : msl
