@@ -92,7 +92,7 @@ def define_ics_mappers(ic_variables: dict, standard_variables: dict) -> tuple:
         for v in vars
     }
 
-    return ic_names, missing_vars, rename_dict, long_names_dict, units_dict
+    return ic_names, rename_dict, long_names_dict, units_dict, missing_vars
 
 
 
