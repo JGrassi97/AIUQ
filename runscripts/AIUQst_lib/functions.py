@@ -7,12 +7,7 @@ from typing import Any, List
 
 def normalize_out_vars(v: Any) -> List[str]:
     """
-    Converte out_vars in una lista di stringhe in modo robusto.
-    Accetta:
-      - lista già pronta: ['temperature']
-      - stringa python-list: "['temperature']"
-      - stringa singola: "temperature"
-      - stringa separata da spazi/virgole: "t q u,v"
+    Convert out_vars to a list of strings, handling various input formats.
     """
     if v is None:
         return []
@@ -25,7 +20,7 @@ def normalize_out_vars(v: Any) -> List[str]:
         if not s:
             return []
 
-        # caso: "['temperature', 'u']"
+        # case: "['temperature', 'u']"
         if (s.startswith("[") and s.endswith("]")) or (s.startswith("(") and s.endswith(")")):
             try:
                 parsed = ast.literal_eval(s)
@@ -34,13 +29,13 @@ def normalize_out_vars(v: Any) -> List[str]:
             except Exception:
                 pass
 
-        # caso: "temperature, u, v" oppure "temperature u v"
+        # case: "temperature, u, v" or "temperature u v"
         if "," in s:
             return [p.strip() for p in s.split(",") if p.strip()]
         if " " in s:
             return [p.strip() for p in s.split() if p.strip()]
 
-        # caso: "temperature"
+        # case: "temperature"
         return [s]
 
     # fallback
