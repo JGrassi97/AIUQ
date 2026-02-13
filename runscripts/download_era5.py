@@ -91,7 +91,7 @@ def main() -> None:
             missing_vars
         )
 
-        static_dataset = (
+        climatology_datasetstatic_dataset = (
             (xr.open_dataset(_STATIC_DATA)[list(ic_names_static.values())])
             .rename(rename_dict_static)
             .pipe(reassign_long_names_units, long_names_dict_static, units_dict_static)
@@ -126,7 +126,7 @@ def main() -> None:
             climatology_dataset['time'] = selected['time']
 
             selected = (
-                xr.merge([selected, static_dataset], join="exact")
+                xr.merge([selected, climatology_dataset], join="exact")
             ) 
         
     # Final part - Savimg in zarr
