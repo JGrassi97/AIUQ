@@ -1,9 +1,6 @@
 # AIUQ
 
-> ⚠️ **THIS BRANCH IS NOT OPERATIONAL**  
-> Use main branch to run the worflow.
-
-> **V0.0.1**  
+> **V0.0.2**  
 > This is the first functioning version. Still, the documentation is incomplete and using the framework in a new environment may trigger unexpected errors.
 
 AIUQ (Artificial Intelligence weather forecasting models for Uncertainty Quantification) is a framework for running AI-based weather and climate models using Autosubmit. It is designed to efficiently handle different combinations of initial conditions (ICs) and models. The integration of multiple fallback methods allows the use of different sets of initial conditions, even when they do not fully match the AI model requirements.
@@ -121,7 +118,7 @@ autosubmit expid \
   --minimal_configuration \
   --git_as_conf conf/bootstrap/ \
   --git_repo https://github.com/JGrassi97/AIUQ.git \
-  --git_branch standard/v010
+  --git_branch main
 ```
 
 MareNostrum5ACC
@@ -187,9 +184,9 @@ Since this standard may evolve due to future developments or different user requ
 
 ---
 
-#### AIUQ-st v000
+#### AIUQ-st v010
 
-Below is a brief description of **AIUQ-st/v000**:
+Below is a brief description of **AIUQ-st/v010**:
 
 - **Storage format:** `.zarr`
 - **Naming conventions:** [ECMWF Parameter database](https://codes.ecmwf.int/grib/param-db/?encoding=netcdf)
