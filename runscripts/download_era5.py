@@ -130,7 +130,7 @@ def main() -> None:
             climatology_dataset['time'] = selected['time']
 
             selected = (
-                xr.merge([selected, static_dataset], join="exact")
+                xr.merge([selected, climatology_dataset], join="exact")
             ) 
         
     # Final part - Savimg in zarr
