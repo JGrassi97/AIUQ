@@ -30,7 +30,7 @@ from AIUQst_lib.variables import name_mapper_for_model
 from postprocess_aifs import build_dataset_for_state
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def grid_file(file_path, lats, lons):

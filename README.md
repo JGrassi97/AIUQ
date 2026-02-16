@@ -1,7 +1,7 @@
 # AIUQ
 
-> ⚠️ **DISCLAIMER**  
-> This project is still experimental and may change drastically from its present form.
+> ⚠️ **THIS BRANCH IS NOT OPERATIONAL**  
+> Use main branch to run the worflow.
 
 > **V0.0.1**  
 > This is the first functioning version. Still, the documentation is incomplete and using the framework in a new environment may trigger unexpected errors.
@@ -121,7 +121,7 @@ autosubmit expid \
   --minimal_configuration \
   --git_as_conf conf/bootstrap/ \
   --git_repo https://github.com/JGrassi97/AIUQ.git \
-  --git_branch main
+  --git_branch standard/v010
 ```
 
 MareNostrum5ACC

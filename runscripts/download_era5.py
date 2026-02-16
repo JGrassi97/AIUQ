@@ -15,8 +15,8 @@ import zarr
 # Local
 from AIUQst_lib.functions import parse_arguments, read_config
 from AIUQst_lib.pressure_levels import check_pressure_levels
-from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
-from AIUQst_lib.variables import reassign_long_names_units, define_mappers
+from AIUQst_lib.cards import read_ic_card, read_std_version
+from AIUQst_lib.variables import reassign_long_names_units, define_ics_mappers
 
 
 def main() -> None:
@@ -36,7 +36,6 @@ def main() -> None:
     _STD_VERSION    = config.get("STD_VERSION", "")
 
     # IC settings
-    model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
     ic_card = read_ic_card(_HPCROOTDIR, _IC)
     static_card = read_ic_card(_HPCROOTDIR, 'static')
     climatology_card = read_ic_card(_HPCROOTDIR, 'climatology')
@@ -48,10 +47,9 @@ def main() -> None:
     full_era5 = xr.open_zarr(gcs.get_mapper(ini_data_path_remote), chunks={"time":1})
     
     # Create the mappers between model requirement and IC variables
-    ic_names, rename_dict, long_names_dict, units_dict, missing_vars = define_mappers(
-        model_card['variables'], 
+    ic_names, rename_dict, long_names_dict, units_dict, missing_vars = define_ics_mappers(
         ic_card['variables'], 
-        standard_dict['variables']
+        standard_dict['variables']['data']
         )
 
     # The following is a workaround for soil temperature levels - google saves them as different variable, one for each level
@@ -88,13 +86,12 @@ def main() -> None:
     # FALLBACK FOR STATIC VARIABLES
     if missing_vars is not None:
 
-        ic_names_static, rename_dict_static, long_names_dict_static, units_dict_static, missing_vars_static = define_mappers(
-            missing_vars,
+        ic_names_static, rename_dict_static, long_names_dict_static, units_dict_static, missing_vars_static = define_ics_mappers(
             static_card['variables'],
-            standard_dict['variables']
+            missing_vars
         )
 
-        static_dataset = (
+        climatology_datasetstatic_dataset = (
             (xr.open_dataset(_STATIC_DATA)[list(ic_names_static.values())])
             .rename(rename_dict_static)
             .pipe(reassign_long_names_units, long_names_dict_static, units_dict_static)
@@ -112,10 +109,9 @@ def main() -> None:
         # FALLBACK FOR CLIMATOLOGY VARIABLES
         if missing_vars_static is not None:
 
-            ic_names_climatology, rename_dict_climatology, long_names_dict_climatology, units_dict_climatology, missing_vars_climatology = define_mappers(
-                missing_vars_static,
+            ic_names_climatology, rename_dict_climatology, long_names_dict_climatology, units_dict_climatology, missing_vars_climatology = define_ics_mappers(
                 climatology_card['variables'],
-                standard_dict['variables']
+                missing_vars_static,
             )
 
             climatology_dataset = (

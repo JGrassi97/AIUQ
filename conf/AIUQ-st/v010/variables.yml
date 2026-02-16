@@ -1,7 +1,7 @@
-AIUQ-st: v000 
+AIUQ-st: v010 
 
 metadata: 
-  description : "AIUQ-st v000 variable definitions based on ECMWF GRIB2 parameter database. All the
+  description : "AIUQ-st v010 variable definitions based on ECMWF GRIB2 parameter database. All the
                 variable here respect the ECMWF standard names, units and types where applicable. The only 
                 exception is the orography here named orog and flagged with 999999 code."
   reference_url : https://codes.ecmwf.int/grib/param-db/

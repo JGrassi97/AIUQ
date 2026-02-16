@@ -19,7 +19,7 @@ from ecmwfapi import ECMWFDataServer
 from AIUQst_lib.functions import parse_arguments, read_config
 from AIUQst_lib.pressure_levels import check_pressure_levels
 from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
-from AIUQst_lib.variables import reassign_long_names_units, define_mappers
+from AIUQst_lib.variables import reassign_long_names_units, define_ics_mappers
 
 
 
@@ -50,10 +50,9 @@ def main() -> None:
 
 
     # Create the mappers between model requirement and IC variables
-    ic_names, rename_dict, long_names_dict, units_dict, missing_vars = define_mappers(
-        model_card['variables'], 
+    ic_names, rename_dict, long_names_dict, units_dict, missing_vars = define_ics_mappers(
         ic_card['variables'], 
-        standard_dict['variables']
+        standard_dict['variables']['data']
         )
     
     # Select vars to take from EERIE
@@ -89,10 +88,9 @@ def main() -> None:
     # FALLBACK FOR STATIC VARIABLES
     if missing_vars is not None:
 
-        ic_names_static, rename_dict_static, long_names_dict_static, units_dict_static, missing_vars_static = define_mappers(
-            missing_vars,
+        ic_names_static, rename_dict_static, long_names_dict_static, units_dict_static, missing_vars_static = define_ics_mappers(
             static_card['variables'],
-            standard_dict['variables']
+            missing_vars
         )
 
         if list(ic_names_static.values()) != []:
@@ -120,10 +118,9 @@ def main() -> None:
         # FALLBACK FOR CLIMATOLOGY VARIABLES
         if missing_vars_static is not None:
 
-            ic_names_climatology, rename_dict_climatology, long_names_dict_climatology, units_dict_climatology, missing_vars_climatology = define_mappers(
-                missing_vars_static,
+            ic_names_climatology, rename_dict_climatology, long_names_dict_climatology, units_dict_climatology, missing_vars_climatology = define_ics_mappers(
                 climatology_card['variables'],
-                standard_dict['variables']
+                missing_vars_static
             )
 
             climatology_dataset = (
