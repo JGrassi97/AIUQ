@@ -19,6 +19,12 @@ data:
     units       : K
     type        : sfc
 
+  43  : 
+    short_name  : slt
+    long_name   : Soil type
+    units       : Numeric
+    type        : sfc
+
   129 : 
     short_name  : z
     long_name   : Geopotential height
