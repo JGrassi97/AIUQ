@@ -159,7 +159,7 @@ def main():
     DATE = datetime.utcfromtimestamp(t64.astype("datetime64[s]").astype(int))
 
     # Fields to keep
-    to_keep = set(name_mapper.keys())
+    to_keep = set([name_mapper[v] for v in name_mapper.keys()])
 
     def base_name(varname: str) -> str:
         if "_" in varname:

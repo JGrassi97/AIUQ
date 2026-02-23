@@ -2,6 +2,8 @@ model : aifs
 producer : ecmwf
 
 variables:
+  39 : swvl1
+  40 : swvl2
   129 : gh
   130 : t
   131 : u
