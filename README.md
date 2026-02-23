@@ -1,7 +1,7 @@
 # AIUQ
 
-> **V0.0.2**  
-> This is the first functioning version. Still, the documentation is incomplete and using the framework in a new environment may trigger unexpected errors.
+> **WARNING**
+> This is a development branch!!!!
 
 AIUQ (Artificial Intelligence weather forecasting models for Uncertainty Quantification) is a framework for running AI-based weather and climate models using Autosubmit. It is designed to efficiently handle different combinations of initial conditions (ICs) and models. The integration of multiple fallback methods allows the use of different sets of initial conditions, even when they do not fully match the AI model requirements.
 
@@ -118,7 +118,7 @@ autosubmit expid \
   --minimal_configuration \
   --git_as_conf conf/bootstrap/ \
   --git_repo https://github.com/JGrassi97/AIUQ.git \
-  --git_branch main
+  --git_branch models/aifs-single
 ```
 
 MareNostrum5ACC
@@ -132,8 +132,8 @@ Create the file <EXPID>/conf/main.yml.
 
 MODEL:
   # Main settings
-  NAME: neuralgcm                                   # aifs / neuralgcm / aurora
-  CHECKPOINT_NAME: stochastic_precip_2_8_deg.pkl    # checkpoint name as written in the table above
+  NAME: aifs                                   # aifs / neuralgcm / aurora
+  CHECKPOINT_NAME: aifs-single-mse-1.1.ckpt    # checkpoint name as written in the table above
   ICS: eerie                                        # eerie / era5
   USE_LOCAL_ICS: false                              # true / false
 

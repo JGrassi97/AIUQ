@@ -41,7 +41,7 @@ models:
     label: aifs
     checkpoints:
       - id: aifs_single_1_1
-        label: aifs-single-1.1.ckpt
+        label: aifs-single-mse-1.1.ckpt
         url: https://huggingface.co/ecmwf/aifs-single-1.1
         download_url: https://huggingface.co/ecmwf/aifs-single-1.1/blob/main/aifs-single-mse-1.1.ckpt
         size: 994MB
