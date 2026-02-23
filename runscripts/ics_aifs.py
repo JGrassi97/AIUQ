@@ -1,6 +1,14 @@
 """
+Author: Jacopo Grassi
+Institution: Politecnico di Torino
+Email: jacopo.grassi@polito.it
 
-"""
+Created: 2025-01-12
+Last modified: 2025-02-23
+
+Description:
+    
+"""   
 
 # Built-in/Generics
 import os
@@ -15,9 +23,8 @@ import earthkit.regrid as ekr
 
 # Local
 from AIUQst_lib.functions import parse_arguments, read_config
-from AIUQst_lib.pressure_levels import check_pressure_levels
-from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
-from AIUQst_lib.variables import reassign_long_names_units, name_mapper_for_model
+from AIUQst_lib.cards import read_model_card, read_std_version
+from AIUQst_lib.variables import name_mapper_for_model
 
 logging.basicConfig(level=logging.DEBUG)
 
