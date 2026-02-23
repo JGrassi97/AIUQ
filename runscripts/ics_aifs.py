@@ -33,9 +33,13 @@ def main():
     _HPCROOTDIR         = config.get("HPCROOTDIR", "")
     _MODEL_NAME         = config.get("MODEL_NAME", "")
     _ICS_TEMP_DIR       = config.get("ICS_TEMP_DIR", "")
+    _STD_VERSION        = config.get("STD_VERSION", "")
 
     # Reading model card for variable/level info
     model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
+    standard_dict = read_std_version(_HPCROOTDIR, _STD_VERSION)
+
+    name_mapper = name_mapper_for_model(model_card['variables'], standard_dict['variables'])
 
     # Start date for filename
     start_date = datetime.strptime(_START_TIME, "%Y-%m-%d")
@@ -71,7 +75,7 @@ def main():
     required_pressure_levels = model_card['pressure_levels']['values']
     data_original = data_original.interp(level=required_pressure_levels)
                                              
-    # Rename variables to idiot ECWMF names - they can't be consistent with themselves
+    # Rename variables to idiot ECWMF names
     NAME_MAP = {
         "t2m": "2t",
         "d2m": "2d",
@@ -155,6 +159,9 @@ def main():
     t64 = data_n320["time"].isel(time=1).values
     DATE = datetime.utcfromtimestamp(t64.astype("datetime64[s]").astype(int))
 
+    # Fields to keep
+    to_keep = name_mapper.keys()
+    fields = {k: v for k, v in fields.items() if k in to_keep}
 
     timestamp = int(DATE.replace(tzinfo=timezone.utc).timestamp())
 
