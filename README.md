@@ -149,7 +149,7 @@ EXPERIMENT:
 
   # The following fields are not part of standard Autosubmit experiment
   OUT_VARS:       
-    - all                 # If you want to store only a subset of variables - make sure to use the specific out names of the model
+    - t                 # Make sure to use the specific out names of the model
   OUT_FREQ: daily         # original / daily
   OUT_RES: "1"              # original / 0.25 / 0.5 / 1 / 1.5 / 2
   OUT_LEVS: [1000, 850, 700, 500, 250, 100, 50, 10]              # List of values in hPa or 'original' - 
