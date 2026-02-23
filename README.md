@@ -49,8 +49,8 @@ The framework supports both deterministic and stochastic models. Deterministic m
 </tr>
 <tr>
 <td rowspan="2"><b>AIFS</b></td>
-<td><a href="https://huggingface.co/ecmwf/aifs-single-1.1">aifs-single-1.1.ckpt</a></td>
-<td align="center">⚠️</td>
+<td><a href="https://huggingface.co/ecmwf/aifs-single-1.1">aifs-single-mse-1.1.ckpt</a></td>
+<td align="center">✅</td>
 <td align="center">⚠️</td>
 </tr>
 <tr>
@@ -73,6 +73,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 ⚠️ work in progress<br>
 ❌ not implemented<br>
 </td></tr></table>
+
 
 
 

@@ -160,6 +160,10 @@ def main():
 
     # Fields to keep
     to_keep = set([name_mapper[v] for v in name_mapper.keys()])
+    
+    # add stl1 and stl2 to the list of fields to keep
+    to_keep.add("stl1")
+    to_keep.add("stl2")
 
     def base_name(varname: str) -> str:
         if "_" in varname:
