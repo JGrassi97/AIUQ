@@ -16,6 +16,10 @@ variables:
     name : sea_ice_cover
   34  : 
     name : sea_surface_temperature
+  39  : 
+    name : volumetric_soil_water_layer_1
+  40  : 
+    name : volumetric_soil_water_layer_2
   129 : 
     name : geopotential
   130 : 

@@ -82,9 +82,8 @@ def main():
         "u10": "10u",
         "v10": "10v",
     }
-    for src, dst in NAME_MAP.items():
-        if src in data_original.data_vars and dst not in data_original.data_vars:
-            data_original = data_original.rename({src: dst})
+
+    data_original = data_original.rename(NAME_MAP)
 
     # Regrid everything to N320 as required by AIFS checkpoint
     regridded_vars = {}
