@@ -160,12 +160,22 @@ def main():
     DATE = datetime.utcfromtimestamp(t64.astype("datetime64[s]").astype(int))
 
     # Fields to keep
-    to_keep = name_mapper.keys()
-    fields = {k: v for k, v in fields.items() if k in to_keep}
+    to_keep = set(name_mapper.keys())
+
+    def base_name(varname: str) -> str:
+        if "_" in varname:
+            return varname.split("_")[0]
+        return varname
+
+    fields = {
+        k: v
+        for k, v in fields.items()
+        if base_name(k) in to_keep
+    }
 
     timestamp = int(DATE.replace(tzinfo=timezone.utc).timestamp())
 
-    # use YYYYMMDD in filename to avoid spaces/colons
+        # use YYYYMMDD in filename to avoid spaces/colons
     ics_basename = f"ics_aifs_{start_date.strftime('%Y%m%d')}"
     ics_file = os.path.join(_ICS_TEMP_DIR, f"{ics_basename}.npz")
     ics_names_file = os.path.join(_ICS_TEMP_DIR, f"{ics_basename}.names.json")
