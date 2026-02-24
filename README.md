@@ -1,5 +1,8 @@
 # AIUQ
 
+> **v0.0.2**
+> This is the first functioning version. Still, the documentation is incomplete and using the framework in a new environment may trigger unexpected errors.
+
 > **WARNING**
 > This is a development branch!!!!
 
@@ -119,7 +122,7 @@ autosubmit expid \
   --minimal_configuration \
   --git_as_conf conf/bootstrap/ \
   --git_repo https://github.com/JGrassi97/AIUQ.git \
-  --git_branch models/aifs-single
+  --git_branch main
 ```
 
 MareNostrum5ACC
