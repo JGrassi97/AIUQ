@@ -41,6 +41,7 @@ def main():
     _MODEL_NAME         = config.get("MODEL_NAME", "")
     _ICS_TEMP_DIR       = config.get("ICS_TEMP_DIR", "")
     _STD_VERSION        = config.get("STD_VERSION", "")
+    _MODEL_CHECKPOINT   = config.get("MODEL_CHECKPOINT", "")
 
     # Reading model card for variable/level info
     model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
@@ -168,9 +169,10 @@ def main():
     # Fields to keep
     to_keep = set([name_mapper[v] for v in name_mapper.keys()])
     
-    # add stl1 and stl2 to the list of fields to keep
-    to_keep.add("stl1")
-    to_keep.add("stl2")
+    if 'aifs-single-mse-1.1.ckpt' in _MODEL_CHECKPOINT:
+        # add stl1 and stl2 to the list of fields to keep
+        to_keep.add("stl1")
+        to_keep.add("stl2")
 
     def base_name(varname: str) -> str:
         if "_" in varname:
