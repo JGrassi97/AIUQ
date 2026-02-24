@@ -2,25 +2,27 @@ model : aifs
 producer : ecmwf
 
 variables:
-  129 : geopotential
-  130 : temperature
-  131 : u_component_of_wind
-  132 : v_component_of_wind
-  133 : specific_humidity
-  134 : surface_pressure
-  135 : vertical_velocity
-  136 : total_column_water
-  151 : mean_sea_level_pressure
-  160 : standard_deviation_of_sub_gridscale_orography
-  163 : slope_of_sub_gridscale_orography
-  165 : 10m_u_component_of_wind
-  166 : 10m_v_component_of_wind
-  167 : 2m_temperature
-  168 : 2m_dewpoint_temperature
-  172 : land_sea_mask
-  235 : skin_temperature
-  260360 : soil_temperature
-  999999 : elevation
+  39 : swvl1
+  40 : swvl2
+  129 : gh
+  130 : t
+  131 : u
+  132 : v
+  133 : q
+  134 : sp
+  135 : w
+  136 : tcw
+  151 : msl
+  160 : sdor
+  163 : slor
+  165 : 10u
+  166 : 10v
+  167 : 2t
+  168 : 2d
+  172 : lsm
+  235 : skt
+  260360 : sot
+  999999 : z
 
 pressure_levels :
   values : [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]

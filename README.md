@@ -1,7 +1,10 @@
 # AIUQ
 
-> **V0.0.2**  
+> **v0.0.2**
 > This is the first functioning version. Still, the documentation is incomplete and using the framework in a new environment may trigger unexpected errors.
+
+> **WARNING**
+> This is a development branch!!!!
 
 AIUQ (Artificial Intelligence weather forecasting models for Uncertainty Quantification) is a framework for running AI-based weather and climate models using Autosubmit. It is designed to efficiently handle different combinations of initial conditions (ICs) and models. The integration of multiple fallback methods allows the use of different sets of initial conditions, even when they do not fully match the AI model requirements.
 
@@ -49,8 +52,8 @@ The framework supports both deterministic and stochastic models. Deterministic m
 </tr>
 <tr>
 <td rowspan="2"><b>AIFS</b></td>
-<td><a href="https://huggingface.co/ecmwf/aifs-single-1.1">aifs-single-1.1.ckpt</a></td>
-<td align="center">⚠️</td>
+<td><a href="https://huggingface.co/ecmwf/aifs-single-1.1">aifs-single-mse-1.1.ckpt</a></td>
+<td align="center">✅</td>
 <td align="center">⚠️</td>
 </tr>
 <tr>
@@ -73,6 +76,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 ⚠️ work in progress<br>
 ❌ not implemented<br>
 </td></tr></table>
+
 
 
 
@@ -132,8 +136,8 @@ Create the file <EXPID>/conf/main.yml.
 
 MODEL:
   # Main settings
-  NAME: neuralgcm                                   # aifs / neuralgcm / aurora
-  CHECKPOINT_NAME: stochastic_precip_2_8_deg.pkl    # checkpoint name as written in the table above
+  NAME: aifs                                   # aifs / neuralgcm / aurora
+  CHECKPOINT_NAME: aifs-single-mse-1.1.ckpt    # checkpoint name as written in the table above
   ICS: eerie                                        # eerie / era5
   USE_LOCAL_ICS: false                              # true / false
 
@@ -148,7 +152,7 @@ EXPERIMENT:
 
   # The following fields are not part of standard Autosubmit experiment
   OUT_VARS:       
-    - all                 # If you want to store only a subset of variables - make sure to use the specific out names of the model
+    - t                 # Make sure to use the specific out names of the model
   OUT_FREQ: daily         # original / daily
   OUT_RES: "1"              # original / 0.25 / 0.5 / 1 / 1.5 / 2
   OUT_LEVS: [1000, 850, 700, 500, 250, 100, 50, 10]              # List of values in hPa or 'original' - 
