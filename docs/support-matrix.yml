@@ -41,7 +41,7 @@ models:
     label: aifs
     checkpoints:
       - id: aifs_single_1_1
-        label: aifs-single-1.1.ckpt
+        label: aifs-single-mse-1.1.ckpt
         url: https://huggingface.co/ecmwf/aifs-single-1.1
         download_url: https://huggingface.co/ecmwf/aifs-single-1.1/blob/main/aifs-single-mse-1.1.ckpt
         size: 994MB
@@ -70,7 +70,7 @@ status:
     ngcm_det_0_7: "available"
     ngcm_det_1_4: "available"
     ngcm_det_2_8: "available"
-    aifs_single_1_1: "wip"
+    aifs_single_1_1: "available"
     aifs_ens_1_0: "available"
     aurora_.025_finetuned: "not_implemented"
 

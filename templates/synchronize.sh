@@ -32,7 +32,7 @@ function rsync_to_remote() {
     SOURCE=$3
     DIR=$4
 
-    rsync -avp "${SOURCE}" "${USR}"@"${HOST}":"${DIR}"/
+    rsync -avpL "${SOURCE}" "${USR}"@"${HOST}":"${DIR}"/
 }
 
 # MAIN code

@@ -5,6 +5,7 @@ DIRS:
 
 JOBS:
   SYNCHRONIZE:
+    CHECK: on_submission
     FILE: templates/synchronize.sh
     PLATFORM: local
     RUNNING: once

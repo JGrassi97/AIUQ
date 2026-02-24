@@ -1,6 +1,7 @@
 JOBS:
 
   WARMUP_REGRID:
+    CHECK: on_submission
     FILE: templates/warmup_regrid.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5-LOGIN"
     RUNNING: ONCE
@@ -9,6 +10,7 @@ JOBS:
     PROCESSORS: 80
   
   WARMUP_REGRID_ACC:
+    CHECK: on_submission
     FILE: templates/warmup_regrid.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5-LOGIN-ACC"
     RUNNING: ONCE
@@ -17,10 +19,12 @@ JOBS:
     PROCESSORS: 80
   
   PREPARE_ICS:
+    CHECK: on_submission
     FILE: templates/prepare_ics.sh
     DEPENDENCIES: WARMUP_REGRID_ACC
   
   SAVE_ICS:
+    CHECK: on_submission
     FILE: templates/ics_aifs.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5ACC"
     DEPENDENCIES: PREPARE_ICS
@@ -30,6 +34,7 @@ JOBS:
     CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
 
   SIM:
+    CHECK: on_submission
     FILE: templates/sim_aifs.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5ACC"
     DEPENDENCIES: SAVE_ICS
@@ -39,6 +44,7 @@ JOBS:
     CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
   
   CLEAN:
+    CHECK: on_submission
     FILE: templates/clean.sh
     PLATFORM: "MARENOSTRUM5-LOGIN"
     DEPENDENCIES: SIM
@@ -47,6 +53,7 @@ JOBS:
     PROCESSORS: 1
 
   POSTPROCESS:
+    CHECK: on_submission
     FILE: templates/postprocess_aifs.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5ACC"
     DEPENDENCIES: SIM

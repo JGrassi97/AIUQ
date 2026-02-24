@@ -1,6 +1,14 @@
 """
+Author: Jacopo Grassi
+Institution: Politecnico di Torino
+Email: jacopo.grassi@polito.it
 
-"""
+Created: 2025-01-12
+Last modified: 2025-02-23
+
+Description:
+    
+"""   
 
 # Built-in/Generics
 import os
@@ -15,9 +23,8 @@ import earthkit.regrid as ekr
 
 # Local
 from AIUQst_lib.functions import parse_arguments, read_config
-from AIUQst_lib.pressure_levels import check_pressure_levels
-from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
-from AIUQst_lib.variables import reassign_long_names_units, define_mappers
+from AIUQst_lib.cards import read_model_card, read_std_version
+from AIUQst_lib.variables import name_mapper_for_model
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -33,9 +40,14 @@ def main():
     _HPCROOTDIR         = config.get("HPCROOTDIR", "")
     _MODEL_NAME         = config.get("MODEL_NAME", "")
     _ICS_TEMP_DIR       = config.get("ICS_TEMP_DIR", "")
+    _STD_VERSION        = config.get("STD_VERSION", "")
+    _MODEL_CHECKPOINT   = config.get("MODEL_CHECKPOINT", "")
 
     # Reading model card for variable/level info
     model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
+    standard_dict = read_std_version(_HPCROOTDIR, _STD_VERSION)
+
+    name_mapper = name_mapper_for_model(model_card['variables'], standard_dict['variables'])
 
     # Start date for filename
     start_date = datetime.strptime(_START_TIME, "%Y-%m-%d")
@@ -71,16 +83,15 @@ def main():
     required_pressure_levels = model_card['pressure_levels']['values']
     data_original = data_original.interp(level=required_pressure_levels)
                                              
-    # Rename variables to idiot ECWMF names - they can't be consistent with themselves
+    # Rename variables to idiot ECWMF names
     NAME_MAP = {
         "t2m": "2t",
         "d2m": "2d",
         "u10": "10u",
         "v10": "10v",
     }
-    for src, dst in NAME_MAP.items():
-        if src in data_original.data_vars and dst not in data_original.data_vars:
-            data_original = data_original.rename({src: dst})
+
+    data_original = data_original.rename(NAME_MAP)
 
     # Regrid everything to N320 as required by AIFS checkpoint
     regridded_vars = {}
@@ -155,10 +166,28 @@ def main():
     t64 = data_n320["time"].isel(time=1).values
     DATE = datetime.utcfromtimestamp(t64.astype("datetime64[s]").astype(int))
 
+    # Fields to keep
+    to_keep = set([name_mapper[v] for v in name_mapper.keys()])
+    
+    if 'aifs-single-mse-1.1.ckpt' in _MODEL_CHECKPOINT:
+        # add stl1 and stl2 to the list of fields to keep
+        to_keep.add("stl1")
+        to_keep.add("stl2")
+
+    def base_name(varname: str) -> str:
+        if "_" in varname:
+            return varname.split("_")[0]
+        return varname
+
+    fields = {
+        k: v
+        for k, v in fields.items()
+        if base_name(k) in to_keep
+    }
 
     timestamp = int(DATE.replace(tzinfo=timezone.utc).timestamp())
 
-    # use YYYYMMDD in filename to avoid spaces/colons
+        # use YYYYMMDD in filename to avoid spaces/colons
     ics_basename = f"ics_aifs_{start_date.strftime('%Y%m%d')}"
     ics_file = os.path.join(_ICS_TEMP_DIR, f"{ics_basename}.npz")
     ics_names_file = os.path.join(_ICS_TEMP_DIR, f"{ics_basename}.names.json")

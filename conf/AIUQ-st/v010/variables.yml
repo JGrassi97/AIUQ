@@ -19,12 +19,18 @@ data:
     units       : K
     type        : sfc
 
-  43  : 
-    short_name  : slt
-    long_name   : Soil type
-    units       : Numeric
-    type        : sfc
-
+  39  : 
+    short_name  : swvl1
+    long_name   : Volumetric soil water layer 1
+    units       : m3 m**-3
+    type        : soil
+  
+  40  : 
+    short_name  : swvl2
+    long_name   : Volumetric soil water layer 2
+    units       : m3 m**-3
+    type        : soil
+    
   129 : 
     short_name  : z
     long_name   : Geopotential height
