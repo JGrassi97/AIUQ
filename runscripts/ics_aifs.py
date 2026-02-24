@@ -170,9 +170,9 @@ def main():
     to_keep = set([name_mapper[v] for v in name_mapper.keys()])
     
     if 'aifs-single-mse-1.1.ckpt' in _MODEL_CHECKPOINT:
-        # add stl1 and stl2 to the list of fields to keep
-        to_keep.add("stl1")
-        to_keep.add("stl2")
+        # add swvl1 and swvl2 to the list of fields to keep
+        to_keep.add("swvl1")
+        to_keep.add("swvl2")
 
     def base_name(varname: str) -> str:
         if "_" in varname:
