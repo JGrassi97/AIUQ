@@ -70,7 +70,7 @@ def main() -> None:
         full_era5[list(ic_names.values())]
         .rename(rename_dict)
         .sel(time=slice(_START_TIME, _END_TIME))
-        .isel(time=slice(0, 2))
+        .isel(time=[0, 6])
         .pipe(reassign_long_names_units, long_names_dict, units_dict)
         .pipe(check_pressure_levels, ic_card, standard_dict['pressure_levels'])
         .compute()
