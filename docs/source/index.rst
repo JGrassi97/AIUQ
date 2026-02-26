@@ -8,3 +8,6 @@ AIUQ (Artificial Intelligence weather forecasting models for Uncertainty Quantif
    :caption: Contents:
 
    installation
+   run
+   developers
+   expand
