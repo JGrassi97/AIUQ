@@ -171,11 +171,11 @@ def main():
     
     if 'aifs-ens-crps-1.0.ckpt' in _MODEL_CHECKPOINT:
         # remove swvl1 and swvl2 to the list of fields to keep
-        # add stl1 and stl2
         # ONLY for ensemble aifs model
         to_keep.discard("swvl1")
         to_keep.discard("swvl2")
 
+    # add stl1 and stl2 for all models
     to_keep.add("stl1")
     to_keep.add("stl2")
 
