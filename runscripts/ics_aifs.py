@@ -176,8 +176,8 @@ def main():
         to_keep.discard("swvl1")
         to_keep.discard("swvl2")
 
-        to_keep.add("stl1")
-        to_keep.add("stl2")
+    to_keep.add("stl1")
+    to_keep.add("stl2")
 
     def base_name(varname: str) -> str:
         if "_" in varname:
