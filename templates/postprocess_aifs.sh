@@ -49,9 +49,9 @@ start_date=$(echo "$CHUNK_START_DATE" | sed 's/^\([0-9]\{4\}\)\([0-9]\{2\}\)\([0
 end_date=$(echo "$CHUNK_END_DATE"   | sed 's/^\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)$/\1-\2-\3/')
 
 for var in $vars; do
-    infile="${OUTPUT_PATH}/${var}/out-${start_date}-${end_date}-${MEMBER}-${var}_temp.nc"
-    gridf="${OUTPUT_PATH}/${var}/out-${start_date}-${end_date}-${MEMBER}-${var}_grid.nc"
-    outf="${OUTPUT_PATH}/${var}/out-${start_date}-${end_date}-${MEMBER}-${var}.nc"
+    infile="${OUTPUT_PATH}/${var}/${MEMBER}/out-${start_date}-${end_date}-${MEMBER}-${var}_temp.nc"
+    gridf="${OUTPUT_PATH}/${var}/${MEMBER}/out-${start_date}-${end_date}-${MEMBER}-${var}_grid.nc"
+    outf="${OUTPUT_PATH}/${var}/${MEMBER}/out-${start_date}-${end_date}-${MEMBER}-${var}.nc"
 
     cdo -P 8 -setgrid,${GRID_FILE} "${infile}" "${gridf}"
     rm -f "${infile}"
