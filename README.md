@@ -119,7 +119,7 @@ autosubmit expid \
   --minimal_configuration \
   --git_as_conf conf/bootstrap/ \
   --git_repo https://github.com/JGrassi97/AIUQ.git \
-  --git_branch main
+  --git_branch features/parallelize-aifs-postprocess
 ```
 
 MareNostrum5ACC
