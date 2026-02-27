@@ -1,4 +1,4 @@
-AIUQ installation
+Installation
 =========
 
 Set your local machine
