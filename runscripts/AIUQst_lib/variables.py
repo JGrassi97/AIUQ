@@ -15,6 +15,7 @@ Description:
 
 # Built-in/Generics
 import logging
+from typing import List
 
 # Third party
 import xarray as xr
@@ -136,3 +137,26 @@ def name_mapper_for_model(model_variables: dict, standard_variable: dict) -> dic
     }
     
     return mapper
+
+# Testing =======================================================================================================
+
+def output_translator(model_variables: dict, standard_variable: dict) -> dict:
+
+    """ Translate the output names set in the main file and adjust to the chosen model standard"""
+
+    model_keys = set(model_variables.keys())
+    standard_name = (standard_variable['data'])
+
+    translator ={}
+
+    for k in model_keys:
+        if k in standard_name:
+            model_name = model_variables[k]
+            short = standard_name[k]['short_name']
+            long = standard_name[k]['long_name']
+
+            translator[short] = model_name 
+            translator[long] = model_name
+    
+    
+    return translator
