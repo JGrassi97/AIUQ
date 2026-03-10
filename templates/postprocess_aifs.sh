@@ -10,6 +10,11 @@ STD_VERSION="v010"
 STD_DICT_CARD="${HPCROOTDIR}/conf/AIUQ-st/${STD_VERSION}/variables.yml"
 JOBNAME_WITHOUT_EXPID=$(echo "${JOBNAME}" | sed 's/^[^_]*_//')
 
+CHUNK_START_DATE=%CHUNK_START_DATE%
+CHUNK_END_DATE=%CHUNK_END_DATE%
+
+JOBNAME_WITHOUT_EXPID=$(echo "${JOBNAME}" | sed 's/^[^_]*_//')
+
 logs_dir="${HPCROOTDIR}/LOG_${EXPID}"
 configfile="${logs_dir}/config_${JOBNAME_WITHOUT_EXPID}"
 PLATFORM_NAME=%PLATFORM.NAME%
@@ -38,57 +43,7 @@ fi
 #   "[t, u, v]"         -> t u v
 #   "t,u,v"             -> t u v
 #   "[t, u, v]" tokens  -> t u v
-vars=($(printf '%s' "$RAW_VARS_STR" | sed -E 's/[^A-Za-z0-9_]+/ /g'))
-
-translated=()
-for item in "${vars[@]}"; do
-    #load yaml reader from python and do translation to short.
-    correlate=$(python3 - <<'EOF' "$item" "$STD_DICT_CARD"
-import yaml
-import sys
-import os
-from pathlib import Path
-
-term = sys.argv[1].strip()
-yaml_path = sys.argv[2]
-
-try:
-    #ler o yaml
-    if os.path.exists(yaml_path) and os.access(yaml_path, os.R_OK):
-        
-        with open(yaml_path, 'r') as f:
-            file = yaml.safe_load(f)
-            dictio = file.get('data', {})
-            found = None
-            for keys, values in dictio.items():
-                il_name = values.get('long_name', '')
-                s_name = values.get('short_name', '')
-                if term == il_name or term == s_name:
-                    found = s_name
-                    print(found)
-                    sys.exit(0)
-    else:
-        print(f"ERROR: File {yaml_path} is not accessible for '{term}'", file=sys.stderr)
-        sys.exit(1)
-except Exception as e:
-    print(f"CRITICAL ERROR in Python: {e}", file=sys.stderr)
-    sys.exit(1)
-EOF
-    )
-
-    status=$?
-
-    echo "Translation result for '$item': '$correlate'"
-    if [ $status -eq 0 ] && [ -n "$correlate" ]; then
-        translated+=("$correlate")
-    else
-        echo "Warning: No translation found for '$item'" >&2
-        translated+=("$item")
-    fi
-
-done
-
-echo "The translated variables are: ${translated[*]}"
+vars=$(printf '%s' "$RAW_VARS_STR" | sed -E 's/[^A-Za-z0-9_]+/ /g')
 
 # Load required modules on MareNostrum5
 if [ "$PLATFORM_NAME" = "MARENOSTRUM5" ]; then
@@ -99,7 +54,7 @@ fi
 start_date=$(echo "$CHUNK_START_DATE" | sed 's/^\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)$/\1-\2-\3/')
 end_date=$(echo "$CHUNK_END_DATE"   | sed 's/^\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)$/\1-\2-\3/')
 
-for var in ${translated[*]}; do
+for var in $vars; do
     infile="${OUTPUT_PATH}/${var}/${MEMBER}/out-${start_date}-${end_date}-${MEMBER}-${var}_temp.nc"
     gridf="${OUTPUT_PATH}/${var}/${MEMBER}/out-${start_date}-${end_date}-${MEMBER}-${var}_grid.nc"
     outf="${OUTPUT_PATH}/${var}/${MEMBER}/out-${start_date}-${end_date}-${MEMBER}-${var}.nc"

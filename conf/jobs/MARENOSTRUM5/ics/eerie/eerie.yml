@@ -2,5 +2,5 @@ JOBS:
   PREPARE_ICS:
     CHECK: on_submission
     FILE: templates/prepare_ics.sh,templates/config.yml
-    PLATFORM: "MARENOSTRUM5-LOGIN"
+    PLATFORM: "MARENOSTRUM5-LOGIN-NOOVERLAP-2"
     RUNNING: DATE
