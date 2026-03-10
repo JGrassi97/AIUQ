@@ -113,8 +113,6 @@ def main() -> None:
     predictions_ds = predictions_ds.assign_coords(step=("valid_time", steps))
     predictions_ds = predictions_ds.drop_vars('sim_time')
 
-    
-
     # Format output frequency
     if _OUT_FREQ == "daily":
         predictions_ds = predictions_ds.resample(valid_time="1D").mean()
@@ -154,11 +152,11 @@ def main() -> None:
     out_vars = normalize_out_vars(_OUT_VARS)
     translate = output_translator(model_card['variables'], standard_dict['variables'])
     output_vars = [translate.get(item, item) for item in out_vars]
-    for var in output_vars:
-        predictions_datarray = predictions_ds[var]
-        OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var}/{str(_RNG_KEY)}"
+    for var, var_name in zip(output_vars, out_vars):
+        predictions_datarray = predictions_ds[var].rename(var_name)
+        OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
         os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
-        OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/out-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}.nc"
+        OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/out-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var_name}.nc"
         predictions_datarray.to_netcdf(OUTPUT_FILE)
 
 
