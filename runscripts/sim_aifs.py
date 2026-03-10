@@ -76,6 +76,10 @@ def main() -> None:
     out_vars = normalize_out_vars(_OUT_VARS)
     translate = output_translator(model_card['variables'], standard_dict['variables'])
     output_vars = [translate.get(item, item) for item in out_vars]
+
+    # If 'gh' in output vars we need to change it with 'z' for the model
+    if 'gh' in output_vars:
+        output_vars = [var if var != 'gh' else 'z' for var in output_vars]
     
     
     if _OUT_LEVS != 'original':
