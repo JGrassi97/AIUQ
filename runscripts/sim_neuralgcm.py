@@ -17,7 +17,7 @@ from dinosaur import horizontal_interpolation, spherical_harmonic, xarray_utils
 # Local
 from AIUQst_lib.functions import parse_arguments, read_config, normalize_out_vars
 from AIUQst_lib.cards import read_model_card, read_std_version
-from AIUQst_lib.variables import name_mapper_for_model
+from AIUQst_lib.variables import name_mapper_for_model, output_translator
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -151,7 +151,9 @@ def main() -> None:
         predictions_ds = predictions_ds.interp(level=desired_levels)
     
     # Format output variables and select
-    output_vars = normalize_out_vars(_OUT_VARS)
+    out_vars = normalize_out_vars(_OUT_VARS)
+    translate = output_translator(model_card['variables'], standard_dict['variables'])
+    output_vars = [translate.get(item, item) for item in out_vars]
     for var in output_vars:
         predictions_datarray = predictions_ds[var]
         OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var}/{str(_RNG_KEY)}"

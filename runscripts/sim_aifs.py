@@ -25,7 +25,7 @@ from anemoi.inference.runners.simple import SimpleRunner
 from AIUQst_lib.functions import parse_arguments, read_config, normalize_out_vars
 from AIUQst_lib.pressure_levels import check_pressure_levels
 from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
-from AIUQst_lib.variables import name_mapper_for_model
+from AIUQst_lib.variables import name_mapper_for_model, output_translator
 
 from postprocess_aifs import build_dataset_for_state
 
@@ -66,9 +66,18 @@ def main() -> None:
     _RNG_KEY            = config.get("RNG_KEY", "")
     _OUT_LEVS           = config.get("OUT_LEVS", "")
     _ICS_TEMP_DIR       = config.get("ICS_TEMP_DIR", "")
-
-    output_vars = normalize_out_vars(_OUT_VARS)
-
+    _STD_VERSION        = config.get("STD_VERSION", "")
+    
+      
+    #IC settings
+    model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
+    standard_dict = read_std_version(_HPCROOTDIR, _STD_VERSION)
+   
+    out_vars = normalize_out_vars(_OUT_VARS)
+    translate = output_translator(model_card['variables'], standard_dict['variables'])
+    output_vars = [translate.get(item, item) for item in out_vars]
+    
+    
     if _OUT_LEVS != 'original':
         desired_levels = [
             int(plev)
@@ -148,7 +157,7 @@ def main() -> None:
     if _OUT_FREQ == "daily":
         dataset = dataset.resample(valid_time="1D").mean()
 
-
+    
     for var in output_vars:
 
         predictions_datarray = dataset[var]
