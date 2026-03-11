@@ -4,7 +4,7 @@ PLATFORMS:
     TYPE: ps
     HOST: glogin1.bsc.es
     PROJECT: bsc32
-    USER: %PLATFORM.USER_CODE%
+    USER: "%PLATFORM.USER_CODE%"
     QUEUE: gp_bsces
     SCRATCH_DIR: /gpfs/scratch
     ADD_PROJECT_TO_HOST: False
@@ -18,7 +18,7 @@ PLATFORMS:
     TYPE: SLURM
     HOST: alogin1.bsc.es
     PROJECT: ehpc536
-    USER: %PLATFORM.USER_CODE%
+    USER: "%PLATFORM.USER_CODE%"
     QUEUE: acc_ehpc
     SCRATCH_DIR: /gpfs/scratch
     ADD_PROJECT_TO_HOST: False
@@ -31,7 +31,7 @@ PLATFORMS:
     TYPE: ps
     HOST: glogin4.bsc.es
     PROJECT: ehpc536
-    USER: %PLATFORM.USER_CODE%
+    USER: "%PLATFORM.USER_CODE%"
     QUEUE: acc_ehpc
     SCRATCH_DIR: /gpfs/scratch
     ADD_PROJECT_TO_HOST: False
@@ -44,7 +44,7 @@ PLATFORMS:
     TYPE: ps
     HOST: glogin4.bsc.es
     PROJECT: ehpc536
-    USER: %PLATFORM.USER_CODE%
+    USER: "%PLATFORM.USER_CODE%"
     QUEUE: acc_ehpc
     SCRATCH_DIR: /gpfs/scratch
     ADD_PROJECT_TO_HOST: False
@@ -59,7 +59,7 @@ PLATFORMS:
     TYPE: ps
     HOST: glogin4.bsc.es
     PROJECT: ehpc536
-    USER: %PLATFORM.USER_CODE%
+    USER: "%PLATFORM.USER_CODE%"
     QUEUE: acc_ehpc
     SCRATCH_DIR: /gpfs/scratch
     ADD_PROJECT_TO_HOST: False
@@ -74,7 +74,7 @@ PLATFORMS:
     TYPE: ps
     HOST: alogin4.bsc.es
     PROJECT: ehpc536
-    USER: %PLATFORM.USER_CODE%
+    USER: "%PLATFORM.USER_CODE%"
     QUEUE: acc_ehpc
     SCRATCH_DIR: /gpfs/scratch
     ADD_PROJECT_TO_HOST: False
