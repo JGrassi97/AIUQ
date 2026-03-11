@@ -120,7 +120,7 @@ autosubmit expid \
   --HPC MareNostrum5ACC \
   --minimal_configuration \
   --git_as_conf conf/bootstrap/ \
-  --git_repo https://github.com/JGrassi97/AIUQ.git \
+  --git_repo https://gitlab.earth.bsc.es/ces/AIUQ.git \
   --git_branch main
 ```
 
