@@ -92,6 +92,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 ## Quickstart
 
 ### Installation
+
 To run the framework you need
 - Autosubmit in your local machine. Please refer to the [official documentation](https://autosubmit.readthedocs.io/en/master/) to install it.
 - The supporting files on your HPC
