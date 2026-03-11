@@ -1,7 +1,7 @@
 # AIUQ
 
-> **v0.0.2**
-> This is the first functioning version. Still, the documentation is incomplete and using the framework in a new environment may trigger unexpected errors.
+> **v0.1.0**
+> This is a functioning version. Still, the documentation is incomplete and using the framework in a new environment may trigger unexpected errors.
 
 AIUQ (Artificial Intelligence weather forecasting models for Uncertainty Quantification) is a framework for running AI-based weather and climate models using Autosubmit. It is designed to efficiently handle different combinations of initial conditions (ICs) and models. The integration of multiple fallback methods allows the use of different sets of initial conditions, even when they do not fully match the AI model requirements.
 
@@ -163,6 +163,7 @@ PATHS:
 
 PLATFORM:
   NAME: MARENOSTRUM5  # FELIPE / MARENOSTRUM5
+  USER_CODE: #write your HPC user here
 ```
 
 Note that some ICs requires credential to be retrieved. 
