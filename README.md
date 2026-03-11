@@ -162,6 +162,7 @@ PATHS:
 
 PLATFORM:
   NAME: MARENOSTRUM5  # FELIPE / MARENOSTRUM5
+  USER_CODE: #write your HPC user here
 ```
 
 Note that some ICs requires credential to be retrieved. 
