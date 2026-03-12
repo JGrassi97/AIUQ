@@ -1,9 +1,10 @@
 # AIUQ
 
-> **v0.0.2**
-> This is the first functioning version. Still, the documentation is incomplete and using the framework in a new environment may trigger unexpected errors.
+> **v0.1.0**
+> This is a functioning version. Still, the documentation is incomplete and using the framework in a new environment may trigger unexpected errors.
 
 AIUQ (Artificial Intelligence weather forecasting models for Uncertainty Quantification) is a framework for running AI-based weather and climate models using Autosubmit. It is designed to efficiently handle different combinations of initial conditions (ICs) and models. The integration of multiple fallback methods allows the use of different sets of initial conditions, even when they do not fully match the AI model requirements.
+
 
 The framework supports both deterministic and stochastic models. Deterministic models always produce the same results when initialized with the same ICs, whereas stochastic models are able to generate an ensemble of realizations starting from identical ICs. For this reason, AIUQ also implements several classes of methods to perturb the ICs (still under development), allowing the generation of ensembles of realizations even from deterministic models.
 
@@ -91,6 +92,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 ## Quickstart
 
 ### Installation
+
 To run the framework you need
 - Autosubmit in your local machine. Please refer to the [official documentation](https://autosubmit.readthedocs.io/en/master/) to install it.
 - The supporting files on your HPC
@@ -118,7 +120,7 @@ autosubmit expid \
   --HPC MareNostrum5ACC \
   --minimal_configuration \
   --git_as_conf conf/bootstrap/ \
-  --git_repo https://github.com/JGrassi97/AIUQ.git \
+  --git_repo https://gitlab.earth.bsc.es/ces/AIUQ.git \
   --git_branch main
 ```
 
@@ -162,6 +164,7 @@ PATHS:
 
 PLATFORM:
   NAME: MARENOSTRUM5  # FELIPE / MARENOSTRUM5
+  USER_CODE: #write your HPC user here
 ```
 
 Note that some ICs requires credential to be retrieved. 

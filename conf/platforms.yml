@@ -4,21 +4,21 @@ PLATFORMS:
     TYPE: ps
     HOST: glogin1.bsc.es
     PROJECT: bsc32
-    USER: bsc850074
+    USER: "%PLATFORM.USER_CODE%"
     QUEUE: gp_bsces
     SCRATCH_DIR: /gpfs/scratch
     ADD_PROJECT_TO_HOST: False
     TEMP_DIR: ''
     PROCESSORS_PER_NODE: 112
     MAX_WALLCLOCK: '01:30'
-    HPCROOTDIR: /gpfs/scratch/ehpc536/bsc850074/%EXPID%
+    HPCROOTDIR: /gpfs/scratch/ehpc536/%PLATFORM.USER_CODE%/%EXPID%
     CURRENT_SCRATCH_DIR: /gpfs/scratch/%MARENOSTRUM5CPU.PROJECT%/%MARENOSTRUM5CPU.USER%/%EXPID%
 
   MARENOSTRUM5ACC:
     TYPE: SLURM
     HOST: alogin1.bsc.es
     PROJECT: ehpc536
-    USER: bsc850074
+    USER: "%PLATFORM.USER_CODE%"
     QUEUE: acc_ehpc
     SCRATCH_DIR: /gpfs/scratch
     ADD_PROJECT_TO_HOST: False
@@ -31,7 +31,7 @@ PLATFORMS:
     TYPE: ps
     HOST: glogin4.bsc.es
     PROJECT: ehpc536
-    USER: bsc850074
+    USER: "%PLATFORM.USER_CODE%"
     QUEUE: acc_ehpc
     SCRATCH_DIR: /gpfs/scratch
     ADD_PROJECT_TO_HOST: False
@@ -40,11 +40,41 @@ PLATFORMS:
     CUSTOM_DIRECTIVES: ''
     MAX_WALLCLOCK: '01:30'
 
+  MARENOSTRUM5-LOGIN-NOOVERLAP:
+    TYPE: ps
+    HOST: glogin4.bsc.es
+    PROJECT: ehpc536
+    USER: "%PLATFORM.USER_CODE%"
+    QUEUE: acc_ehpc
+    SCRATCH_DIR: /gpfs/scratch
+    ADD_PROJECT_TO_HOST: False
+    TEMP_DIR: ''
+    PROCESSORS_PER_NODE: 112
+    CUSTOM_DIRECTIVES: ''
+    MAX_WALLCLOCK: '01:30'
+    MAX_WAITING_JOBS: 20
+    TOTAL_JOBS: 1
+
+  MARENOSTRUM5-LOGIN-NOOVERLAP-2:
+    TYPE: ps
+    HOST: glogin4.bsc.es
+    PROJECT: ehpc536
+    USER: "%PLATFORM.USER_CODE%"
+    QUEUE: acc_ehpc
+    SCRATCH_DIR: /gpfs/scratch
+    ADD_PROJECT_TO_HOST: False
+    TEMP_DIR: ''
+    PROCESSORS_PER_NODE: 112
+    CUSTOM_DIRECTIVES: ''
+    MAX_WALLCLOCK: '01:30'
+    MAX_WAITING_JOBS: 20
+    TOTAL_JOBS: 2
+
   MARENOSTRUM5-LOGIN-ACC:
     TYPE: ps
     HOST: alogin4.bsc.es
     PROJECT: ehpc536
-    USER: bsc850074
+    USER: "%PLATFORM.USER_CODE%"
     QUEUE: acc_ehpc
     SCRATCH_DIR: /gpfs/scratch
     ADD_PROJECT_TO_HOST: False

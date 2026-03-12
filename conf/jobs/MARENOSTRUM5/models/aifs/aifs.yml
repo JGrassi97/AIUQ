@@ -57,6 +57,6 @@ JOBS:
     FILE: templates/postprocess_aifs.sh,templates/config.yml
     PLATFORM: "MARENOSTRUM5ACC"
     DEPENDENCIES: SIM
-    RUNNING: ONCE
+    RUNNING: CHUNK
     NODES: 1
     PROCESSORS: 20
