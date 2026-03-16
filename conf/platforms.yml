@@ -56,7 +56,6 @@ PLATFORMS:
     MAX_WALLCLOCK: '01:30'
     MAX_WAITING_JOBS: 20
     TOTAL_JOBS: 1
-    HPCROOTDIR: /gpfs/scratch/ehpc536/%PLATFORM.USER_CODE%/%EXPID%
 
   MARENOSTRUM5-LOGIN-NOOVERLAP-2:
     TYPE: ps
@@ -72,7 +71,6 @@ PLATFORMS:
     MAX_WALLCLOCK: '01:30'
     MAX_WAITING_JOBS: 20
     TOTAL_JOBS: 2
-    HPCROOTDIR: /gpfs/scratch/ehpc536/%PLATFORM.USER_CODE%/%EXPID%
 
   MARENOSTRUM5-LOGIN-ACC:
     TYPE: ps
@@ -86,7 +84,6 @@ PLATFORMS:
     PROCESSORS_PER_NODE: 112
     CUSTOM_DIRECTIVES: ''
     MAX_WALLCLOCK: '01:30'
-    HPCROOTDIR: /gpfs/scratch/ehpc536/%PLATFORM.USER_CODE%/%EXPID%
 
   ###############################################################
   #####                   POLITO MACHINE                    #####
