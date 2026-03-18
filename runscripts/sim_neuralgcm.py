@@ -22,43 +22,58 @@ from AIUQst_lib.variables import name_mapper_for_model, output_translator
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
 
-def main() -> None:
 
+def main() -> None:
     # Read config
     args = parse_arguments()
     config = read_config(args.config)
 
-    _INI_DATA_PATH      = config.get('INI_DATA_PATH', "")
-    _START_TIME         = config.get("START_TIME", "")
-    _END_TIME           = config.get("END_TIME", "")
-    _HPCROOTDIR         = config.get("HPCROOTDIR", "")
-    _MODEL_NAME         = config.get("MODEL_NAME", "")
-    _STD_VERSION        = config.get("STD_VERSION", "")
-    _MODEL_CHECKPOINT   = config.get("MODEL_CHECKPOINT", "")
-    _INNER_STEPS        = config.get("INNER_STEPS", 1)
-    _RNG_KEY            = config.get("RNG_KEY", 1)
-    _OUTPUT_PATH        = config.get("OUTPUT_PATH", "")
-    _OUT_VARS           = config.get("OUT_VARS", [])
-    _OUT_FREQ           = config.get("OUT_FREQ", "")
-    _OUT_RES            = config.get("OUT_RES", "")
-    _OUT_LEVS           = config.get("OUT_LEVS", "")
+    _INI_DATA_PATH = config.get("INI_DATA_PATH", "")
+    _START_TIME = config.get("START_TIME", "")
+    _END_TIME = config.get("END_TIME", "")
+    _HPCROOTDIR = config.get("HPCROOTDIR", "")
+    _MODEL_NAME = config.get("MODEL_NAME", "")
+    _STD_VERSION = config.get("STD_VERSION", "")
+    _MODEL_CHECKPOINT = config.get("MODEL_CHECKPOINT", "")
+    _INNER_STEPS = config.get("INNER_STEPS", 1)
+    _RNG_KEY = config.get("RNG_KEY", 1)
+    _OUTPUT_PATH = config.get("OUTPUT_PATH", "")
+    _OUT_VARS = config.get("OUT_VARS", [])
+    _OUT_FREQ = config.get("OUT_FREQ", "")
+    _OUT_RES = config.get("OUT_RES", "")
+    _OUT_LEVS = config.get("OUT_LEVS", "")
+
+    # Experimental settings for long simulations
+    _CHECKPOINT_DIR = config.get("CHECKPOINT_DIR", "")
+    _CHUNK_STEPS = config.get("CHUNK_STEPS", 48)
+
+    if _CHUNK_STEPS <= 0:
+        raise ValueError("CHUNK_STEPS must be greater than 0")
+
+    checkpoint_dir = os.path.join(_CHECKPOINT_DIR, str(_RNG_KEY))
+    os.makedirs(checkpoint_dir, exist_ok=True)
+
+    state_checkpoint_file = os.path.join(
+        checkpoint_dir,
+        f"state-{_START_TIME}-{_END_TIME}-{_RNG_KEY}.pkl",
+    )
 
     # IC settings
     model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
     standard_dict = read_std_version(_HPCROOTDIR, _STD_VERSION)
 
     # Format time settings
-    start_date = datetime.strptime(_START_TIME, '%Y-%m-%d')
-    input_end_date = datetime.strptime(_START_TIME, '%Y-%m-%d') + timedelta(days=1)
-    end_date = datetime.strptime(_END_TIME, '%Y-%m-%d')
+    start_date = datetime.strptime(_START_TIME, "%Y-%m-%d")
+    input_end_date = datetime.strptime(_START_TIME, "%Y-%m-%d") + timedelta(days=1)
+    end_date = datetime.strptime(_END_TIME, "%Y-%m-%d")
 
     days_to_run = (end_date - start_date).days + 1
     outer_steps = days_to_run * 24 // _INNER_STEPS
-    delta_t = np.timedelta64(_INNER_STEPS, 'h')
+    delta_t = np.timedelta64(_INNER_STEPS, "h")
     times = np.arange(outer_steps) * _INNER_STEPS  # in hours
 
     # Load model
-    with open(_MODEL_CHECKPOINT, 'rb') as f:
+    with open(_MODEL_CHECKPOINT, "rb") as f:
         ckpt = pickle.load(f)
     model = neuralgcm.PressureLevelModel.from_checkpoint(ckpt)
 
@@ -66,18 +81,27 @@ def main() -> None:
     initial_conditions = xr.open_zarr(_INI_DATA_PATH, chunks=None).load()
 
     # Map names for model specifics
-    mapper = name_mapper_for_model(model_card['variables'], standard_dict['variables'])
+    mapper = name_mapper_for_model(
+        model_card["variables"],
+        standard_dict["variables"],
+    )
     initial_conditions = initial_conditions.rename(mapper)
 
     # Setup grid and regridder
     data_grid = spherical_harmonic.Grid(
-        latitude_nodes=initial_conditions.sizes['latitude'],
-        longitude_nodes=initial_conditions.sizes['longitude'],
-        latitude_spacing=xarray_utils.infer_latitude_spacing(initial_conditions.latitude),
-        longitude_offset=xarray_utils.infer_longitude_offset(initial_conditions.longitude),
+        latitude_nodes=initial_conditions.sizes["latitude"],
+        longitude_nodes=initial_conditions.sizes["longitude"],
+        latitude_spacing=xarray_utils.infer_latitude_spacing(
+            initial_conditions.latitude
+        ),
+        longitude_offset=xarray_utils.infer_longitude_offset(
+            initial_conditions.longitude
+        ),
     )
     regridder = horizontal_interpolation.ConservativeRegridder(
-        data_grid, model.data_coords.horizontal, skipna=True
+        data_grid,
+        model.data_coords.horizontal,
+        skipna=True,
     )
 
     # Regrid and fill NaNs
@@ -90,28 +114,86 @@ def main() -> None:
     initial_state = model.encode(inputs, input_forcings, int(_RNG_KEY))
     all_forcings = model.forcings_from_xarray(data.head(time=1))
 
-    # Forecast
-    final_state, predictions = model.unroll(
-        initial_state,
-        all_forcings,
-        steps=outer_steps,
-        timedelta=delta_t,
-        start_with_input=True,
-    )
-
-    # Prepare time coordinates for output
+    # Prepare output time coordinates
     initial_time = initial_conditions.time.isel(time=0).values
-    valid_time = initial_time + np.arange(outer_steps) * delta_t
-    steps = np.arange(outer_steps) * delta_t
 
-    # Convert predictions to xarray
-    predictions_ds = model.data_to_xarray(predictions, times=valid_time)
+    # Resume from checkpoint if available
+    if os.path.exists(state_checkpoint_file):
+        logging.info("Checkpoint found, resuming from saved state")
+        with open(state_checkpoint_file, "rb") as f:
+            checkpoint_data = pickle.load(f)
+        current_state = checkpoint_data["state"]
+        start_step = int(checkpoint_data.get("step_done", 0))
+    else:
+        logging.info("No checkpoint found, starting from scratch")
+        current_state = initial_state
+        start_step = 0
 
-    # Rename time coordinate and assign new coordinates
-    predictions_ds = predictions_ds.rename({'time':'valid_time'})
-    predictions_ds = predictions_ds.assign_coords(time=initial_time)
-    predictions_ds = predictions_ds.assign_coords(step=("valid_time", steps))
-    predictions_ds = predictions_ds.drop_vars('sim_time')
+    if start_step >= outer_steps:
+        raise RuntimeError(
+            "Checkpoint indicates the simulation is already complete "
+            f"(step_done={start_step}, total_steps={outer_steps}). "
+            "No chunks to process. Remove the checkpoint file and rerun."
+        )
+
+    prediction_chunks = []
+
+    for chunk_start in range(start_step, outer_steps, _CHUNK_STEPS):
+        chunk_end = min(chunk_start + _CHUNK_STEPS, outer_steps)
+        current_chunk_steps = chunk_end - chunk_start
+
+        logging.info(f"Running inference {chunk_start} -> {chunk_end}")
+
+        final_state, predictions = model.unroll(
+            current_state,
+            all_forcings,
+            steps=current_chunk_steps,
+            timedelta=delta_t,
+            start_with_input=(chunk_start == 0),
+        )
+
+        current_state = final_state
+
+        # Save state checkpoint after each chunk
+        with open(state_checkpoint_file, "wb") as f:
+            pickle.dump(
+                {
+                    "state": current_state,
+                    "step_done": chunk_end,
+                },
+                f,
+            )
+
+        # Convert current chunk predictions to xarray
+        chunk_valid_time = initial_time + (
+            np.arange(chunk_start, chunk_end) * delta_t
+        )
+        chunk_steps = np.arange(chunk_start, chunk_end) * delta_t
+
+        predictions_ds_chunk = model.data_to_xarray(
+            predictions,
+            times=chunk_valid_time,
+        )
+        predictions_ds_chunk = predictions_ds_chunk.rename({"time": "valid_time"})
+        predictions_ds_chunk = predictions_ds_chunk.assign_coords(time=initial_time)
+        predictions_ds_chunk = predictions_ds_chunk.assign_coords(
+            step=("valid_time", chunk_steps)
+        )
+
+        if "sim_time" in predictions_ds_chunk.variables:
+            predictions_ds_chunk = predictions_ds_chunk.drop_vars("sim_time")
+
+        prediction_chunks.append(predictions_ds_chunk)
+
+    # Concatenate all chunks
+    if not prediction_chunks:
+        raise RuntimeError("No prediction chunks generated. Check checkpoint state.")
+
+    predictions_ds = xr.concat(prediction_chunks, dim="valid_time")
+
+    # Remove checkpoint at successful completion
+    if os.path.exists(state_checkpoint_file):
+        os.remove(state_checkpoint_file)
 
     # Format output frequency
     if _OUT_FREQ == "daily":
@@ -136,29 +218,38 @@ def main() -> None:
     else:
         latitudes = predictions_ds.latitude.values
         longitudes = predictions_ds.longitude.values
-    
+
     if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
-        predictions_ds = predictions_ds.interp(latitude=latitudes, longitude=longitudes, method="linear")
-    
+        predictions_ds = predictions_ds.interp(
+            latitude=latitudes,
+            longitude=longitudes,
+            method="linear",
+        )
+
     # Format output pressure levels
-    if _OUT_LEVS != 'original':
+    if _OUT_LEVS != "original":
         desired_levels = [
             int(plev)
-            for plev in _OUT_LEVS.strip('[]').split(',')
+            for plev in _OUT_LEVS.strip("[]").split(",")
         ]
         predictions_ds = predictions_ds.interp(level=desired_levels)
-    
+
     # Format output variables and select
     out_vars = normalize_out_vars(_OUT_VARS)
-    translate = output_translator(model_card['variables'], standard_dict['variables'])
+    translate = output_translator(
+        model_card["variables"],
+        standard_dict["variables"],
+    )
     output_vars = [translate.get(item, item) for item in out_vars]
+
     for var, var_name in zip(output_vars, out_vars):
         predictions_datarray = predictions_ds[var].rename(var_name)
-        OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
-        os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
-        OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/out-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var_name}.nc"
-        predictions_datarray.to_netcdf(OUTPUT_FILE)
-
+        output_base_path = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
+        os.makedirs(output_base_path, exist_ok=True)
+        output_file = (
+            f"{output_base_path}/out-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var_name}.nc"
+        )
+        predictions_datarray.to_netcdf(output_file)
 
 
 if __name__ == "__main__":
