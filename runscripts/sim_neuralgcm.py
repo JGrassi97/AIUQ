@@ -42,6 +42,7 @@ def main() -> None:
     _OUT_FREQ = config.get("OUT_FREQ", "")
     _OUT_RES = config.get("OUT_RES", "")
     _OUT_LEVS = config.get("OUT_LEVS", "")
+    _RUN_TYPE = config.get("RUN_TYPE", "hindcast").lower()
 
     # Experimental settings for long simulations
     _CHECKPOINT_DIR = config.get("CHECKPOINT_DIR", "")
@@ -112,7 +113,12 @@ def main() -> None:
     inputs = model.inputs_from_xarray(data.isel(time=0))
     input_forcings = model.forcings_from_xarray(data.isel(time=1))
     initial_state = model.encode(inputs, input_forcings, int(_RNG_KEY))
-    all_forcings = model.forcings_from_xarray(data.head(time=1))
+
+    # Recognize different types of forcings - hindcast/amip
+    if _RUN_TYPE == "hindcast":
+        all_forcings = model.forcings_from_xarray(data.head(time=1))
+    elif _RUN_TYPE == "amip":
+        all_forcings = model.forcings_from_xarray(data)
 
     # Prepare output time coordinates
     initial_time = initial_conditions.time.isel(time=0).values

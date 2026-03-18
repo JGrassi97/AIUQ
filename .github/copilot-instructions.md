@@ -1,7 +1,7 @@
 ---
 name: "Commit Review and Notion Automation"
 description: "Use when: committing changes, reviewing pre-commit code, or requesting pre-push checks. Automatically performs code review, creates Notion summaries, suggests improvements, and asks for approval before pushing."
-applyTo: ""
+applyTo: " "
 ---
 
 # Pre-Commit Automation Workflow

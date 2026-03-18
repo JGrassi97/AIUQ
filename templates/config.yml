@@ -26,3 +26,4 @@ OUT_LEVS: "%EXPERIMENT.OUT_LEVS%"
 # EXPERIMENTAL - AMIP SIMULATION
 CHECKPOINT_DIR: "%HPCROOTDIR%/outputs/checkpoints"
 CHUNK_STEPS: 48
+RUN_TYPE: "amip"  # Options: "amip", "hindcast"
