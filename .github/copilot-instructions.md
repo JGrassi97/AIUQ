@@ -22,7 +22,7 @@ Whenever you mention **commit**, **push**, **review**, or **pre-commit** in the 
 - **Info**: Document new features, refactorings, or dependency changes
 - **Edge Cases**: Identify potential issues with restart/resume logic, empty states, race conditions
 
-### Phase 3: Notion Update
+### Phase 3: Notion Update - Commit Check
 - Identify the **current branch** (e.g., `features/amip-simulations`)
 - Search Notion for a page matching the branch name or context (e.g., "AMIP Simulation")
 - If found: create a sub-page titled `Commit Check - [DATE] ([BRANCH])`
@@ -32,6 +32,18 @@ Whenever you mention **commit**, **push**, **review**, or **pre-commit** in the 
   - Pre-commit findings (risks, suggestions, info)
   - Suggested commit message
   - Follow-up items
+
+### Phase 3b: Notion Update - Release Notes (Post-Commit)
+*Only after commit is successful and staged*
+- Search Notion for "Release Notes" page under the branch's parent (e.g., "AMIP Simulation")
+- If found: append a new entry at the top of "Latest Releases" section with:
+  - **Date**: Current date in `[YYYY-MM-DD]` format
+  - **Title**: The commit message
+  - **Commit hash**: Short hash (7 chars) from `git log -1 --format=%h`
+  - **Changes**: Bullet-point summary from review findings
+  - **Impact**: One-liner about what this enables/fixes
+  - **Breaking Changes**: Yes/No with details
+- If Release Notes page not found: create one under the branch parent with the template structure
 
 ### Phase 4: Suggestions & Approval
 Before the user pushes:
@@ -82,8 +94,9 @@ git push origin $(current_branch)
 2. ✓ Analyzes diffs → finds edge case in checkpoint resume logic
 3. ✓ Creates page "Commit Check - 2026-03-18 (features/amip-simulations)" in Notion under AMIP Simulation
 4. ✓ Suggests fix with line numbers
-5. 📋 Asks: "**Apply fix to checkpoint edge case?** (yes/no)"
-6. 📋 Asks: "**Ready to stage & push?** (yes/no)"
+5. ✓ Updates Release Notes page with commit entry (post-commit)
+6. 📋 Asks: "**Apply fix to checkpoint edge case?** (yes/no)"
+7. 📋 Asks: "**Ready to stage & push?** (yes/no)"
 
 ---
 
@@ -91,6 +104,10 @@ git push origin $(current_branch)
 
 - Always operate within the AIUQ workspace repository
 - Use Notion integration for all documentation (never suggest external tools)
+- **Release Notes**: Maintained separately from Commit Checks for merge/changelog purposes
+  - Populated automatically after each successful commit
+  - Used as source for PR descriptions and version tagging
 - If Notion page not found: create a new one under "Commit Logs" or ask user where to put it
 - Keep notes concise: focus on actionable items, not verbose prose
 - Mark manual user decisions clearly (e.g., "User chose not to apply fix")
+
