@@ -3,18 +3,18 @@
 """
 
 # Built-in/Generics
-import os 
+import os
 import shutil
+from datetime import datetime, timedelta
 
 # Third party
 import gcsfs
+import numpy as np
 import xarray as xr
-import zarr
 
 # Local
 from AIUQst_lib.functions import parse_arguments, read_config
 from AIUQst_lib.cards import read_ic_card
-from AIUQst_lib.variables import reassign_long_names_units
 
 
 def main() -> None:
@@ -50,40 +50,62 @@ def main() -> None:
     
     print(f"AMIP forcing variables: {amip_vars}")
 
-    # Build rename dictionary for extracted variables
-    rename_dict = {}
-    for var_name in amip_vars.values():
-        rename_dict[var_name] = var_name.replace("_", "")  # Conservative rename (optional, can skip)
-
-    # Select time period and extract forcing variables
-    forcing = (
-        full_era5[list(amip_vars.values())]
-        .sel(time=slice(_START_TIME, _END_TIME))
-        .compute()
-    )
-
-    # Adjust longitudes to [0, 360]
-    forcing['longitude'] = forcing['longitude'] % 360
-    forcing = forcing.sortby('longitude')
-
-    # Chunk by time for efficiency
-    forcing = forcing.chunk({"time": 1})
-
-    print(f"Forcing dataset shape: {forcing.dims}")
-
-    # Save to zarr
+    # Save incrementally to zarr (one day at a time) to keep RAM usage bounded
     if not _AMIP_FORCING_PATH:
         _AMIP_FORCING_PATH = os.path.join(_HPCROOTDIR, "forcing", "amip")
-    
-    os.makedirs(_AMIP_FORCING_PATH, exist_ok=True)
 
+    os.makedirs(_AMIP_FORCING_PATH, exist_ok=True)
     shutil.rmtree(_AMIP_FORCING_PATH, ignore_errors=True)
 
-    forcing.to_zarr(
-        _AMIP_FORCING_PATH,
-        mode="w",
-        zarr_format=2
-    )
+    start_dt = datetime.strptime(_START_TIME, "%Y-%m-%d")
+    end_dt = datetime.strptime(_END_TIME, "%Y-%m-%d")
+    current_dt = start_dt
+    wrote_any_day = False
+
+    while current_dt <= end_dt:
+        next_dt = current_dt + timedelta(days=1)
+        day_start = current_dt.strftime("%Y-%m-%d")
+        next_day = next_dt.strftime("%Y-%m-%d")
+
+        print(f"Processing day {day_start}")
+
+        # Use [day_start, next_day) to avoid overlap between consecutive days
+        day_ds = full_era5[list(amip_vars.values())].sel(time=slice(day_start, next_day))
+        day_ds = day_ds.where(day_ds.time < np.datetime64(next_day), drop=True)
+
+        if day_ds.sizes.get("time", 0) == 0:
+            print(f"No data for {day_start}, skipping")
+            current_dt = next_dt
+            continue
+
+        # Materialize only one day at a time
+        day_ds = day_ds.compute()
+
+        # Adjust longitudes to [0, 360]
+        day_ds["longitude"] = day_ds["longitude"] % 360
+        day_ds = day_ds.sortby("longitude")
+
+        # Chunk by time for efficient downstream access
+        day_ds = day_ds.chunk({"time": 1})
+
+        if not wrote_any_day:
+            day_ds.to_zarr(_AMIP_FORCING_PATH, mode="w", zarr_format=2)
+            wrote_any_day = True
+        else:
+            day_ds.to_zarr(
+                _AMIP_FORCING_PATH,
+                mode="a",
+                append_dim="time",
+                zarr_format=2,
+            )
+
+        print(f"Written day {day_start} to {_AMIP_FORCING_PATH}")
+        current_dt = next_dt
+
+    if not wrote_any_day:
+        raise RuntimeError(
+            f"No AMIP forcing data found in requested range {_START_TIME} to {_END_TIME}"
+        )
 
     print(f"AMIP forcing saved to {_AMIP_FORCING_PATH}")
 
