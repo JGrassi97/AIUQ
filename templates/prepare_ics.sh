@@ -43,10 +43,6 @@ if [ "$IC_SOURCE" = "era5" ]; then
 
 elif [ "$IC_SOURCE" = "eerie" ]; then
     SIF_PATH=%PATHS.SIF_FOLDER%/image_eerie.sif
-    # if [ "$LOCAL_ICS" = "true" ]; then
-    #     prepare_ics_eerie_local $HPCROOTDIR $LOGS_DIR $CONFIGFILE $SIF_PATH
-    # fi
-
     prepare_ics_eerie_mars $HPCROOTDIR $LOGS_DIR $CONFIGFILE $SIF_PATH
     
 else
