@@ -74,6 +74,11 @@ def main() -> None:
     delta_t = np.timedelta64(_INNER_STEPS, "h")
     times = np.arange(outer_steps) * _INNER_STEPS  # in hours
 
+    # Auto-set CHUNK_STEPS to outer_steps for hindcast to process in single chunk
+    if _RUN_TYPE == "hindcast":
+        _CHUNK_STEPS = outer_steps
+        logging.info(f"Hindcast mode: auto-setting CHUNK_STEPS to {_CHUNK_STEPS} (entire run in single chunk)")
+
     # Load model
     with open(_MODEL_CHECKPOINT, "rb") as f:
         ckpt = pickle.load(f)
