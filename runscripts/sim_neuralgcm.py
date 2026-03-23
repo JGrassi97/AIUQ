@@ -142,7 +142,40 @@ def main() -> None:
             "No chunks to process. Remove the checkpoint file and rerun."
         )
 
-    prediction_chunks = []
+    # Pre-compute output settings (invariant across chunks)
+    out_vars = normalize_out_vars(_OUT_VARS)
+    translate = output_translator(
+        model_card["variables"],
+        standard_dict["variables"],
+    )
+    output_vars = [translate.get(item, item) for item in out_vars]
+
+    if _OUT_RES == "0.25":
+        out_latitudes = np.arange(-90, 90.25, 0.25)
+        out_longitudes = np.arange(0, 360, 0.25)
+    elif _OUT_RES == "0.5":
+        out_latitudes = np.arange(-90, 90.5, 0.5)
+        out_longitudes = np.arange(0, 360, 0.5)
+    elif _OUT_RES == "1":
+        out_latitudes = np.arange(-90, 91, 1.0)
+        out_longitudes = np.arange(0, 360, 1.0)
+    elif _OUT_RES == "1.5":
+        out_latitudes = np.arange(-90, 91.5, 1.5)
+        out_longitudes = np.arange(0, 360, 1.5)
+    elif _OUT_RES == "2":
+        out_latitudes = np.arange(-90, 92, 2.0)
+        out_longitudes = np.arange(0, 360, 2.0)
+    else:
+        out_latitudes = None
+        out_longitudes = None
+
+    if _OUT_LEVS != "original":
+        desired_levels = [
+            int(plev)
+            for plev in _OUT_LEVS.strip("[]").split(",")
+        ]
+    else:
+        desired_levels = None
 
     for chunk_start in range(start_step, outer_steps, _CHUNK_STEPS):
         chunk_end = min(chunk_start + _CHUNK_STEPS, outer_steps)
@@ -189,73 +222,37 @@ def main() -> None:
         if "sim_time" in predictions_ds_chunk.variables:
             predictions_ds_chunk = predictions_ds_chunk.drop_vars("sim_time")
 
-        prediction_chunks.append(predictions_ds_chunk)
+        # Apply post-processing per chunk
+        if _OUT_FREQ == "daily":
+            predictions_ds_chunk = predictions_ds_chunk.resample(valid_time="1D").mean()
 
-    # Concatenate all chunks
-    if not prediction_chunks:
-        raise RuntimeError("No prediction chunks generated. Check checkpoint state.")
+        if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
+            predictions_ds_chunk = predictions_ds_chunk.interp(
+                latitude=out_latitudes,
+                longitude=out_longitudes,
+                method="linear",
+            )
 
-    predictions_ds = xr.concat(prediction_chunks, dim="valid_time")
+        if desired_levels is not None:
+            predictions_ds_chunk = predictions_ds_chunk.interp(level=desired_levels)
+
+        # Save chunk netCDF per variable
+        chunk_t_start = str(chunk_valid_time[0])[:10]
+        chunk_t_end = str(chunk_valid_time[-1])[:10]
+
+        for var, var_name in zip(output_vars, out_vars):
+            predictions_datarray = predictions_ds_chunk[var].rename(var_name)
+            output_base_path = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
+            os.makedirs(output_base_path, exist_ok=True)
+            output_file = (
+                f"{output_base_path}/out-{chunk_t_start}-{chunk_t_end}-{_RNG_KEY}-{var_name}.nc"
+            )
+            predictions_datarray.to_netcdf(output_file)
+            logging.info(f"Saved {output_file}")
 
     # Remove checkpoint at successful completion
     if os.path.exists(state_checkpoint_file):
         os.remove(state_checkpoint_file)
-
-    # Format output frequency
-    if _OUT_FREQ == "daily":
-        predictions_ds = predictions_ds.resample(valid_time="1D").mean()
-
-    # Format output resolution
-    if _OUT_RES == "0.25":
-        latitudes = np.arange(-90, 90.25, 0.25)
-        longitudes = np.arange(0, 360, 0.25)
-    elif _OUT_RES == "0.5":
-        latitudes = np.arange(-90, 90.5, 0.5)
-        longitudes = np.arange(0, 360, 0.5)
-    elif _OUT_RES == "1":
-        latitudes = np.arange(-90, 91, 1.0)
-        longitudes = np.arange(0, 360, 1.0)
-    elif _OUT_RES == "1.5":
-        latitudes = np.arange(-90, 91.5, 1.5)
-        longitudes = np.arange(0, 360, 1.5)
-    elif _OUT_RES == "2":
-        latitudes = np.arange(-90, 92, 2.0)
-        longitudes = np.arange(0, 360, 2.0)
-    else:
-        latitudes = predictions_ds.latitude.values
-        longitudes = predictions_ds.longitude.values
-
-    if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
-        predictions_ds = predictions_ds.interp(
-            latitude=latitudes,
-            longitude=longitudes,
-            method="linear",
-        )
-
-    # Format output pressure levels
-    if _OUT_LEVS != "original":
-        desired_levels = [
-            int(plev)
-            for plev in _OUT_LEVS.strip("[]").split(",")
-        ]
-        predictions_ds = predictions_ds.interp(level=desired_levels)
-
-    # Format output variables and select
-    out_vars = normalize_out_vars(_OUT_VARS)
-    translate = output_translator(
-        model_card["variables"],
-        standard_dict["variables"],
-    )
-    output_vars = [translate.get(item, item) for item in out_vars]
-
-    for var, var_name in zip(output_vars, out_vars):
-        predictions_datarray = predictions_ds[var].rename(var_name)
-        output_base_path = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
-        os.makedirs(output_base_path, exist_ok=True)
-        output_file = (
-            f"{output_base_path}/out-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var_name}.nc"
-        )
-        predictions_datarray.to_netcdf(output_file)
 
 
 if __name__ == "__main__":
