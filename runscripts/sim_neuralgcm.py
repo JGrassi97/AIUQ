@@ -43,6 +43,7 @@ def main() -> None:
     _OUT_RES = config.get("OUT_RES", "")
     _OUT_LEVS = config.get("OUT_LEVS", "")
     _RUN_TYPE = config.get("RUN_TYPE", "hindcast").lower()
+    _AMIP_FORCING_PATH = config.get("AMIP_FORCING_PATH", "")
 
     # Experimental settings for long simulations
     _CHECKPOINT_DIR = config.get("CHECKPOINT_DIR", "")
@@ -118,7 +119,45 @@ def main() -> None:
     if _RUN_TYPE == "hindcast":
         all_forcings = model.forcings_from_xarray(data.head(time=1))
     elif _RUN_TYPE == "amip":
-        all_forcings = model.forcings_from_xarray(data)
+        if not _AMIP_FORCING_PATH:
+            _AMIP_FORCING_PATH = os.path.join(_HPCROOTDIR, "forcing", "amip")
+
+        if not os.path.exists(_AMIP_FORCING_PATH):
+            raise FileNotFoundError(
+                "AMIP forcing path not found: "
+                f"{_AMIP_FORCING_PATH}. Run download_amip_forcing.py first."
+            )
+
+        # Load dedicated AMIP forcing time series (SST/sea-ice)
+        amip_forcing = xr.open_zarr(_AMIP_FORCING_PATH, chunks=None)
+
+        # Apply model variable mapping for forcing variables available in AMIP dataset
+        forcing_mapper = {
+            k: v
+            for k, v in mapper.items()
+            if k in amip_forcing.data_vars
+        }
+        if forcing_mapper:
+            amip_forcing = amip_forcing.rename(forcing_mapper)
+
+        # Regrid forcing to model grid and fill NaNs
+        amip_regridded = xarray_utils.regrid(amip_forcing, regridder)
+        amip_data = xarray_utils.fill_nan_with_nearest(amip_regridded)
+
+        # Align forcing cadence to model integration step (e.g. every 6h)
+        amip_data = amip_data.isel(time=slice(0, None, _INNER_STEPS))
+        amip_data = amip_data.isel(time=slice(0, outer_steps))
+
+        if amip_data.sizes.get("time", 0) < outer_steps:
+            raise RuntimeError(
+                "Insufficient AMIP forcing length: "
+                f"found {amip_data.sizes.get('time', 0)} steps, "
+                f"required {outer_steps}."
+            )
+
+        all_forcings = model.forcings_from_xarray(amip_data)
+    else:
+        raise ValueError(f"Unsupported RUN_TYPE '{_RUN_TYPE}'. Use 'hindcast' or 'amip'.")
 
     # Prepare output time coordinates
     initial_time = initial_conditions.time.isel(time=0).values
