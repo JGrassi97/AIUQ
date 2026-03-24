@@ -1,7 +1,8 @@
 # AIUQ
 
-> **v0.1.2**
-> This is a functioning version. Still, the documentation is incomplete and using the framework in a new environment may trigger unexpected errors.
+> **v0.2.0**
+> NEW: AMIP simulations now supported. 
+> Currently only the forcings prescribed in the [AIMIP project](https://zenodo.org/records/17065758) are available. Future releases will allow a full customization of the experiment. 
 
 AIUQ (Artificial Intelligence weather forecasting models for Uncertainty Quantification) is a framework for running AI-based weather and climate models using Autosubmit. It is designed to efficiently handle different combinations of initial conditions (ICs) and models. The integration of multiple fallback methods allows the use of different sets of initial conditions, even when they do not fully match the AI model requirements.
 
@@ -13,12 +14,14 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <table>
 <tr>
 <th>Model</th>
+<th>Supported modes</th>
 <th>Checkpoint</th>
 <th>ERA5</th>
 <th>EERIE (AMIP)</th>
 </tr>
 <tr>
 <td rowspan="6"><b>NeuralGCM</b></td>
+<td rowspan="6">amip/hindcast</td>
 <td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">stochastic_1_4_deg.pkl</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
@@ -50,6 +53,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 </tr>
 <tr>
 <td rowspan="2"><b>AIFS</b></td>
+<td rowspan="2">hindcast</td>
 <td><a href="https://huggingface.co/ecmwf/aifs-single-1.1">aifs-single-mse-1.1.ckpt</a></td>
 <td align="center">✅</td>
 <td align="center">⚠️</td>
@@ -61,6 +65,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 </tr>
 <tr>
 <td rowspan="1"><b>MS Aurora</b></td>
+<td rowspan="1">-</td>
 <td><a href="https://huggingface.co/microsoft/aurora">aurora-0.25-finetuned</a></td>
 <td align="center">❌</td>
 <td align="center">❌</td>
@@ -74,6 +79,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 ⚠️ work in progress<br>
 ❌ not implemented<br>
 </td></tr></table>
+
 
 
 
