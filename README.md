@@ -142,6 +142,7 @@ MODEL:
 
 # See autosubmit documentationcdc
 EXPERIMENT:
+  RUN_TYPE: "hindcast" # hincast/amip
   MEMBERS: "1 2"
   CHUNKSIZEUNIT: day
   DATELIST: 20100101
