@@ -5,6 +5,7 @@ ics:
 models:
   - name: NeuralGCM
     label: neuralgcm
+    supported_modes: amip/hindcast
     checkpoints:
       - id: ngcm_stoc_1_4
         label: stochastic_1_4_deg.pkl
@@ -39,6 +40,7 @@ models:
 
   - name: AIFS
     label: aifs
+    supported_modes: hindcast
     checkpoints:
       - id: aifs_single_1_1
         label: aifs-single-mse-1.1.ckpt
@@ -54,6 +56,7 @@ models:
 
   - name: MS Aurora
     label: aurora
+    supported_modes: "-"
     checkpoints:
       - id: aurora_.025_finetuned
         label: aurora-0.25-finetuned
