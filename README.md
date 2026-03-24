@@ -112,7 +112,8 @@ The supporting files are the following:
       ├── models        # Contains the checkpoint for the inference
       ├── sif           # Contains the images for running the scripts
       ├── static        # Contains static (i.e. orography) data for 1st level fallback
-      └── climatology   # Contains climatological data used for 2nd level fallback
+      ├── climatology   # Contains climatological data used for 2nd level fallback
+      └── amip-forcings # Contains forcings for AMIP simulations
 ```
 
 *Section still in development*
