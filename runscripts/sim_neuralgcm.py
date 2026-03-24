@@ -130,13 +130,17 @@ def main() -> None:
         if not os.path.exists(_AMIP_FORCING_PATH):
             raise FileNotFoundError(
                 "AMIP forcing path not found: "
-                f"{_AMIP_FORCING_PATH}. Run download_amip_forcing.py first."
+                f"{_AMIP_FORCING_PATH}. Provide a pre-built monthly NetCDF forcing file."
             )
 
-        # Load dedicated AMIP forcing time series (SST/sea-ice)
-        amip_forcing = xr.open_zarr(_AMIP_FORCING_PATH, chunks=None)
+        # Load AMIP monthly forcing NetCDF (SST, sea-ice, land-sea mask)
+        amip_forcing = xr.open_dataset(_AMIP_FORCING_PATH, chunks=None)
 
-        # Apply model variable mapping for forcing variables available in AMIP dataset
+        # Standardize longitude to [0, 360]
+        amip_forcing["longitude"] = amip_forcing["longitude"] % 360
+        amip_forcing = amip_forcing.sortby("longitude")
+
+        # Apply model variable mapping for forcing variables present in AMIP dataset
         forcing_mapper = {
             k: v
             for k, v in mapper.items()
@@ -148,17 +152,6 @@ def main() -> None:
         # Regrid forcing to model grid and fill NaNs
         amip_regridded = xarray_utils.regrid(amip_forcing, regridder)
         amip_data = xarray_utils.fill_nan_with_nearest(amip_regridded)
-
-        # Align forcing cadence to model integration step (e.g. every 6h)
-        amip_data = amip_data.isel(time=slice(0, None, _INNER_STEPS))
-        amip_data = amip_data.isel(time=slice(0, outer_steps))
-
-        if amip_data.sizes.get("time", 0) < outer_steps:
-            raise RuntimeError(
-                "Insufficient AMIP forcing length: "
-                f"found {amip_data.sizes.get('time', 0)} steps, "
-                f"required {outer_steps}."
-            )
 
         all_forcings = model.forcings_from_xarray(amip_data)
     else:

@@ -27,4 +27,4 @@ OUT_LEVS: "%EXPERIMENT.OUT_LEVS%"
 CHECKPOINT_DIR: "%HPCROOTDIR%/outputs/checkpoints"
 CHUNK_STEPS: 48
 RUN_TYPE: "amip"  # Options: "amip", "hindcast"
-AMIP_FORCING_PATH: "%HPCROOTDIR%/forcing/amip"  # SST, sea ice data for AMIP runs
+AMIP_FORCING_PATH: "%PATHS.SUPPORT_FOLDER%/amip-forcings/ERA5-0.25deg-monthly-mean-forcing-1978-2024.nc"  # SST, sea ice data for AMIP runs

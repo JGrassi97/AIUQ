@@ -8,13 +8,13 @@ prepare_ics_era5() {
     local sif_path="$4"
 
     echo "Downloading ERA5 data..."
-    singularity exec \
-        --nv \
-        --bind "$hpc_rootdir","$logs_dir" \
-        --env HPCROOTDIR="$hpc_rootdir" \
-        --env configfile="$configfile" \
-        "$sif_path" \
-        python3 "$hpc_rootdir/runscripts/download_amip_forcing.py" --config "$configfile"
+    # singularity exec \
+    #     --nv \
+    #     --bind "$hpc_rootdir","$logs_dir" \
+    #     --env HPCROOTDIR="$hpc_rootdir" \
+    #     --env configfile="$configfile" \
+    #     "$sif_path" \
+    #     python3 "$hpc_rootdir/runscripts/download_amip_forcing.py" --config "$configfile"
 
     singularity exec \
         --nv \
