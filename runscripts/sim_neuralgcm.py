@@ -154,6 +154,11 @@ def main() -> None:
         amip_data = xarray_utils.fill_nan_with_nearest(amip_regridded)
 
         all_forcings = model.forcings_from_xarray(amip_data)
+
+        print(f"amip_data dims: {amip_data.dims}")
+        print(f"amip_data.time size: {amip_data.time.size if 'time' in amip_data.dims else 'NO TIME DIM'}")
+        print(f"all_forcings['sim_time'] shape: {all_forcings['sim_time'].shape}")
+        
     else:
         raise ValueError(f"Unsupported RUN_TYPE '{_RUN_TYPE}'. Use 'hindcast' or 'amip'.")
 
