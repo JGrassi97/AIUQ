@@ -210,3 +210,4 @@ marimo/_lsp/
 __marimo__/
 docs/generate_table.py
 docs/generated-table.html
+.DS_Store

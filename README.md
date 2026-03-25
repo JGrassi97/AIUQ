@@ -166,6 +166,8 @@ EXPERIMENT:
   
   # Here reported from https://github.com/PCMDI/cmip6-cmor-tables/blob/087fe45d21c082e28723e0f930e4266abe91b853/Tables/CMIP6_coordinate.json#L1640
 
+  FORCING_VERSION: ESA-CCI-v3.0   # ESA-CCI-v3.0/AIMIP
+
 PATHS:
   SUPPORT_FOLDER: /gpfs/scratch/ehpc536/AIUQ
   SIF_FOLDER: "%PATHS.SUPPORT_FOLDER%/sif"

@@ -6,6 +6,7 @@
 import os
 import pickle
 import logging
+from glob import glob
 from datetime import datetime, timedelta
 
 # Third party
@@ -127,14 +128,27 @@ def main() -> None:
         if not _AMIP_FORCING_PATH:
             _AMIP_FORCING_PATH = os.path.join(_HPCROOTDIR, "forcing", "amip")
 
-        if not os.path.exists(_AMIP_FORCING_PATH):
+        has_wildcards = any(token in _AMIP_FORCING_PATH for token in "*?[")
+        amip_sources = sorted(glob(_AMIP_FORCING_PATH)) if has_wildcards else [_AMIP_FORCING_PATH]
+
+        if not amip_sources:
             raise FileNotFoundError(
                 "AMIP forcing path not found: "
-                f"{_AMIP_FORCING_PATH}. Provide a pre-built monthly NetCDF forcing file."
+                f"{_AMIP_FORCING_PATH}. Provide one or more pre-built monthly NetCDF forcing files."
             )
 
-        # Load AMIP monthly forcing NetCDF (SST, sea-ice, land-sea mask)
-        amip_forcing = xr.open_dataset(_AMIP_FORCING_PATH, chunks=None)
+        missing_sources = [src for src in amip_sources if not os.path.exists(src)]
+        if missing_sources:
+            raise FileNotFoundError(
+                "One or more AMIP forcing sources do not exist: "
+                f"{missing_sources}"
+            )
+
+        # Load AMIP forcing: single NetCDF file or multiple monthly NetCDF files.
+        if len(amip_sources) == 1:
+            amip_forcing = xr.open_dataset(amip_sources[0], chunks=None)
+        else:
+            amip_forcing = xr.open_mfdataset(amip_sources, combine="by_coords", chunks=None)
 
         # Standardize longitude to [0, 360]
         amip_forcing["longitude"] = amip_forcing["longitude"] % 360
