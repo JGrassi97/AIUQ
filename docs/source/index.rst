@@ -19,6 +19,7 @@ This documentation focuses on practical usage, platform setup, and extension gui
 
    installation
    run
+   support_matrix
 
 .. toctree::
    :maxdepth: 2
