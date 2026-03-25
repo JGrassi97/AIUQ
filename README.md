@@ -142,12 +142,10 @@ Create the file <EXPID>/conf/main.yml.
 
 MODEL:
   # Main settings
-  NAME: aifs                                   # aifs / neuralgcm / aurora
-  CHECKPOINT_NAME: aifs-single-mse-1.1.ckpt    # checkpoint name as written in the table above
+  NAME: aifs                                        # aifs / neuralgcm / aurora
+  CHECKPOINT_NAME: aifs-single-mse-1.1.ckpt         # checkpoint name as written in the table above
   ICS: eerie                                        # eerie / era5
-  USE_LOCAL_ICS: false                              # true / false
 
-# See autosubmit documentationcdc
 EXPERIMENT:
   RUN_TYPE: "hindcast" # hincast/amip
   MEMBERS: "1 2"
@@ -156,14 +154,11 @@ EXPERIMENT:
   CHUNKSIZE: 2
   NUMCHUNKS: 1
   CALENDAR: standard
-
-  # The following fields are not part of standard Autosubmit experiment
   OUT_VARS:       
-    - t                 # Make sure to use the specific out names of the model
-  OUT_FREQ: daily         # original / daily
-  OUT_RES: "1"              # original / 0.25 / 0.5 / 1 / 1.5 / 2
-  OUT_LEVS: [1000, 850, 700, 500, 250, 100, 50, 10]              # List of values in hPa or 'original' - 
-  
+    - t                                                         # Make sure to use the name provided in the standard
+  OUT_FREQ: daily                                               # original / daily
+  OUT_RES: "1"                                                  # original / 0.25 / 0.5 / 1 / 1.5 / 2
+  OUT_LEVS: [1000, 850, 700, 500, 250, 100, 50, 10]             # List of values in hPa or 'original' - 
   # Here reported from https://github.com/PCMDI/cmip6-cmor-tables/blob/087fe45d21c082e28723e0f930e4266abe91b853/Tables/CMIP6_coordinate.json#L1640
 
   FORCING_VERSION: ESA-CCI-v3.0   # ESA-CCI-v3.0/AIMIP
