@@ -13,6 +13,14 @@ The current implementation supports:
 
 This documentation focuses on practical usage, platform setup, and extension guidelines.
 
+Support Matrix
+--------------
+
+The current support matrix is embedded below.
+
+.. raw:: html
+   :file: ../generated-table.html
+
 .. toctree::
    :maxdepth: 2
    :caption: User Guide
