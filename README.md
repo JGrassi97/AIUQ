@@ -2,7 +2,7 @@
 
 > **v0.2.0**
 > NEW: AMIP simulations now supported. 
-> Currently only the forcings prescribed in the [AIMIP project](https://zenodo.org/records/17065758) are available. Future releases will allow a full customization of the experiment. 
+> Currently, forcings prescribed in the [AIMIP project](https://zenodo.org/records/17065758) and from [ESA-CCI-v3.0](https://climate.esa.int/en/projects/sea-surface-temperature/) are available. Future releases will allow a full customization of the experiment. 
 
 AIUQ (Artificial Intelligence weather forecasting models for Uncertainty Quantification) is a framework for running AI-based weather and climate models using Autosubmit. It is designed to efficiently handle different combinations of initial conditions (ICs) and models. The integration of multiple fallback methods allows the use of different sets of initial conditions, even when they do not fully match the AI model requirements.
 
@@ -65,9 +65,16 @@ The framework supports both deterministic and stochastic models. Deterministic m
 </tr>
 <tr>
 <td rowspan="1"><b>MS Aurora</b></td>
-<td rowspan="1">-</td>
+<td rowspan="1">hindcast</td>
 <td><a href="https://huggingface.co/microsoft/aurora">aurora-0.25-finetuned</a></td>
 <td align="center">❌</td>
+<td align="center">❌</td>
+</tr>
+<tr>
+<td rowspan="1"><b>ACE</b></td>
+<td rowspan="1">amip</td>
+<td><a href="https://huggingface.co/allenai/ACE2-ERA5">ACE2-ERA5</a></td>
+<td align="center">⚠️</td>
 <td align="center">❌</td>
 </tr>
 </table>
