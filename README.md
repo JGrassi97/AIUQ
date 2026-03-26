@@ -65,9 +65,16 @@ The framework supports both deterministic and stochastic models. Deterministic m
 </tr>
 <tr>
 <td rowspan="1"><b>MS Aurora</b></td>
-<td rowspan="1">-</td>
+<td rowspan="1">hindcast</td>
 <td><a href="https://huggingface.co/microsoft/aurora">aurora-0.25-finetuned</a></td>
 <td align="center">❌</td>
+<td align="center">❌</td>
+</tr>
+<tr>
+<td rowspan="1"><b>ACE</b></td>
+<td rowspan="1">amip</td>
+<td><a href="https://huggingface.co/allenai/ACE2-ERA5">ACE2-ERA5</a></td>
+<td align="center">⚠️</td>
 <td align="center">❌</td>
 </tr>
 </table>
@@ -79,10 +86,6 @@ The framework supports both deterministic and stochastic models. Deterministic m
 ⚠️ work in progress<br>
 ❌ not implemented<br>
 </td></tr></table>
-
-
-
-
 
 
 <p align="center">

@@ -1,0 +1,29 @@
+model : ace
+producer : allenai
+
+variables:
+  39 : swvl1
+  40 : swvl2
+  129 : gh
+  130 : t
+  131 : u
+  132 : v
+  133 : q
+  134 : sp
+  135 : w
+  136 : tcw
+  151 : msl
+  160 : sdor
+  163 : slor
+  165 : 10u
+  166 : 10v
+  167 : 2t
+  168 : 2d
+  172 : lsm
+  235 : skt
+  260360 : sot
+  999999 : z
+
+pressure_levels :
+  values : [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
+  unit : hPa
