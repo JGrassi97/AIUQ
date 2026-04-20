@@ -87,7 +87,7 @@ PLATFORMS:
     HOST: hpc-legionlogin.polito.it
     USER: "%PLATFORM.USER_CODE%"
     PARTITION: cpu_sapphire
-    PROJECT: AIUQ
+    PROJECT: test
     ADD_PROJECT_TO_HOST: false
     SCRATCH_DIR: $HOME
     QUEUE: serial
@@ -100,7 +100,7 @@ PLATFORMS:
     HOST: hpc-legionlogin.polito.it
     USER: "%PLATFORM.USER_CODE%"
     PARTITION: cpu_sapphire
-    PROJECT: AIUQ
+    PROJECT: test
     ADD_PROJECT_TO_HOST: false
     SCRATCH_DIR: $HOME
     QUEUE: serial
@@ -112,7 +112,7 @@ PLATFORMS:
     HOST: hpc-legionlogin.polito.it
     USER: "%PLATFORM.USER_CODE%"
     PARTITION: cpu_sapphire
-    PROJECT: AIUQ
+    PROJECT: test
     ADD_PROJECT_TO_HOST: false
     SCRATCH_DIR: $HOME
     QUEUE: serial
@@ -124,7 +124,7 @@ PLATFORMS:
     HOST: hpc-legionlogin.polito.it
     USER: "%PLATFORM.USER_CODE%"
     PARTITION: gpu_a40
-    PROJECT: AIUQ
+    PROJECT: test
     ADD_PROJECT_TO_HOST: false
     SCRATCH_DIR: $HOME
     QUEUE: serial
