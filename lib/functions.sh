@@ -8,13 +8,23 @@ prepare_ics_era5() {
     local sif_path="$4"
 
     echo "Downloading ERA5 data..."
-    singularity exec \
-        --nv \
-        --bind "$hpc_rootdir","$logs_dir" \
-        --env HPCROOTDIR="$hpc_rootdir" \
-        --env configfile="$configfile" \
-        "$sif_path" \
-        python3 "$hpc_rootdir/runscripts/download_era5.py" --config "$configfile"
+    if [ "$PLATFORM_NAME" = "LEGION" ]; then
+        apptainer exec \
+            --nv \
+            --bind "$hpc_rootdir","$logs_dir" \
+            --env HPCROOTDIR="$hpc_rootdir" \
+            --env configfile="$configfile" \
+            "$sif_path" \
+            python3 "$hpc_rootdir/runscripts/download_era5.py" --config "$configfile"
+    else
+        singularity exec \
+            --nv \
+            --bind "$hpc_rootdir","$logs_dir" \
+            --env HPCROOTDIR="$hpc_rootdir" \
+            --env configfile="$configfile" \
+            "$sif_path" \
+            python3 "$hpc_rootdir/runscripts/download_era5.py" --config "$configfile"
+    fi
 }
 
 
@@ -27,13 +37,23 @@ prepare_ics_eerie_mars() {
     local sif_path="$4"
 
     echo "Downloading EERIE data..."
-    singularity exec \
-        --nv \
-        --bind "$hpc_rootdir","$logs_dir" \
-        --env HPCROOTDIR="$hpc_rootdir" \
-        --env configfile="$configfile" \
-        "$sif_path" \
-        python3 "$hpc_rootdir/runscripts/download_eerie.py" --config "$configfile"
+    if [ "$PLATFORM_NAME" = "LEGION" ]; then
+        apptainer exec \
+            --nv \
+            --bind "$hpc_rootdir","$logs_dir" \
+            --env HPCROOTDIR="$hpc_rootdir" \
+            --env configfile="$configfile" \
+            "$sif_path" \
+            python3 "$hpc_rootdir/runscripts/download_eerie.py" --config "$configfile"
+    else
+        singularity exec \
+            --nv \
+            --bind "$hpc_rootdir","$logs_dir" \
+            --env HPCROOTDIR="$hpc_rootdir" \
+            --env configfile="$configfile" \
+            "$sif_path" \
+            python3 "$hpc_rootdir/runscripts/download_eerie.py" --config "$configfile"
+    fi
 }
 
 # b) From local archive
@@ -44,11 +64,21 @@ prepare_ics_eerie_local() {
     local sif_path="$4"
 
     echo "Downloading EERIE data..."
-    singularity exec \
-        --nv \
-        --bind "$hpc_rootdir","$logs_dir" \
-        --env HPCROOTDIR="$hpc_rootdir" \
-        --env configfile="$configfile" \
-        "$sif_path" \
-        python3 "$hpc_rootdir/runscripts/retrieve_eerie_local.py" --config "$configfile"
+    if [ "$PLATFORM_NAME" = "LEGION" ]; then
+        apptainer exec \
+            --nv \
+            --bind "$hpc_rootdir","$logs_dir" \
+            --env HPCROOTDIR="$hpc_rootdir" \
+            --env configfile="$configfile" \
+            "$sif_path" \
+            python3 "$hpc_rootdir/runscripts/retrieve_eerie_local.py" --config "$configfile"
+    else
+        singularity exec \
+            --nv \
+            --bind "$hpc_rootdir","$logs_dir" \
+            --env HPCROOTDIR="$hpc_rootdir" \
+            --env configfile="$configfile" \
+            "$sif_path" \
+            python3 "$hpc_rootdir/runscripts/retrieve_eerie_local.py" --config "$configfile"
+    fi
 }

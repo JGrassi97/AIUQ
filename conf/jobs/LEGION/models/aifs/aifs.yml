@@ -1,0 +1,62 @@
+JOBS:
+
+  WARMUP_REGRID:
+    CHECK: on_submission
+    FILE: templates/warmup_regrid.sh,templates/config.yml
+    PLATFORM: "LEGION-CPU"
+    RUNNING: ONCE
+    DEPENDENCIES: SYNCHRONIZE
+    NODES: 1
+    PROCESSORS: 80
+  
+  WARMUP_REGRID_ACC:
+    CHECK: on_submission
+    FILE: templates/warmup_regrid.sh,templates/config.yml
+    PLATFORM: "LEGION-GPU"
+    RUNNING: ONCE
+    DEPENDENCIES: WARMUP_REGRID
+    NODES: 1
+    PROCESSORS: 80
+  
+  PREPARE_ICS:
+    CHECK: on_submission
+    FILE: templates/prepare_ics.sh
+    DEPENDENCIES: WARMUP_REGRID_ACC
+  
+  SAVE_ICS:
+    CHECK: on_submission
+    FILE: templates/ics_aifs.sh,templates/config.yml
+    PLATFORM: "LEGION-GPU"
+    DEPENDENCIES: PREPARE_ICS
+    RUNNING: DATE
+    NODES: 1
+    PROCESSORS: 20
+    CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
+
+  SIM:
+    CHECK: on_submission
+    FILE: templates/sim_aifs.sh,templates/config.yml
+    PLATFORM: "LEGION-GPU"
+    DEPENDENCIES: SAVE_ICS
+    RUNNING: CHUNK
+    NODES: 1
+    PROCESSORS: 20
+    CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
+  
+  CLEAN:
+    CHECK: on_submission
+    FILE: templates/clean.sh
+    PLATFORM: "LEGION-CPU"
+    DEPENDENCIES: SIM
+    RUNNING: DATE
+    NODES: 1
+    PROCESSORS: 1
+
+  POSTPROCESS:
+    CHECK: on_submission
+    FILE: templates/postprocess_aifs.sh,templates/config.yml
+    PLATFORM: "LEGION-CPU"
+    DEPENDENCIES: SIM
+    RUNNING: CHUNK
+    NODES: 1
+    PROCESSORS: 20

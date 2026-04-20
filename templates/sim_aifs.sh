@@ -20,9 +20,18 @@ fi
 EARTHKIT_CACHE=${HPCROOTDIR}/earthkit_cache
 export EARTHKIT_REGRID_CACHE=EARTHKIT_CACHE
 
-singularity exec --nv \
-    --bind $HPCROOTDIR \
-    --env HPCROOTDIR=$HPCROOTDIR \
-    --env configfile=$configfile \
-    ${SIF_PATH} \
-    python3 $HPCROOTDIR/runscripts/sim_aifs.py -c $configfile
+if [ "$PLATFORM_NAME" = "LEGION" ]; then
+    apptainer exec --nv \
+        --bind $HPCROOTDIR \
+        --env HPCROOTDIR=$HPCROOTDIR \
+        --env configfile=$configfile \
+        ${SIF_PATH} \
+        python3 $HPCROOTDIR/runscripts/sim_aifs.py -c $configfile
+else
+    singularity exec --nv \
+        --bind $HPCROOTDIR \
+        --env HPCROOTDIR=$HPCROOTDIR \
+        --env configfile=$configfile \
+        ${SIF_PATH} \
+        python3 $HPCROOTDIR/runscripts/sim_aifs.py -c $configfile
+fi

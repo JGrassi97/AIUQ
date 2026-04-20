@@ -20,9 +20,18 @@ if [ "$PLATFORM_NAME" = "MARENOSTRUM5" ]; then
     ml singularity
 fi
 
-singularity exec --nv \
-    --bind $HPCROOTDIR \
-    --env HPCROOTDIR=$HPCROOTDIR \
-    --env configfile=$configfile \
-    ${SIF_PATH} \
-    python3 $HPCROOTDIR/runscripts/warmup_regrid.py -c $configfile
+if [ "$PLATFORM_NAME" = "LEGION" ]; then
+    apptainer exec --nv \
+        --bind $HPCROOTDIR \
+        --env HPCROOTDIR=$HPCROOTDIR \
+        --env configfile=$configfile \
+        ${SIF_PATH} \
+        python3 $HPCROOTDIR/runscripts/warmup_regrid.py -c $configfile
+else
+    singularity exec --nv \
+        --bind $HPCROOTDIR \
+        --env HPCROOTDIR=$HPCROOTDIR \
+        --env configfile=$configfile \
+        ${SIF_PATH} \
+        python3 $HPCROOTDIR/runscripts/warmup_regrid.py -c $configfile
+fi

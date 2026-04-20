@@ -1,0 +1,24 @@
+JOBS:
+  PREPARE_ICS:
+    CHECK: on_submission
+    FILE: templates/prepare_ics.sh
+    DEPENDENCIES: SYNCHRONIZE
+
+  SIM:
+    CHECK: on_submission
+    FILE: templates/sim_neuralgcm.sh,templates/config.yml
+    PLATFORM: "LEGION-GPU"
+    DEPENDENCIES: SIM-1 PREPARE_ICS
+    RUNNING: CHUNK
+    NODES: 1
+    PROCESSORS: 20
+    CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
+  
+  CLEAN:
+    CHECK: on_submission
+    FILE: templates/clean.sh
+    PLATFORM: "LEGION-CPU"
+    DEPENDENCIES: SIM
+    RUNNING: DATE
+    NODES: 1
+    PROCESSORS: 1
