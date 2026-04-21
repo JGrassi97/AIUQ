@@ -87,57 +87,46 @@ PLATFORMS:
     HOST: hpc-legionlogin.polito.it
     USER: "%PLATFORM.USER_CODE%"
     PARTITION: cpu_sapphire
-    PROJECT: test
+    PROJECT: "%PLATFORM.USER_CODE%"
     ADD_PROJECT_TO_HOST: false
     SCRATCH_DIR: /mnt/beegfs-compat/jgrassi
     QUEUE: serial
     MAX_WAITING_JOBS: 20
     TOTAL_JOBS: 5
 
-LEGION-CPU:
-  TYPE: SLURM
-  HOST: hpc-legionlogin.polito.it
-  USER: "%PLATFORM.USER_CODE%"
-  PARTITION: cpu_sapphire
-  PROJECT: "%PLATFORM.USER_CODE%"
-  ADD_PROJECT_TO_HOST: false
-  SCRATCH_DIR: /mnt/beegfs-compat/jgrassi
-  QUEUE: serial
-  MAX_WAITING_JOBS: 20
-  TOTAL_JOBS: 5
 
-LEGION-CPU-NOOVERLAP:
-  TYPE: SLURM
-  HOST: hpc-legionlogin.polito.it
-  USER: "%PLATFORM.USER_CODE%"
-  PARTITION: cpu_sapphire
-  PROJECT: "%PLATFORM.USER_CODE%"
-  ADD_PROJECT_TO_HOST: false
-  SCRATCH_DIR: /mnt/beegfs-compat/jgrassi
-  QUEUE: serial
-  MAX_WAITING_JOBS: 20
-  TOTAL_JOBS: 1
+  LEGION-CPU-NOOVERLAP:
+    TYPE: SLURM
+    HOST: hpc-legionlogin.polito.it
+    USER: "%PLATFORM.USER_CODE%"
+    PARTITION: cpu_sapphire
+    PROJECT: "%PLATFORM.USER_CODE%"
+    ADD_PROJECT_TO_HOST: false
+    SCRATCH_DIR: /mnt/beegfs-compat/jgrassi
+    QUEUE: serial
+    MAX_WAITING_JOBS: 20
+    TOTAL_JOBS: 1
 
-LEGION-CPU-NOOVERLAP-2:
-  TYPE: SLURM
-  HOST: hpc-legionlogin.polito.it
-  USER: "%PLATFORM.USER_CODE%"
-  PARTITION: cpu_sapphire
-  PROJECT: "%PLATFORM.USER_CODE%"
-  ADD_PROJECT_TO_HOST: false
-  SCRATCH_DIR: /mnt/beegfs-compat/jgrassi
-  QUEUE: serial
-  MAX_WAITING_JOBS: 20
-  TOTAL_JOBS: 2
+  LEGION-CPU-NOOVERLAP-2:
+    TYPE: SLURM
+    HOST: hpc-legionlogin.polito.it
+    USER: "%PLATFORM.USER_CODE%"
+    PARTITION: cpu_sapphire
+    PROJECT: "%PLATFORM.USER_CODE%"
+    ADD_PROJECT_TO_HOST: false
+    SCRATCH_DIR: /mnt/beegfs-compat/jgrassi
+    QUEUE: serial
+    MAX_WAITING_JOBS: 20
+    TOTAL_JOBS: 2
 
-LEGION-GPU:
-  TYPE: SLURM
-  HOST: hpc-legionlogin.polito.it
-  USER: "%PLATFORM.USER_CODE%"
-  PARTITION: gpu_a40
-  PROJECT: "%PLATFORM.USER_CODE%"
-  ADD_PROJECT_TO_HOST: false
-  SCRATCH_DIR: /mnt/beegfs-compat/jgrassi
-  QUEUE: serial
-  MAX_WAITING_JOBS: 20
-  TOTAL_JOBS: 5
+  LEGION-GPU:
+    TYPE: SLURM
+    HOST: hpc-legionlogin.polito.it
+    USER: "%PLATFORM.USER_CODE%"
+    PARTITION: gpu_a40
+    PROJECT: "%PLATFORM.USER_CODE%"
+    ADD_PROJECT_TO_HOST: false
+    SCRATCH_DIR: /mnt/beegfs-compat/jgrassi
+    QUEUE: serial
+    MAX_WAITING_JOBS: 20
+    TOTAL_JOBS: 5
