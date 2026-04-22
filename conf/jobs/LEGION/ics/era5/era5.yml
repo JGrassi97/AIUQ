@@ -4,3 +4,4 @@ JOBS:
     FILE: templates/prepare_ics.sh,templates/config.yml
     PLATFORM: "LEGION-CPU-NOOVERLAP-2"
     RUNNING: DATE
+    MEMORY: 32000
