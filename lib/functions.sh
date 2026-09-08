@@ -7,6 +7,8 @@ prepare_ics_era5() {
     local configfile="$3"
     local sif_path="$4"
 
+    aiuq_root=$(dirname "$(dirname "$sif_path")")
+
     echo "Downloading ERA5 data..."
     singularity exec \
         --nv \
