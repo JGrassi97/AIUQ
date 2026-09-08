@@ -11,6 +11,7 @@ prepare_ics_era5() {
     singularity exec \
         --nv \
         --bind "$hpc_rootdir","$logs_dir" \
+        --bind "$aiuq_root:$aiuq_root:ro" \
         --env HPCROOTDIR="$hpc_rootdir" \
         --env configfile="$configfile" \
         "$sif_path" \
