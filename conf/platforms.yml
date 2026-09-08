@@ -87,8 +87,8 @@ PLATFORMS:
     HOST: felipe.polito.it
     PROJECT: test
     USER: jgrassi
-    QUEUE: serial
+    QUEUE: felipe
     SCRATCH_DIR: /work/users/jgrassi/autosubmit_scratch
     ADD_PROJECT_TO_HOST: False
-    PROCESSORS_PER_NODE: 80
-    MAX_PROCESSORS: 80
+    PROCESSORS_PER_NODE: 168
+    MAX_PROCESSORS: 168
