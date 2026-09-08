@@ -81,6 +81,7 @@ PLATFORMS:
     ADD_PROJECT_TO_HOST: false
     SCRATCH_DIR: /work/users/jgrassi/autosubmit_scratch
     QUEUE: serial
+    TOTAL_JOBS: 5
 
   FELIPE-INFERENCE:
     TYPE: SLURM
