@@ -81,3 +81,15 @@ PLATFORMS:
     ADD_PROJECT_TO_HOST: false
     SCRATCH_DIR: /work/users/jgrassi/autosubmit_scratch
     QUEUE: serial
+
+  FELIPE-INFERENCE:
+    TYPE: SLURM
+    HOST: felipe.polito.it
+    PROJECT: test
+    USER: jgrassi
+    PARTITION: felipe
+    SCRATCH_DIR: /work/users/jgrassi/autosubmit_scratch
+    ADD_PROJECT_TO_HOST: False
+    PROCESSORS_PER_NODE: 168
+    MAX_PROCESSORS: 168
+    MAX_WALLCLOCK: "02:00"
