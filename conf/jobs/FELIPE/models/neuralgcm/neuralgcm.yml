@@ -4,9 +4,10 @@ JOBS:
 
   SIM:
     FILE: templates/sim_neuralgcm.sh,templates/config.yml
-    PLATFORM: "FELIPE-INFERENCE"
+    PLATFORM: FELIPE-INFERENCE
     DEPENDENCIES: SIM-1 PREPARE_ICS
     RUNNING: CHUNK
     NODES: 1
-    PROCESSORS: 20
+    PROCESSORS: 1
+    THREADS: 20
     CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
