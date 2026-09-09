@@ -94,3 +94,15 @@ PLATFORMS:
     PROCESSORS_PER_NODE: 168
     MAX_PROCESSORS: 168
     MAX_WALLCLOCK: "02:00"
+
+  FELIPE-NOOVERLAP:
+    TYPE: SLURM
+    HOST: felipe.polito.it
+    PROJECT: test
+    USER: jgrassi
+    SCRATCH_DIR: /work/users/jgrassi/autosubmit_scratch
+    AADD_PROJECT_TO_HOST: False
+    PROCESSORS_PER_NODE: 168
+    MAX_PROCESSORS: 168
+    MAX_WALLCLOCK: "02:00"
+    TOTAL_JOBS: 1
