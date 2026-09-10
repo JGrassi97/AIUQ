@@ -113,7 +113,7 @@ PLATFORMS:
     PROJECT: test
     USER: jgrassi
     SCRATCH_DIR: /work/users/jgrassi/autosubmit_scratch
-    AADD_PROJECT_TO_HOST: False
+    ADD_PROJECT_TO_HOST: False
     PROCESSORS_PER_NODE: 168
     MAX_PROCESSORS: 168
     MAX_WALLCLOCK: "02:00"
