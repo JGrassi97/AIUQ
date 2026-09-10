@@ -82,6 +82,7 @@ PLATFORMS:
     SCRATCH_DIR: /work/users/jgrassi/autosubmit_scratch
     QUEUE: serial
     TOTAL_JOBS: 2
+    MAX_WALLCLOCK: "02:00"
 
   FELIPE-INFERENCE:
     TYPE: SLURM
