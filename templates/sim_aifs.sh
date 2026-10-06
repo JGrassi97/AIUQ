@@ -22,6 +22,7 @@ export EARTHKIT_REGRID_CACHE=EARTHKIT_CACHE
 
 singularity exec --nv \
     --bind $HPCROOTDIR \
+    --bind "$AIUQ_ROOT:$AIUQ_ROOT:ro" \
     --env HPCROOTDIR=$HPCROOTDIR \
     --env configfile=$configfile \
     ${SIF_PATH} \
