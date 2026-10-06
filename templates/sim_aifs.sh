@@ -5,6 +5,7 @@ EXPID=%DEFAULT.EXPID%
 JOBNAME=%JOBNAME%
 
 SIF_PATH=%PATHS.SIF_FOLDER%/image_anemoi.sif
+AIUQ_ROOT=$(dirname "$(dirname "$SIF_PATH")")
 
 JOBNAME_WITHOUT_EXPID=$(echo ${JOBNAME} | sed 's/^[^_]*_//')
 
