@@ -43,3 +43,21 @@ JOBS:
     PROCESSORS: 1
     THREADS: 20
     CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
+
+  CLEAN:
+    CHECK: on_submission
+    FILE: templates/clean.sh
+    PLATFORM: FELIPE
+    DEPENDENCIES: SIM
+    RUNNING: DATE
+    NODES: 1
+    PROCESSORS: 1
+
+  POSTPROCESS:
+    CHECK: on_submission
+    FILE: templates/postprocess_aifs.sh,templates/config.yml
+    PLATFORM: FELIPE
+    DEPENDENCIES: SIM
+    RUNNING: CHUNK
+    NODES: 1
+    PROCESSORS: 20
