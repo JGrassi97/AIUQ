@@ -47,7 +47,7 @@ JOBS:
   CLEAN:
     CHECK: on_submission
     FILE: templates/clean.sh
-    PLATFORM: FELIPE-GENERAL
+    PLATFORM: FELIPE-INFERENCE
     DEPENDENCIES: SIM
     RUNNING: DATE
     NODES: 1
@@ -56,7 +56,7 @@ JOBS:
   POSTPROCESS:
     CHECK: on_submission
     FILE: templates/postprocess_aifs.sh,templates/config.yml
-    PLATFORM: FELIPE-GENERAL
+    PLATFORM: FELIPE-INFERENCE
     DEPENDENCIES: SIM
     RUNNING: CHUNK
     NODES: 1
