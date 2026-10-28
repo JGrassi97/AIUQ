@@ -1,0 +1,35 @@
+model : ms-aurora
+producer : microsoft
+
+variables:
+  31  : ci
+  39  : swvl1
+  43  : slt
+  129 : z
+  130 : t
+  131 : u
+  132 : v
+  133 : q
+  134 : sp
+  137 : tcwv
+  141 : scaled_sd
+  151 : msl
+  164 : tcc
+  165 : 10u
+  166 : 10v
+  167 : 2t
+  168 : 2d
+  172 : lsm
+  186 : lcc
+  187 : mcc
+  188 : hcc
+  228246 : 100u
+  228247 : 100v
+  235 : skt
+  260360 : stl1
+  999999 : z
+
+pressure_levels :
+  values : [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
+  unit : hPa
+

@@ -30,6 +30,12 @@ data:
     long_name   : Volumetric soil water layer 2
     units       : m3 m**-3
     type        : soil
+
+  43  :
+    short_name  : slt
+    long_name   : Soil type
+    units       : Numeric
+    type        : sfc
     
   129 : 
     short_name  : z
@@ -79,6 +85,18 @@ data:
     units       : kg m**-2
     type        : sfc
 
+  137 :
+    short_name  : tcwv
+    long_name   : Total column vertically-integrated water vapour
+    units       : kg m**-2
+    type        : sfc
+
+  141 :
+    short_name  : sd
+    long_name   : Snow depth
+    units       : m of water equivalent
+    type        : sfc
+
   151 : 
     short_name  : msl
     long_name   : Mean sea level pressure
@@ -95,6 +113,12 @@ data:
     short_name  : slor
     long_name   : Slope of sub-gridscale orography
     units       : Numeric
+    type        : sfc
+
+  164 :
+    short_name  : tcc
+    long_name   : Total cloud cover
+    units       : (0 - 1)
     type        : sfc
 
   165 :
@@ -125,6 +149,36 @@ data:
     short_name  : lsm
     long_name   : Land-sea mask
     units       : (0 - 1)
+    type        : sfc
+
+  186 :
+    short_name  : lcc
+    long_name   : Low cloud cover
+    units       : (0 - 1)
+    type        : sfc
+
+  187 :
+    short_name  : mcc
+    long_name   : Medium cloud cover
+    units       : (0 - 1)
+    type        : sfc
+
+  188 :
+    short_name  : hcc
+    long_name   : High cloud cover
+    units       : (0 - 1)
+    type        : sfc
+
+  228246 :
+    short_name  : u100
+    long_name   : 100 metre U wind component
+    units       : m s**-1
+    type        : sfc
+
+  228247 :
+    short_name  : v100
+    long_name   : 100 metre V wind component
+    units       : m s**-1
     type        : sfc
 
   235 : 

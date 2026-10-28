@@ -64,8 +64,8 @@ def main() -> None:
         del rename_dict['soil_temperature']
         del long_names_dict['sot']
         del units_dict['sot']
-        sol_1 = full_era5['soil_temperature_level_1'].rename('sot').sel(time=slice(_START_TIME, _END_TIME)).isel(time=slice(0, 2)).to_dataset().assign_coords(SoilLevel=1)
-        sol_2 = full_era5['soil_temperature_level_2'].rename('sot').sel(time=slice(_START_TIME, _END_TIME)).isel(time=slice(0, 2)).to_dataset().assign_coords(SoilLevel=2)
+        sol_1 = full_era5['soil_temperature_level_1'].rename('sot').sel(time=slice(_START_TIME, _END_TIME)).isel(time=[0, 6]).to_dataset().assign_coords(SoilLevel=1)
+        sol_2 = full_era5['soil_temperature_level_2'].rename('sot').sel(time=slice(_START_TIME, _END_TIME)).isel(time=[0, 6]).to_dataset().assign_coords(SoilLevel=2)
         sol = xr.concat([sol_1, sol_2], dim='SoilLevel')
         restore_sot = True
     # End of workaround
@@ -74,7 +74,7 @@ def main() -> None:
         full_era5[list(ic_names.values())]
         .rename(rename_dict)
         .sel(time=slice(_START_TIME, _END_TIME))
-        .isel(time=slice(0, 2))
+        .isel(time=[0, 6])
         .pipe(reassign_long_names_units, long_names_dict, units_dict)
         .pipe(check_pressure_levels, ic_card, standard_dict['pressure_levels'])
         .compute()
@@ -95,9 +95,11 @@ def main() -> None:
             missing_vars
         )
 
+        static_ds = xr.open_dataset(_STATIC_DATA)
+        static_vars_present = [v for v in ic_names_static.values() if v in static_ds]
         static_dataset = (
-            (xr.open_dataset(_STATIC_DATA)[list(ic_names_static.values())])
-            .rename(rename_dict_static)
+            (static_ds[static_vars_present])
+            .rename({k: v for k, v in rename_dict_static.items() if k in static_vars_present})
             .pipe(reassign_long_names_units, long_names_dict_static, units_dict_static)
             .compute()
         )

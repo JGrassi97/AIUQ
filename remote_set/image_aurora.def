@@ -1,0 +1,40 @@
+Bootstrap: docker
+From: pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
+
+%labels
+    Author Jacopo Grassi (jacopo.grassi@polito.it)
+    Project AIUQ
+    Model MS-Aurora
+
+%environment
+    export LC_ALL=C.UTF-8
+    export LANG=C.UTF-8
+    export PYTHONUNBUFFERED=1
+
+%post
+    apt-get update && apt-get install -y --no-install-recommends \
+        git \
+        curl \
+        ca-certificates \
+        libeccodes-dev \
+        libnetcdf-dev \
+        libhdf5-dev \
+        && rm -rf /var/lib/apt/lists/*
+
+    pip install --no-cache-dir --upgrade pip
+
+    # Install Microsoft Aurora (latest from GitHub to include AuroraV1p5 & insolation)
+    pip install --no-cache-dir \
+        "git+https://github.com/microsoft/aurora.git" \
+        Pillow \
+        xarray \
+        zarr \
+        netCDF4 \
+        h5netcdf \
+        scipy \
+        dask \
+        pyyaml \
+        huggingface_hub
+
+%runscript
+    exec python3 "$@"

@@ -1,4 +1,4 @@
-mkdir -p models/neuralgcm models/aifs models/aurora
+mkdir -p models/neuralgcm models/aifs models/ms-aurora static
 
 # NeuralGCM models
 curl -fL "https://storage.cloud.google.com/neuralgcm/models/v1/stochastic_1_4_deg.pkl" \
@@ -28,6 +28,18 @@ curl -fL "https://huggingface.co/ecmwf/aifs-ens-1.0/blob/main/aifs-ens-crps-1.0.
   -o "models/aifs/aifs-ens-crps-1.0.ckpt"
 
 
-# MS Aurora models
-curl -fL "https://huggingface.co/microsoft/aurora/blob/main/aurora-0.25-finetuned.ckpt" \
-  -o "models/aurora/aurora-0.25-finetuned.ckpt"
+# MS Aurora models & static pickles
+curl -fL "https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-pretrained.ckpt" \
+  -o "models/ms-aurora/aurora-0.25-pretrained.ckpt"
+
+curl -fL "https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-finetuned.ckpt" \
+  -o "models/ms-aurora/aurora-0.25-finetuned.ckpt"
+
+curl -fL "https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-v1.5.ckpt" \
+  -o "models/ms-aurora/aurora-0.25-v1.5.ckpt"
+
+curl -fL "https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-static.pickle" \
+  -o "static/aurora-0.25-static.pickle"
+
+curl -fL "https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-v1.5-static.pickle" \
+  -o "static/aurora-0.25-v1.5-static.pickle"

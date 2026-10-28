@@ -39,8 +39,17 @@ variables:
   136 : 
     name : tcw
     levtype : sfc
+  137 :
+    name : tcwv
+    levtype : sfc
+  141 :
+    name : sd
+    levtype : sfc
   151 : 
     name : msl
+    levtype : sfc
+  164 :
+    name : tcc
     levtype : sfc
   165 : 
     name : u10
@@ -53,6 +62,21 @@ variables:
     levtype : sfc
   168 : 
     name : d2m
+    levtype : sfc
+  186 :
+    name : lcc
+    levtype : sfc
+  187 :
+    name : mcc
+    levtype : sfc
+  188 :
+    name : hcc
+    levtype : sfc
+  228246 :
+    name : 100u
+    levtype : sfc
+  228247 :
+    name : 100v
     levtype : sfc
   235 : 
     name : skt
