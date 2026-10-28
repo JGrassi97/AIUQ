@@ -38,6 +38,9 @@ curl -fL "https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-finet
 curl -fL "https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-v1.5.ckpt" \
   -o "models/ms-aurora/aurora-0.25-v1.5.ckpt"
 
+curl -fL "https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-v1.5-ensemble.ckpt" \
+  -o "models/ms-aurora/aurora-0.25-v1.5-ensemble.ckpt"
+
 curl -fL "https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-static.pickle" \
   -o "static/aurora-0.25-static.pickle"
 

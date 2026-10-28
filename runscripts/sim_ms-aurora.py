@@ -1,5 +1,7 @@
 """
-Runscript for MS-Aurora (v1.0 and v1.5) simulations.
+Runscript for MS-Aurora simulations: v1.0 (deterministic), v1.5 (deterministic) and
+v1.5 Ensemble (stochastic). Ensemble members follow the same per-job convention as
+AIFS/NeuralGCM: one Autosubmit MEMBER == one RNG_KEY == one reproducible noise seed.
 """
 
 # Built-in/Generics
@@ -16,6 +18,11 @@ try:
     from aurora import AuroraV1p5
 except ImportError:
     AuroraV1p5 = None
+
+try:
+    from aurora import AuroraV1p5Ensemble
+except ImportError:
+    AuroraV1p5Ensemble = None
 
 from aurora import Aurora, AuroraPretrained, Batch, Metadata, rollout
 
@@ -153,11 +160,20 @@ def _build_batch(
     )
 
 
-def _load_aurora_model(checkpoint_path: str, is_v1p5: bool):
+def _load_aurora_model(checkpoint_path: str, is_v1p5: bool, is_ensemble: bool):
     """Instantiate the appropriate Aurora model class and load local checkpoint."""
     ckpt_name = os.path.basename(checkpoint_path)
 
-    if is_v1p5:
+    if is_ensemble:
+        if AuroraV1p5Ensemble is None:
+            raise ImportError(
+                "Checkpoint name suggests Aurora 1.5 Ensemble but the installed 'microsoft-aurora' "
+                "package does not provide 'AuroraV1p5Ensemble'. Rebuild the Singularity image "
+                "installing aurora from GitHub main "
+                "('pip install git+https://github.com/microsoft/aurora.git') to use the ensemble."
+            )
+        model = AuroraV1p5Ensemble()
+    elif is_v1p5:
         if AuroraV1p5 is None:
             raise ImportError(
                 "Checkpoint name suggests Aurora 1.5 but the installed 'microsoft-aurora' package "
@@ -264,7 +280,9 @@ def main() -> None:
     end_date = datetime.strptime(_END_TIME, "%Y-%m-%d")
 
     days_to_run = (end_date - start_date).days + 1
-    is_v1p5 = "v1.5" in os.path.basename(_MODEL_CHECKPOINT) or "v1p5" in os.path.basename(_MODEL_CHECKPOINT)
+    ckpt_basename = os.path.basename(_MODEL_CHECKPOINT)
+    is_ensemble = "ensemble" in ckpt_basename
+    is_v1p5 = "v1.5" in ckpt_basename or "v1p5" in ckpt_basename
 
     # Aurora base autoregressive step is 6h; v1.5 supports fine_lead_times down to 1h
     base_step_hours = 6
@@ -272,8 +290,9 @@ def main() -> None:
     delta_t = np.timedelta64(_INNER_STEPS, "h")
 
     logging.info(
-        f"Running {_MODEL_NAME} ({'v1.5' if is_v1p5 else 'v1.0'}) from {_START_TIME} to {_END_TIME} "
-        f"({days_to_run} days, {ar_steps} AR steps)"
+        f"Running {_MODEL_NAME} "
+        f"({'v1.5-ensemble' if is_ensemble else ('v1.5' if is_v1p5 else 'v1.0')}) "
+        f"from {_START_TIME} to {_END_TIME} ({days_to_run} days, {ar_steps} AR steps)"
     )
 
     # Load initial conditions and map variable names to Aurora canonical names
@@ -301,15 +320,35 @@ def main() -> None:
 
     # Load model and run inference
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = _load_aurora_model(_MODEL_CHECKPOINT, is_v1p5=is_v1p5)
+    model = _load_aurora_model(_MODEL_CHECKPOINT, is_v1p5=is_v1p5, is_ensemble=is_ensemble)
     model.eval()
     model = model.to(device)
+
+    # Aurora 1.5 Ensemble injects stochastic noise through the backbone; a reproducible
+    # torch.Generator is derived from RNG_KEY/MEMBER so each ensemble member (one Autosubmit
+    # job/member per RNG_KEY, same convention as AIFS/NeuralGCM) gets a distinct but
+    # reproducible realization. Deterministic checkpoints (Aurora, AuroraPretrained, AuroraV1p5)
+    # ignore the generator: running several MEMBERS with them yields identical output, as expected
+    # for a deterministic model.
+    is_stochastic = bool(getattr(getattr(model, "backbone", None), "stochastic", False))
+    generator = None
+    if is_stochastic:
+        generator = torch.Generator(device=device).manual_seed(int(_RNG_KEY))
+        logging.info(f"Stochastic Aurora model detected: seeding noise generator with RNG_KEY={_RNG_KEY}")
+    elif str(_RNG_KEY) not in ("1", "", "0"):
+        logging.warning(
+            f"MEMBER/RNG_KEY={_RNG_KEY} was requested but checkpoint '{ckpt_basename}' is "
+            "deterministic (no stochastic noise injection). All members will produce identical "
+            "output; use 'aurora-0.25-v1.5-ensemble.ckpt' for a real ensemble."
+        )
 
     rollout_kwargs = {}
     if is_v1p5 and _INNER_STEPS < base_step_hours:
         rollout_kwargs["fine_lead_times"] = [
             float(h) for h in range(_INNER_STEPS, base_step_hours + 1, _INNER_STEPS)
         ]
+    if generator is not None:
+        rollout_kwargs["generator"] = generator
 
     with torch.inference_mode():
         preds = [
