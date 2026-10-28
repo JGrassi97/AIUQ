@@ -5,6 +5,7 @@ EXPID=%DEFAULT.EXPID%
 JOBNAME=%JOBNAME%
 
 SIF_PATH=%PATHS.SIF_FOLDER%/image_anemoi.sif
+AIUQ_ROOT=$(dirname "$(dirname "$SIF_PATH")")
 
 JOBNAME_WITHOUT_EXPID=$(echo ${JOBNAME} | sed 's/^[^_]*_//')
 
@@ -22,6 +23,7 @@ export EARTHKIT_REGRID_CACHE=EARTHKIT_CACHE
 
 singularity exec --nv \
     --bind $HPCROOTDIR \
+    --bind "$AIUQ_ROOT:$AIUQ_ROOT:ro" \
     --env HPCROOTDIR=$HPCROOTDIR \
     --env configfile=$configfile \
     ${SIF_PATH} \

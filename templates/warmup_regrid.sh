@@ -7,7 +7,7 @@ JOBNAME=%JOBNAME%
 SIF_PATH=%PATHS.SIF_FOLDER%/image_anemoi.sif
 
 JOBNAME_WITHOUT_EXPID=$(echo ${JOBNAME} | sed 's/^[^_]*_//')
-
+AIUQ_ROOT=$(dirname "$(dirname "$SIF_PATH")")
 logs_dir=${HPCROOTDIR}/LOG_${EXPID}
 configfile=$logs_dir/config_${JOBNAME_WITHOUT_EXPID}
 PLATFORM_NAME=%PLATFORM.NAME%
@@ -22,6 +22,7 @@ fi
 
 singularity exec --nv \
     --bind $HPCROOTDIR \
+    --bind "$AIUQ_ROOT:$AIUQ_ROOT:ro" \
     --env HPCROOTDIR=$HPCROOTDIR \
     --env configfile=$configfile \
     ${SIF_PATH} \

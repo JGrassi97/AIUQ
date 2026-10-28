@@ -81,7 +81,7 @@ PLATFORMS:
     ADD_PROJECT_TO_HOST: false
     SCRATCH_DIR: /work/users/jgrassi/autosubmit_scratch
     QUEUE: serial
-    TOTAL_JOBS: 2
+    TOTAL_JOBS: 1
     MAX_WALLCLOCK: "02:00"
 
   FELIPE-INFERENCE:
