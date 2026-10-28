@@ -213,6 +213,64 @@ Since this standard may evolve due to future developments or different user requ
 
 **Note:** Developers are responsible for keeping the codebase as modular as possible in order to remain independent of any single AIUQ-st convention.
 
+#### Forecast NetCDF output (schema 1.0)
+
+All three model runners use `runscripts/AIUQst_lib/output.py` for their final
+forecast format. This output schema is versioned separately from the AIUQ-st
+variable/IC definitions. Input Zarr files keep their existing 0–360° longitude
+convention; final NetCDF forecasts use:
+
+| Coordinate | Meaning |
+| --- | --- |
+| `latitude` | Degrees north, increasing south to north |
+| `longitude` | Degrees east in **[-180, 180)**, increasing; 180° is represented by -180° |
+| `time` | Scalar UTC forecast initialization, taken from the actual model input |
+| `valid_time` | UTC forecast timestamps, increasing, used as the temporal dimension |
+| `step` | Forecast period, always `valid_time - time` |
+| `level` | Pressure in hPa, decreasing, when the variable has pressure levels |
+
+Data dimensions are `(valid_time, level, latitude, longitude)` for atmospheric
+variables and `(valid_time, latitude, longitude)` for surface variables. Names,
+long names and units come from the selected `conf/AIUQ-st/<version>/variables.yml`.
+For example, temperature is always `t`, 2-metre temperature is `t2m` and
+geopotential is `z`. `OUT_VARS` accepts standard short names or exact long names;
+both produce the same canonical variable, directory and filename. Unsupported,
+duplicate or missing variables raise an error. Static orography is not exposed
+as an AIFS/Aurora forecast variable, because its native `z` name overlaps with
+atmospheric geopotential and has different physical units.
+
+Each file contains one variable under
+`outputs/<short_name>/<member>/out-<start>-<end>-<member>-<short_name>.nc`.
+NeuralGCM can split a simulation across several files. Model outputs retain
+their actual forecast times: models need not emit the same first lead time.
+Daily output uses calendar-day means, labelled at 00:00 UTC, with
+`cell_methods = "valid_time: mean"`; `step` is recomputed after averaging.
+
+Provenance is stored in **global NetCDF attributes**, including:
+
+- Model, checkpoint filename and path, inference library version and its Git
+  commit when installed from a VCS source.
+- Initial-condition source and path, actual initialization time, UTC creation
+  date, experiment ID, ensemble member, run type and AMIP forcing version.
+- AIUQ version, AIUQ-st version, output schema version and source Git revision.
+  `SYNCHRONIZE` exports the revision to HPC, adding `-dirty` for a modified
+  checkout. Unavailable provenance is explicitly marked `unknown`.
+- Requested frequency, resolution and pressure levels, temporal coverage and
+  actual geographic extent/resolution where applicable.
+
+Backend GRIB/CDO attributes and stale encodings are removed. AIFS is standardized
+again after CDO remapping, preserving the original initialization and valid
+times. Its `OUT_RES=original` retains the existing 1° remapping default; explicit
+resolutions use the corresponding regular grid. Intermediate AIFS files remain
+on the native point grid and are removed only after finalization succeeds.
+Writers replace completed files atomically; NeuralGCM records checkpoint
+progress only after the chunk's output files are saved.
+
+Run the output contract tests with `python -m pytest -q tests`. They require
+`pytest`, `numpy`, `xarray`, `pyyaml`, `netCDF4` and `scipy`; the remapping integration
+test runs when the `cdo` executable is available. GPU inference and checkpoint
+validation must additionally be performed in the model's HPC container.
+
 ---
 
 #### AIUQ-st v010
