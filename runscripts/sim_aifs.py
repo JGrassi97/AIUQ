@@ -4,46 +4,26 @@
 
 # Built-in/Generics
 import os
-import yaml
-import re
 import ast
-import json
-import pickle
 import logging
-from copy import deepcopy
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 # Third party
-import netCDF4 as nc
 import numpy as np
 import xarray as xr
-import earthkit.regrid as ekr
-from anemoi.inference.checkpoint import Checkpoint
 from anemoi.inference.runners.simple import SimpleRunner
 
 # Local
 from AIUQst_lib.functions import parse_arguments, read_config, normalize_out_vars
-from AIUQst_lib.pressure_levels import check_pressure_levels
-from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
-from AIUQst_lib.variables import name_mapper_for_model, output_translator
+from AIUQst_lib.cards import read_model_card, read_std_version
+from AIUQst_lib.output import (
+    resolve_output_variables, output_metadata, standardize_output, write_forecast,
+)
 
 from postprocess_aifs import build_dataset_for_state
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-
-def grid_file(file_path, lats, lons):
-    grid_file = os.path.join(file_path)
-    with open(grid_file, "w") as f:
-        f.write("gridtype = unstructured\n")
-        f.write(f"gridsize = {lats.size}\n")
-        f.write("xname = lon\n")
-        f.write("yname = lat\n")
-        f.write("xunits = degrees_east\n")
-        f.write("yunits = degrees_north\n")
-        f.write("xvals = " + " ".join(map(str, lons)) + "\n")
-        f.write("yvals = " + " ".join(map(str, lats)) + "\n")
 
 
 def main() -> None:
@@ -52,7 +32,6 @@ def main() -> None:
     args = parse_arguments()
     config = read_config(args.config)
 
-    _INI_DATA_PATH      = config.get('INI_DATA_PATH', "")
     _START_TIME         = config.get("START_TIME", "")
     _END_TIME           = config.get("END_TIME", "")
     _HPCROOTDIR         = config.get("HPCROOTDIR", "")
@@ -62,7 +41,6 @@ def main() -> None:
     _OUTPUT_PATH        = config.get("OUTPUT_PATH", "")
     _OUT_VARS           = config.get("OUT_VARS", [])
     _OUT_FREQ           = config.get("OUT_FREQ", "")
-    _OUT_RES            = config.get("OUT_RES", "")
     _RNG_KEY            = config.get("RNG_KEY", "")
     _OUT_LEVS           = config.get("OUT_LEVS", "")
     _ICS_TEMP_DIR       = config.get("ICS_TEMP_DIR", "")
@@ -74,19 +52,15 @@ def main() -> None:
     standard_dict = read_std_version(_HPCROOTDIR, _STD_VERSION)
    
     out_vars = normalize_out_vars(_OUT_VARS)
-    translate = output_translator(model_card['variables'], standard_dict['variables'])
-    output_vars = [translate.get(item, item) for item in out_vars]
+    output_vars, out_vars = resolve_output_variables(
+        out_vars, model_card, standard_dict["variables"],
+    )
+    metadata = output_metadata(config)
 
-    # If 'gh' in output vars we need to change it with 'z' for the model
-    if 'gh' in output_vars:
-        output_vars = [var if var != 'gh' else 'z' for var in output_vars]
-    
-    
+    desired_levels = None
     if _OUT_LEVS != 'original':
-        desired_levels = [
-            int(plev)
-            for plev in _OUT_LEVS.strip('[]').split(',')
-        ]
+        raw_levels = _OUT_LEVS if isinstance(_OUT_LEVS, list) else ast.literal_eval(_OUT_LEVS)
+        desired_levels = [int(plev) for plev in raw_levels]
 
     # Format time settings
     start_date = datetime.strptime(_START_TIME, '%Y-%m-%d')
@@ -126,53 +100,26 @@ def main() -> None:
         ds_t = build_dataset_for_state(state, output_vars, desired_levels)
         datasets_per_time.append(ds_t)
 
-    lats = state["latitudes"].astype(float)
-    lons = state["longitudes"].astype(float)
-    lons = np.mod(lons, 360.0)
-
     dataset = xr.concat(datasets_per_time, dim="time", join="exact").sortby("time")
-    dataset.attrs["Conventions"] = "CF-1.8"
-    print(dataset)
-
-
-    # # # --- Build valid_time/step coords consistent with produced outputs ---
-    delta_t = np.timedelta64(int(_INNER_STEPS), "h")
-
-    initial_conditions = xr.open_zarr(_INI_DATA_PATH).load()
-    initial_time = initial_conditions.time.isel(time=0).values
-
-    # # how many forecast steps we actually have
-    n_out = dataset.sizes["time"]
-
-    valid_time = initial_time + np.arange(n_out) * delta_t
-    steps = np.arange(n_out) * delta_t
-
-    # # rename time -> valid_time and attach coords with matching length
+    # Preserve the dates returned by Anemoi and use the actual NPZ initialization.
+    initial_time = np.datetime64(input_state["date"].replace(tzinfo=None), "ns")
     dataset = dataset.rename({"time": "valid_time"})
-    dataset = dataset.assign_coords(valid_time=("valid_time", valid_time))
-    dataset = dataset.assign_coords(time=initial_time)
-    dataset = dataset.assign_coords(step=("valid_time", steps))
-
-    # # Drop sim_time if present
-    if "sim_time" in dataset.variables:
-        dataset = dataset.drop_vars("sim_time")
 
     # # Format output frequency
     if _OUT_FREQ == "daily":
         dataset = dataset.resample(valid_time="1D").mean()
 
     
-    for var in output_vars:
+    dataset = standardize_output(
+        dataset, dict(zip(output_vars, out_vars)), standard_dict["variables"],
+        initial_time, metadata, unstructured=True,
+    )
+    for var in out_vars:
+        output_file = (
+            f"{_OUTPUT_PATH}/{var}/{_RNG_KEY}/"
+            f"out-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}_temp.nc"
+        )
+        write_forecast(dataset[[var]], output_file)
 
-        predictions_datarray = dataset[var]
-        OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var}/{str(_RNG_KEY)}"
-
-        # if not os.path.exists(f"{_OUTPUT_PATH}/grid.txt"):
-        #     grid_file(f"{_OUTPUT_PATH}/grid.txt", lats, lons)
-
-        os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
-        OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/out-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}_temp.nc"
-        predictions_datarray.to_netcdf(OUTPUT_FILE)
-            
 if __name__ == "__main__":
     main()

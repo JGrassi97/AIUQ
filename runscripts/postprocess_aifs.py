@@ -1,7 +1,7 @@
 import re
+from datetime import timezone
 import numpy as np
 import xarray as xr
-import earthkit.regrid as ekr
 
 GRID_IN = {"grid": "N320"}
 GRID_OUT = {"grid": [0.25, 0.25]}
@@ -32,6 +32,8 @@ def build_dataset_for_state(state, output_vars, output_levels):
     output_vars: set/list di variabili da tenere (nomi originali: '2t', 't_500', ...)
     """
     date = state["date"]
+    if getattr(date, "tzinfo", None) is not None:
+        date = date.astimezone(timezone.utc).replace(tzinfo=None)
 
     # surface_vars[name] = 2D DataArray
     surface_vars = {}
@@ -46,7 +48,7 @@ def build_dataset_for_state(state, output_vars, output_levels):
         if base not in output_vars:
             continue
 
-        if lev is not None and lev not in output_levels:
+        if lev is not None and output_levels is not None and lev not in output_levels:
             continue
 
         data_interp = interp_to_025(data)  # UNA sola interpolazione per campo
@@ -54,7 +56,7 @@ def build_dataset_for_state(state, output_vars, output_levels):
         da2d = xr.DataArray(
             data_interp,
             dims=["points"],
-            coords={"points": np.arange(N_POINTS)},
+            coords={"points": np.arange(np.asarray(data_interp).size)},
             name=base if lev is not None else var_name,
             attrs={"long_name": var_name, "units": "unknown"},
         )

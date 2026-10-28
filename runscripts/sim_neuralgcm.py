@@ -18,7 +18,10 @@ from dinosaur import horizontal_interpolation, spherical_harmonic, xarray_utils
 # Local
 from AIUQst_lib.functions import parse_arguments, read_config, normalize_out_vars
 from AIUQst_lib.cards import read_model_card, read_std_version
-from AIUQst_lib.variables import name_mapper_for_model, output_translator
+from AIUQst_lib.variables import name_mapper_for_model
+from AIUQst_lib.output import (
+    resolve_output_variables, output_metadata, standardize_output, write_forecast,
+)
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -180,11 +183,10 @@ def main() -> None:
 
     # Pre-compute output settings (invariant across chunks)
     out_vars = normalize_out_vars(_OUT_VARS)
-    translate = output_translator(
-        model_card["variables"],
-        standard_dict["variables"],
+    output_vars, out_vars = resolve_output_variables(
+        out_vars, model_card, standard_dict["variables"],
     )
-    output_vars = [translate.get(item, item) for item in out_vars]
+    metadata = output_metadata(config)
 
     if _OUT_RES == "0.25":
         out_latitudes = np.arange(-90, 90.25, 0.25)
@@ -224,20 +226,13 @@ def main() -> None:
             all_forcings,
             steps=current_chunk_steps,
             timedelta=delta_t,
-            start_with_input=(chunk_start == 0),
+            # Each chunk starts from the state at chunk_start. Include that
+            # state so timestamps [chunk_start, chunk_end) match the data,
+            # including after a checkpoint resume.
+            start_with_input=True,
         )
 
         current_state = final_state
-
-        # Save state checkpoint after each chunk
-        with open(state_checkpoint_file, "wb") as f:
-            pickle.dump(
-                {
-                    "state": current_state,
-                    "step_done": chunk_end,
-                },
-                f,
-            )
 
         # Convert current chunk predictions to xarray
         chunk_valid_time = initial_time + (
@@ -272,19 +267,34 @@ def main() -> None:
         if desired_levels is not None:
             predictions_ds_chunk = predictions_ds_chunk.interp(level=desired_levels)
 
+        predictions_ds_chunk = standardize_output(
+            predictions_ds_chunk, dict(zip(output_vars, out_vars)),
+            standard_dict["variables"], initial_time, metadata,
+        )
+
         # Save chunk netCDF per variable
         chunk_t_start = str(chunk_valid_time[0])[:10]
         chunk_t_end = str(chunk_valid_time[-1])[:10]
 
         for var, var_name in zip(output_vars, out_vars):
-            predictions_datarray = predictions_ds_chunk[var].rename(var_name)
+            forecast = predictions_ds_chunk[[var_name]]
             output_base_path = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
             os.makedirs(output_base_path, exist_ok=True)
             output_file = (
                 f"{output_base_path}/out-{chunk_t_start}-{chunk_t_end}-{_RNG_KEY}-{var_name}.nc"
             )
-            predictions_datarray.to_netcdf(output_file)
+            write_forecast(forecast, output_file)
             logging.info(f"Saved {output_file}")
+
+        # Commit progress only after every output file was saved successfully
+        with open(state_checkpoint_file, "wb") as f:
+            pickle.dump(
+                {
+                    "state": current_state,
+                    "step_done": chunk_end,
+                },
+                f,
+            )
 
     # Remove checkpoint at successful completion
     if os.path.exists(state_checkpoint_file):

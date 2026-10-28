@@ -49,6 +49,16 @@ cd "${ROOTDIR}"/proj
 rsync_to_remote "${HPCUSER}" "${HPCHOST}" "${PROJDEST}"/lib "${HPCROOTDIR}"
 rsync_to_remote "${HPCUSER}" "${HPCHOST}" "${PROJDEST}"/runscripts "${HPCROOTDIR}"
 rsync_to_remote "${HPCUSER}" "${HPCHOST}" "${PROJDEST}"/conf "${HPCROOTDIR}"
+# Git metadata is not copied to HPC. Export the exact source revision alongside
+# the cards, including whether the synchronized checkout has local changes.
+revision_file=$(mktemp)
+revision=$(git -C "${PROJDEST}" rev-parse HEAD)
+if [ -n "$(git -C "${PROJDEST}" status --porcelain)" ]; then
+    revision="${revision}-dirty"
+fi
+printf '%s\n' "$revision" > "$revision_file"
+rsync -avp "$revision_file" "${HPCUSER}@${HPCHOST}:${HPCROOTDIR}/conf/source_revision.txt"
+rm -f "$revision_file"
 #fi
 
 # MAKE LOG DIR

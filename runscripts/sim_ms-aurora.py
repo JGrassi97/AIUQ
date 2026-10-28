@@ -34,7 +34,10 @@ except ImportError:
 # Local
 from AIUQst_lib.functions import parse_arguments, read_config, normalize_out_vars
 from AIUQst_lib.cards import read_model_card, read_std_version
-from AIUQst_lib.variables import name_mapper_for_model, output_translator
+from AIUQst_lib.variables import name_mapper_for_model
+from AIUQst_lib.output import (
+    resolve_output_variables, output_metadata, standardize_output, write_forecast,
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -200,16 +203,14 @@ def _preds_to_dataset(
     preds: list[Batch],
     output_vars: list[str],
     initial_time: np.datetime64,
-    delta_t: np.timedelta64,
 ) -> xr.Dataset:
     """Convert list of predicted Aurora Batches into a standardized xarray.Dataset."""
     lats = preds[0].metadata.lat.cpu().numpy()
     lons = preds[0].metadata.lon.cpu().numpy()
     levels = list(preds[0].metadata.atmos_levels)
-    n_out = len(preds)
-
-    valid_time = initial_time + np.arange(1, n_out + 1) * delta_t
-    steps = np.arange(1, n_out + 1) * delta_t
+    # Predictions carry their actual timestamps (also for v1.5 fine lead times).
+    valid_time = np.array([np.datetime64(p.metadata.time[0], "ns") for p in preds])
+    steps = valid_time - initial_time
 
     data_vars = {}
     for var in output_vars:
@@ -269,11 +270,10 @@ def main() -> None:
         mapper.pop("orog")
 
     out_vars = normalize_out_vars(_OUT_VARS)
-    translate = output_translator(
-        model_card["variables"],
-        standard_dict["variables"],
+    output_vars, out_vars = resolve_output_variables(
+        out_vars, model_card, standard_dict["variables"],
     )
-    output_vars = [translate.get(item, item) for item in out_vars]
+    metadata = output_metadata(config)
 
     # Format time settings
     start_date = datetime.strptime(_START_TIME, "%Y-%m-%d")
@@ -287,7 +287,6 @@ def main() -> None:
     # Aurora base autoregressive step is 6h; v1.5 supports fine_lead_times down to 1h
     base_step_hours = 6
     ar_steps = (days_to_run * 24) // base_step_hours
-    delta_t = np.timedelta64(_INNER_STEPS, "h")
 
     logging.info(
         f"Running {_MODEL_NAME} "
@@ -361,7 +360,6 @@ def main() -> None:
         preds=preds,
         output_vars=output_vars,
         initial_time=initial_time,
-        delta_t=delta_t,
     )
 
     # Post-processing (frequency, horizontal resolution, vertical levels)
@@ -384,15 +382,18 @@ def main() -> None:
         desired_levels = [int(plev) for plev in _OUT_LEVS.strip("[]").split(",")]
         dataset = dataset.interp(level=desired_levels)
 
+    dataset = standardize_output(
+        dataset, dict(zip(output_vars, out_vars)), standard_dict["variables"],
+        initial_time, metadata,
+    )
+
     # Save NetCDF per output variable
     for var, var_name in zip(output_vars, out_vars):
-        if var not in dataset:
-            continue
-        predictions_datarray = dataset[var].rename(var_name)
+        forecast = dataset[[var_name]]
         output_base_path = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
         os.makedirs(output_base_path, exist_ok=True)
         output_file = f"{output_base_path}/out-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var_name}.nc"
-        predictions_datarray.to_netcdf(output_file)
+        write_forecast(forecast, output_file)
         logging.info(f"Saved {output_file}")
 
 

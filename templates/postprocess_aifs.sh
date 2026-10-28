@@ -1,66 +1,62 @@
 #!/bin/bash
+set -euo pipefail
 
 HPCROOTDIR=%HPCROOTDIR%
 EXPID=%DEFAULT.EXPID%
 JOBNAME=%JOBNAME%
-CARDSDIR="${HPCROOTDIR}/conf/cards/models"
 CHUNK_START_DATE=%CHUNK_START_DATE%
 CHUNK_END_DATE=%CHUNK_END_DATE%
-STD_VERSION="v010"
-STD_DICT_CARD="${HPCROOTDIR}/conf/AIUQ-st/${STD_VERSION}/variables.yml"
-JOBNAME_WITHOUT_EXPID=$(echo "${JOBNAME}" | sed 's/^[^_]*_//')
-
-CHUNK_START_DATE=%CHUNK_START_DATE%
-CHUNK_END_DATE=%CHUNK_END_DATE%
-
-JOBNAME_WITHOUT_EXPID=$(echo "${JOBNAME}" | sed 's/^[^_]*_//')
-
-logs_dir="${HPCROOTDIR}/LOG_${EXPID}"
-configfile="${logs_dir}/config_${JOBNAME_WITHOUT_EXPID}"
+MEMBER=%MEMBER%
 PLATFORM_NAME=%PLATFORM.NAME%
 
-OUTPUT_PATH="%HPCROOTDIR%/outputs"
+JOBNAME_WITHOUT_EXPID=$(echo "${JOBNAME}" | sed 's/^[^_]*_//')
+configfile="${HPCROOTDIR}/LOG_${EXPID}/config_${JOBNAME_WITHOUT_EXPID}"
+OUTPUT_PATH="${HPCROOTDIR}/outputs"
 GRID_FILE=%PATHS.SUPPORT_FOLDER%/aifs_grid.txt
+SIF_PATH=%PATHS.SIF_FOLDER%/image_anemoi.sif
+AIUQ_ROOT=$(dirname "$(dirname "$SIF_PATH")")
 
-# Use CHUNK_* if available, otherwise fall back to START_TIME/END_TIME
-CHUNK_START_DATE=${CHUNK_START_DATE:-$START_TIME}
-CHUNK_END_DATE=${CHUNK_END_DATE:-$END_TIME}
-
-MEMBER=%MEMBER%
-
-# Variable list may come in a broken, unquoted form (e.g. RAW_VARS=['t', 'u', 'v'])
-# Build a robust variable string and extract variable names.
-RAW_VARS_STR="${VARS:-${OUT_VARS:-%EXPERIMENT.OUT_VARS%}}"
-
-# If RAW_VARS_STR is empty and Autosubmit injected tokens unquoted, reconstruct from script arguments
-if [ -z "$RAW_VARS_STR" ] && [ $# -gt 0 ]; then
-    RAW_VARS_STR="$*"
-fi
-
-# Extract variable names (letters/digits/underscore) from any representation
-# Examples handled:
-#   "['t', 'u', 'v']"   -> t u v
-#   "[t, u, v]"         -> t u v
-#   "t,u,v"             -> t u v
-#   "[t, u, v]" tokens  -> t u v
-vars=$(printf '%s' "$RAW_VARS_STR" | sed -E 's/[^A-Za-z0-9_]+/ /g')
-
-# Load required modules on MareNostrum5
 if [ "$PLATFORM_NAME" = "MARENOSTRUM5" ]; then
     module load EB/apps EB/install CDO/2.2.2-gompi-2023b
+    ml singularity
 fi
 
-# Dates: input may be YYYYMMDD; files are YYYY-MM-DD
 start_date=$(echo "$CHUNK_START_DATE" | sed 's/^\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)$/\1-\2-\3/')
-end_date=$(echo "$CHUNK_END_DATE"   | sed 's/^\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)$/\1-\2-\3/')
+end_date=$(echo "$CHUNK_END_DATE" | sed 's/^\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)$/\1-\2-\3/')
 
-for var in $vars; do
-    infile="${OUTPUT_PATH}/${var}/${MEMBER}/out-${start_date}-${end_date}-${MEMBER}-${var}_temp.nc"
-    gridf="${OUTPUT_PATH}/${var}/${MEMBER}/out-${start_date}-${end_date}-${MEMBER}-${var}_grid.nc"
-    outf="${OUTPUT_PATH}/${var}/${MEMBER}/out-${start_date}-${end_date}-${MEMBER}-${var}.nc"
+# Intermediate files already use canonical names, including when OUT_VARS
+# contains long names. Limit discovery to this job's member and date interval.
+shopt -s nullglob
+inputs=("${OUTPUT_PATH}"/*/"${MEMBER}"/out-"${start_date}"-"${end_date}"-"${MEMBER}"-*_temp.nc)
+if [ ${#inputs[@]} -eq 0 ]; then
+    echo "No AIFS intermediate outputs found for this job" >&2
+    exit 1
+fi
 
-    cdo -P 8 -setgrid,${GRID_FILE} "${infile}" "${gridf}"
-    rm -f "${infile}"
-    cdo -P 8 -f nc4 remapdis,r360x181 "${gridf}" "${outf}"
-    rm -f "${gridf}"
+# Retain the existing 1-degree AIFS default for OUT_RES=original.
+case "%EXPERIMENT.OUT_RES%" in
+    0.25) target_grid=r1440x721 ;;
+    0.5) target_grid=r720x361 ;;
+    1|original) target_grid=r360x181 ;;
+    1.5) target_grid=r240x121 ;;
+    2) target_grid=r180x91 ;;
+    *) echo "Unsupported AIFS output resolution" >&2; exit 1 ;;
+esac
+
+for infile in "${inputs[@]}"; do
+    base="${infile%_temp.nc}"
+    gridf="${base}_grid.nc"
+    remapped="${base}_remapped.nc"
+    outf="${base}.nc"
+    cdo -P 8 -setgrid,"${GRID_FILE}" "${infile}" "${gridf}"
+    cdo -P 8 -f nc4 remapdis,"${target_grid}" "${gridf}" "${remapped}"
+    singularity exec \
+        --bind "$HPCROOTDIR:$HPCROOTDIR" \
+        --bind "$AIUQ_ROOT:$AIUQ_ROOT:ro" \
+        "$SIF_PATH" \
+        python3 "$HPCROOTDIR/runscripts/finalize_aifs.py" \
+        --config "$configfile" --input "$remapped" \
+        --reference "$infile" --output "$outf"
+    # Keep all intermediate files if remapping or standardization fails.
+    rm -f "$infile" "$gridf" "$remapped"
 done
