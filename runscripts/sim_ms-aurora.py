@@ -158,6 +158,12 @@ def _load_aurora_model(checkpoint_path: str, is_v1p5: bool):
     ckpt_name = os.path.basename(checkpoint_path)
 
     if is_v1p5:
+        if AuroraV1p5 is None:
+            raise ImportError(
+                "Checkpoint name suggests Aurora 1.5 but the installed 'microsoft-aurora' package "
+                "does not provide 'AuroraV1p5'. Rebuild the Singularity image installing aurora from "
+                "GitHub main ('pip install git+https://github.com/microsoft/aurora.git') to use v1.5."
+            )
         model = AuroraV1p5()
     elif "pretrained" in ckpt_name:
         model = AuroraPretrained()

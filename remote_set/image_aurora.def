@@ -1,40 +1,77 @@
 Bootstrap: docker
-From: pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
+From: pytorch/pytorch:2.5.0-cuda12.4-cudnn9-devel
 
 %labels
     Author Jacopo Grassi (jacopo.grassi@polito.it)
     Project AIUQ
     Model MS-Aurora
-
-%environment
-    export LC_ALL=C.UTF-8
-    export LANG=C.UTF-8
-    export PYTHONUNBUFFERED=1
+    Description "Aurora v1.0 + v1.5 (GitHub main) + CUDA (torch 2.5.0) + flash-attn + xarray/zarr"
 
 %post
-    apt-get update && apt-get install -y --no-install-recommends \
-        git \
-        curl \
+    set -eux
+
+    apt-get update
+    apt-get install -y --no-install-recommends \
         ca-certificates \
+        curl \
+        git \
+        build-essential \
+        cmake \
+        ninja-build \
+        pkg-config \
         libeccodes-dev \
         libnetcdf-dev \
         libhdf5-dev \
         && rm -rf /var/lib/apt/lists/*
 
-    pip install --no-cache-dir --upgrade pip
+    update-ca-certificates
 
-    # Install Microsoft Aurora (latest from GitHub to include AuroraV1p5 & insolation)
-    pip install --no-cache-dir \
-        "git+https://github.com/microsoft/aurora.git" \
-        Pillow \
-        xarray \
-        zarr \
-        netCDF4 \
-        h5netcdf \
-        scipy \
-        dask \
-        pyyaml \
-        huggingface_hub
+    PIP="/opt/conda/bin/python -m pip"
+    $PIP install -U pip
+
+    # Note: torch/torchvision/torchaudio/cuda/cudnn already present in the base image - do not reinstall.
+
+    # Scientific / IO stack
+    $PIP install --no-cache-dir \
+        xarray==2025.12.0 \
+        zarr==2.18.4 \
+        netCDF4==1.7.3 \
+        h5netcdf==1.8.1 \
+        scipy==1.17.0 \
+        dask==2026.1.1 \
+        pyyaml==6.0.2 \
+        einops==0.8.1 \
+        timm==1.0.24 \
+        pillow==10.2.0 \
+        huggingface_hub \
+        cdsapi==0.7.7 \
+        ecmwf-opendata==0.3.26 \
+        ecmwf-datastores-client==0.4.2
+
+    # flash-attn (compiled against CUDA 12.4 / torch 2.5.0 from base image)
+    $PIP install --no-cache-dir flash-attn==2.8.3 --no-build-isolation
+
+    # Microsoft Aurora from GitHub main - includes AuroraV1p5 and aurora.insolation (not yet on PyPI)
+    $PIP install --no-cache-dir "git+https://github.com/microsoft/aurora.git"
+
+    # Pin numcodecs last: aurora's deps can pull a newer numcodecs incompatible with zarr 2.x
+    $PIP install --no-cache-dir "numcodecs==0.12.1" "zarr==2.18.4" --force-reinstall --no-deps
+
+%environment
+    export PYTHONUNBUFFERED=1
+    export PATH="/usr/local/nvidia/bin:/usr/local/cuda/bin:/opt/conda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+    # Hugging Face cache (writable on HOME)
+    export HF_HOME=${HF_HOME:-$HOME/.cache/huggingface}
+    export TRANSFORMERS_CACHE=${TRANSFORMERS_CACHE:-$HOME/.cache/huggingface}
+    export TORCH_HOME=${TORCH_HOME:-$HOME/.cache/torch}
+
+    # SSL fix for HPC
+    unset SSL_CERT_FILE
+    unset REQUESTS_CA_BUNDLE
+    export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+    export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
 
 %runscript
-    exec python3 "$@"
+    exec /opt/conda/bin/python "$@"
+
