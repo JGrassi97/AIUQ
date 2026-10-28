@@ -181,18 +181,19 @@ def main() -> None:
     _STATIC_DATA    = config.get("STATIC_DATA", "")
     _CLIMATOLOGY_DATA = config.get("CLIMATOLOGY_DATA", "")
     _HPCROOTDIR     = config.get("HPCROOTDIR", "")
-    _MODEL_NAME     = config.get("MODEL_NAME", "")
     _IC             = config.get("IC_NAME", "")
     _STD_VERSION    = config.get("STD_VERSION", "")
     _TEMP_DIR       = config.get("TEMP_DIR", "")
 
-    # IC settings
-    model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
+    # Skip download if output already exists and is non-empty
+    if os.path.exists(_INI_DATA_PATH) and os.listdir(_INI_DATA_PATH):
+        print(f"Output already exists at {_INI_DATA_PATH}, skipping download.")
+        return
+    
     ic_card = read_ic_card(_HPCROOTDIR, _IC)
     static_card = read_ic_card(_HPCROOTDIR, 'static')
     climatology_card = read_ic_card(_HPCROOTDIR, 'climatology')
     standard_dict = read_std_version(_HPCROOTDIR, _STD_VERSION)
-
 
     # Create the mappers between model requirement and IC variables
     ic_names, rename_dict, long_names_dict, units_dict, missing_vars = define_ics_mappers(

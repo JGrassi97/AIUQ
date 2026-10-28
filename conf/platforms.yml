@@ -1,19 +1,5 @@
 PLATFORMS:
 
-  MARENOSTRUM5CPU:
-    TYPE: ps
-    HOST: glogin1.bsc.es
-    PROJECT: bsc32
-    USER: "%PLATFORM.USER_CODE%"
-    QUEUE: gp_bsces
-    SCRATCH_DIR: /gpfs/scratch
-    ADD_PROJECT_TO_HOST: False
-    TEMP_DIR: ''
-    PROCESSORS_PER_NODE: 112
-    MAX_WALLCLOCK: '01:30'
-    HPCROOTDIR: /gpfs/scratch/ehpc536/%PLATFORM.USER_CODE%/%EXPID%
-    CURRENT_SCRATCH_DIR: /gpfs/scratch/%MARENOSTRUM5CPU.PROJECT%/%MARENOSTRUM5CPU.USER%/%EXPID%
-
   MARENOSTRUM5ACC:
     TYPE: SLURM
     HOST: alogin1.bsc.es
@@ -83,6 +69,7 @@ PLATFORMS:
     CUSTOM_DIRECTIVES: ''
     MAX_WALLCLOCK: '01:30'
 
+
   ###############################################################
   #####                   POLITO MACHINE                    #####
   ###############################################################
@@ -94,3 +81,40 @@ PLATFORMS:
     ADD_PROJECT_TO_HOST: false
     SCRATCH_DIR: /work/users/jgrassi/autosubmit_scratch
     QUEUE: serial
+    TOTAL_JOBS: 2
+    MAX_WALLCLOCK: "02:00"
+
+  FELIPE-INFERENCE:
+    TYPE: SLURM
+    HOST: felipe.polito.it
+    PROJECT: test
+    USER: jgrassi
+    PARTITION: felipe
+    SCRATCH_DIR: /work/users/jgrassi/autosubmit_scratch
+    ADD_PROJECT_TO_HOST: False
+    PROCESSORS_PER_NODE: 168
+    MAX_PROCESSORS: 168
+    MAX_WALLCLOCK: "02:00"
+
+  FELIPE-GENERAL:
+    TYPE: SLURM
+    HOST: felipe.polito.it
+    PROJECT: test
+    USER: jgrassi
+    SCRATCH_DIR: /work/users/jgrassi/autosubmit_scratch
+    ADD_PROJECT_TO_HOST: False
+    PROCESSORS_PER_NODE: 168
+    MAX_PROCESSORS: 168
+    MAX_WALLCLOCK: "02:00"
+
+  FELIPE-NOOVERLAP:
+    TYPE: SLURM
+    HOST: felipe.polito.it
+    PROJECT: test
+    USER: jgrassi
+    SCRATCH_DIR: /work/users/jgrassi/autosubmit_scratch
+    ADD_PROJECT_TO_HOST: False
+    PROCESSORS_PER_NODE: 168
+    MAX_PROCESSORS: 168
+    MAX_WALLCLOCK: "02:00"
+    TOTAL_JOBS: 1

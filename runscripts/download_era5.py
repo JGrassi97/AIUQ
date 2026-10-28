@@ -31,9 +31,13 @@ def main() -> None:
     _STATIC_DATA    = config.get("STATIC_DATA", "")
     _CLIMATOLOGY_DATA = config.get("CLIMATOLOGY_DATA", "")
     _HPCROOTDIR     = config.get("HPCROOTDIR", "")
-    _MODEL_NAME     = config.get("MODEL_NAME", "")
     _IC             = config.get("IC_NAME", "")
     _STD_VERSION    = config.get("STD_VERSION", "")
+
+    # Skip download if output already exists and is non-empty
+    if os.path.exists(_INI_DATA_PATH) and os.listdir(_INI_DATA_PATH):
+        print(f"Output already exists at {_INI_DATA_PATH}, skipping download.")
+        return
 
     # IC settings
     ic_card = read_ic_card(_HPCROOTDIR, _IC)

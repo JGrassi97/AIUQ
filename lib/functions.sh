@@ -7,10 +7,13 @@ prepare_ics_era5() {
     local configfile="$3"
     local sif_path="$4"
 
+    aiuq_root=$(dirname "$(dirname "$sif_path")")
+
     echo "Downloading ERA5 data..."
     singularity exec \
         --nv \
         --bind "$hpc_rootdir","$logs_dir" \
+        --bind "$aiuq_root:$aiuq_root:ro" \
         --env HPCROOTDIR="$hpc_rootdir" \
         --env configfile="$configfile" \
         "$sif_path" \
@@ -26,10 +29,13 @@ prepare_ics_eerie_mars() {
     local configfile="$3"
     local sif_path="$4"
 
+    aiuq_root=$(dirname "$(dirname "$sif_path")")
+
     echo "Downloading EERIE data..."
     singularity exec \
         --nv \
         --bind "$hpc_rootdir","$logs_dir" \
+        --bind "$aiuq_root:$aiuq_root:ro" \
         --env HPCROOTDIR="$hpc_rootdir" \
         --env configfile="$configfile" \
         "$sif_path" \

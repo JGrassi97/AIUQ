@@ -1,7 +1,8 @@
 # AIUQ
 
-> **v0.1.0**
-> This is a functioning version. Still, the documentation is incomplete and using the framework in a new environment may trigger unexpected errors.
+> **v0.2.0**
+> NEW: AMIP simulations now supported. 
+> Currently, forcings prescribed in the [AIMIP project](https://zenodo.org/records/17065758) and from [ESA-CCI-v3.0](https://climate.esa.int/en/projects/sea-surface-temperature/) are available. Future releases will allow a full customization of the experiment. 
 
 AIUQ (Artificial Intelligence weather forecasting models for Uncertainty Quantification) is a framework for running AI-based weather and climate models using Autosubmit. It is designed to efficiently handle different combinations of initial conditions (ICs) and models. The integration of multiple fallback methods allows the use of different sets of initial conditions, even when they do not fully match the AI model requirements.
 
@@ -13,12 +14,14 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <table>
 <tr>
 <th>Model</th>
+<th>Supported modes</th>
 <th>Checkpoint</th>
 <th>ERA5</th>
 <th>EERIE (AMIP)</th>
 </tr>
 <tr>
 <td rowspan="6"><b>NeuralGCM</b></td>
+<td rowspan="6">amip/hindcast</td>
 <td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">stochastic_1_4_deg.pkl</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
@@ -50,6 +53,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 </tr>
 <tr>
 <td rowspan="2"><b>AIFS</b></td>
+<td rowspan="2">hindcast</td>
 <td><a href="https://huggingface.co/ecmwf/aifs-single-1.1">aifs-single-mse-1.1.ckpt</a></td>
 <td align="center">✅</td>
 <td align="center">⚠️</td>
@@ -61,8 +65,16 @@ The framework supports both deterministic and stochastic models. Deterministic m
 </tr>
 <tr>
 <td rowspan="1"><b>MS Aurora</b></td>
+<td rowspan="1">hindcast</td>
 <td><a href="https://huggingface.co/microsoft/aurora">aurora-0.25-finetuned</a></td>
 <td align="center">❌</td>
+<td align="center">❌</td>
+</tr>
+<tr>
+<td rowspan="1"><b>ACE</b></td>
+<td rowspan="1">amip</td>
+<td><a href="https://huggingface.co/allenai/ACE2-ERA5">ACE2-ERA5</a></td>
+<td align="center">⚠️</td>
 <td align="center">❌</td>
 </tr>
 </table>
@@ -74,6 +86,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 ⚠️ work in progress<br>
 ❌ not implemented<br>
 </td></tr></table>
+
 
 
 
@@ -106,7 +119,8 @@ The supporting files are the following:
       ├── models        # Contains the checkpoint for the inference
       ├── sif           # Contains the images for running the scripts
       ├── static        # Contains static (i.e. orography) data for 1st level fallback
-      └── climatology   # Contains climatological data used for 2nd level fallback
+      ├── climatology   # Contains climatological data used for 2nd level fallback
+      └── amip-forcings # Contains forcings for AMIP simulations
 ```
 
 *Section still in development*
@@ -135,28 +149,26 @@ Create the file <EXPID>/conf/main.yml.
 
 MODEL:
   # Main settings
-  NAME: aifs                                   # aifs / neuralgcm / aurora
-  CHECKPOINT_NAME: aifs-single-mse-1.1.ckpt    # checkpoint name as written in the table above
+  NAME: aifs                                        # aifs / neuralgcm / aurora
+  CHECKPOINT_NAME: aifs-single-mse-1.1.ckpt         # checkpoint name as written in the table above
   ICS: eerie                                        # eerie / era5
-  USE_LOCAL_ICS: false                              # true / false
 
-# See autosubmit documentationcdc
 EXPERIMENT:
+  RUN_TYPE: "hindcast" # hincast/amip
   MEMBERS: "1 2"
   CHUNKSIZEUNIT: day
   DATELIST: 20100101
   CHUNKSIZE: 2
   NUMCHUNKS: 1
   CALENDAR: standard
-
-  # The following fields are not part of standard Autosubmit experiment
   OUT_VARS:       
-    - t                 # Make sure to use the specific out names of the model
-  OUT_FREQ: daily         # original / daily
-  OUT_RES: "1"              # original / 0.25 / 0.5 / 1 / 1.5 / 2
-  OUT_LEVS: [1000, 850, 700, 500, 250, 100, 50, 10]              # List of values in hPa or 'original' - 
-  
+    - t                                                         # Make sure to use the name provided in the standard
+  OUT_FREQ: daily                                               # original / daily
+  OUT_RES: "1"                                                  # original / 0.25 / 0.5 / 1 / 1.5 / 2
+  OUT_LEVS: [1000, 850, 700, 500, 250, 100, 50, 10]             # List of values in hPa or 'original' - 
   # Here reported from https://github.com/PCMDI/cmip6-cmor-tables/blob/087fe45d21c082e28723e0f930e4266abe91b853/Tables/CMIP6_coordinate.json#L1640
+
+  FORCING_VERSION: ESA-CCI-v3.0   # ESA-CCI-v3.0/AIMIP
 
 PATHS:
   SUPPORT_FOLDER: /gpfs/scratch/ehpc536/AIUQ
