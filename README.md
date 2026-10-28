@@ -64,11 +64,26 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td align="center">✅</td>
 </tr>
 <tr>
-<td rowspan="1"><b>MS Aurora</b></td>
-<td rowspan="1">hindcast</td>
-<td><a href="https://huggingface.co/microsoft/aurora">aurora-0.25-finetuned</a></td>
-<td align="center">❌</td>
-<td align="center">❌</td>
+<td rowspan="4"><b>MS Aurora</b></td>
+<td rowspan="4">hindcast</td>
+<td><a href="https://microsoft.github.io/aurora/models.html">aurora-0.25-pretrained.ckpt</a></td>
+<td align="center">✅</td>
+<td align="center">⚠️</td>
+</tr>
+<tr>
+<td><a href="https://microsoft.github.io/aurora/models.html">aurora-0.25-finetuned.ckpt</a></td>
+<td align="center">⚠️</td>
+<td align="center">⚠️</td>
+</tr>
+<tr>
+<td><a href="https://microsoft.github.io/aurora/example_v1p5.html">aurora-0.25-v1.5.ckpt</a></td>
+<td align="center">⚠️</td>
+<td align="center">⚠️</td>
+</tr>
+<tr>
+<td><a href="https://microsoft.github.io/aurora/models.html#aurora-1-5-ensemble-0-25">aurora-0.25-v1.5-ensemble.ckpt</a></td>
+<td align="center">✅</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td rowspan="1"><b>ACE</b></td>
@@ -149,7 +164,7 @@ Create the file <EXPID>/conf/main.yml.
 
 MODEL:
   # Main settings
-  NAME: aifs                                        # aifs / neuralgcm / aurora
+  NAME: aifs                                        # aifs / neuralgcm / ms-aurora
   CHECKPOINT_NAME: aifs-single-mse-1.1.ckpt         # checkpoint name as written in the table above
   ICS: eerie                                        # eerie / era5
 

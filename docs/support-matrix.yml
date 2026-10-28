@@ -55,14 +55,39 @@ models:
       
 
   - name: MS Aurora
-    label: aurora
-    supported_modes: "-"
+    label: ms-aurora
+    supported_modes: hindcast
     checkpoints:
-      - id: aurora_.025_finetuned
-        label: aurora-0.25-finetuned
-        url: https://huggingface.co/microsoft/aurora
-        download_url: https://huggingface.co/microsoft/aurora/blob/main/aurora-0.25-finetuned.ckpt
+      - id: aurora_0_25_pretrained
+        label: aurora-0.25-pretrained.ckpt
+        url: https://microsoft.github.io/aurora/models.html
+        download_url: https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-pretrained.ckpt
+        size: 5,03GB
+      - id: aurora_0_25_finetuned
+        label: aurora-0.25-finetuned.ckpt
+        url: https://microsoft.github.io/aurora/models.html
+        download_url: https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-finetuned.ckpt
         size: 5,04GB
+      - id: aurora_0_25_v1_5
+        label: aurora-0.25-v1.5.ckpt
+        url: https://microsoft.github.io/aurora/example_v1p5.html
+        download_url: https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-v1.5.ckpt
+        size: 5,03GB
+      - id: aurora_0_25_v1_5_ensemble
+        label: aurora-0.25-v1.5-ensemble.ckpt
+        url: https://microsoft.github.io/aurora/models.html#aurora-1-5-ensemble-0-25
+        download_url: https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-v1.5-ensemble.ckpt
+        size: 5,04GB
+
+  - name: ACE
+    label: ace
+    supported_modes: amip
+    checkpoints:
+      - id: ace2_era5
+        label: ACE2-ERA5
+        url: https://huggingface.co/allenai/ACE2-ERA5
+        download_url: https://huggingface.co/allenai/ACE2-ERA5
+        size: "-"
 
 # Status IC x checkpoint_id
 status:
@@ -75,7 +100,11 @@ status:
     ngcm_det_2_8: "available"
     aifs_single_1_1: "available"
     aifs_ens_1_0: "available"
-    aurora_.025_finetuned: "not_implemented"
+    aurora_0_25_pretrained: "available"
+    aurora_0_25_finetuned: "wip"
+    aurora_0_25_v1_5: "wip"
+    aurora_0_25_v1_5_ensemble: "available"
+    ace2_era5: "wip"
 
 
   EERIE (AMIP):
@@ -87,4 +116,8 @@ status:
     ngcm_det_2_8: "available"
     aifs_single_1_1: "wip"
     aifs_ens_1_0: "available"
-    aurora_.025_finetuned: "not_implemented"
+    aurora_0_25_pretrained: "wip"
+    aurora_0_25_finetuned: "wip"
+    aurora_0_25_v1_5: "wip"
+    aurora_0_25_v1_5_ensemble: "wip"
+    ace2_era5: "not_implemented"

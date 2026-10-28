@@ -2,6 +2,8 @@ ic_name: static
 ic_source: ecmwf
 
 variables:
+  43 :
+    name : slt
   160 : 
     name : sdor
   163 : 

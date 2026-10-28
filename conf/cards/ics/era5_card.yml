@@ -36,8 +36,14 @@ variables:
     name : vertical_velocity
   136 : 
     name : total_column_water
+  137 :
+    name : total_column_water_vapour
+  141 :
+    name : snow_depth
   151 : 
     name : mean_sea_level_pressure
+  164 :
+    name : total_cloud_cover
   165 : 
     name : 10m_u_component_of_wind
   166 : 
@@ -46,6 +52,16 @@ variables:
     name : 2m_temperature
   168 : 
     name : 2m_dewpoint_temperature
+  186 :
+    name : low_cloud_cover
+  187 :
+    name : medium_cloud_cover
+  188 :
+    name : high_cloud_cover
+  228246 :
+    name : 100m_u_component_of_wind
+  228247 :
+    name : 100m_v_component_of_wind
   235 : 
     name : skin_temperature
   246 : 
