@@ -1,5 +1,6 @@
 ic_name: eerie
 ic_source: mars
+expver: "0001"
 
 pressure_levels:
   name : isobaricInhPa
@@ -15,6 +16,16 @@ variables:
   34  : 
     name : sst
     levtype : sfc
+  39 :
+    name: swvl1
+    levtype: sol
+    mars_param: 260199
+    soil_level: 1
+  40 :
+    name: swvl2
+    levtype: sol
+    mars_param: 260199
+    soil_level: 2
   129 : 
     name : z
     levtype : pl
@@ -71,12 +82,6 @@ variables:
     levtype : sfc
   188 :
     name : hcc
-    levtype : sfc
-  228246 :
-    name : 100u
-    levtype : sfc
-  228247 :
-    name : 100v
     levtype : sfc
   235 : 
     name : skt

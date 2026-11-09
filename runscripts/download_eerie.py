@@ -12,33 +12,33 @@ Description:
 
 # Built-in/Generics
 import os 
-import shutil
 from typing import Dict, List, Tuple, Set
 from concurrent.futures import ThreadPoolExecutor
 
 # Third party
 import xarray as xr
-import zarr
+import numpy as np
+import cfgrib
 from ecmwfapi import ECMWFDataServer
 
 # Local
 from AIUQst_lib.functions import parse_arguments, read_config
 from AIUQst_lib.pressure_levels import check_pressure_levels
-from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
+from AIUQst_lib.cards import read_ic_card, read_std_version
 from AIUQst_lib.variables import reassign_long_names_units, define_ics_mappers
 
 # MARS has problems if 2m variables (167, 168) are requested together with other sfc variables.
 # Here we define the codes to be requested separately.
 _SFC_SEPARATE_2M_CODES: Set[int] = {167, 168}  # 2t, 2d
 
-def build_base_request(start_date: str, grid: str) -> dict:
+def build_base_request(start_date: str, grid: str, expver: str = "0001") -> dict:
     return {
         "activity": "cmip6",
         "class": "ed",
         "dataset": "research",
         "date": f"{start_date}",
         "experiment": "hist",
-        "expver": "0002",
+        "expver": str(expver).zfill(4),
         "generation": "1",
         "grid": grid,
         "model": "ifs",
@@ -99,10 +99,14 @@ def download_datasets(
     temp_dir: str,
     vars_to_take_mars: Dict[str, List[int]],
     grid: str,
+    expver: str = "0001",
+    area: str | None = None,
 ) -> Dict[str, str]:
     os.makedirs(temp_dir, exist_ok=True)
 
-    base = build_base_request(start_date, grid)
+    base = build_base_request(start_date, grid, expver)
+    if area:
+        base["area"] = area
     outputs: Dict[str, str] = {}
 
     vars_main, params_2m = _split_sfc_separate_2m(vars_to_take_mars)
@@ -115,7 +119,7 @@ def download_datasets(
                 continue
 
             out_path = os.path.join(temp_dir, f"output_{var_type}.grib")
-            req = build_request(base, var_type, params)
+            req = build_request(base, var_type, _dedupe_preserve_order(params))
             futures.append((var_type, out_path, ex.submit(retrieve_ecmwf, req, out_path)))
 
         if params_2m:
@@ -133,166 +137,144 @@ def download_datasets(
 
 
 def open_and_prepare_datasets(grib_paths: Dict[str, str]) -> xr.Dataset:
-
+    """Read all GRIB hypercubes, including the distinct 2 m/10 m/soil types."""
     datasets = []
+    for path in grib_paths.values():
+        for ds in cfgrib.open_datasets(path, backend_kwargs={"indexpath": ""}):
+            # Only retain spatial, pressure and soil coordinates before merging.
+            ds = ds.drop_vars([
+                c for c in ds.coords
+                if c not in {"time", "latitude", "longitude", "isobaricInhPa", "soilLayer"}
+            ])
+            datasets.append(ds)
+    return xr.merge(datasets, join="exact", compat="no_conflicts")
 
-    sfc_ds = None
-    pl_ds = None
 
-    if "sfc" in grib_paths:
-        sfc_ds = xr.open_dataset(grib_paths["sfc"], engine="cfgrib")
-        datasets.append(sfc_ds)
+def mars_variables(ic_card: dict, standard_variables: dict) -> dict:
+    """Map AIUQ variable IDs to archive IDs (soil moisture uses GRIB2 260199)."""
+    result = {}
+    for code, spec in ic_card["variables"].items():
+        if code in standard_variables:
+            params = result.setdefault(spec["levtype"], [])
+            param = spec.get("mars_param", code)
+            if param not in params:
+                params.append(param)
+    return result
 
-    if "sfc_2m" in grib_paths:
-        sfc_2m_ds = xr.open_dataset(grib_paths["sfc_2m"], engine="cfgrib")
-        datasets.append(sfc_2m_ds)
 
-        if sfc_ds is None:
-            sfc_ds = sfc_2m_ds
-
-    if "pl" in grib_paths:
-        pl_ds = xr.open_dataset(grib_paths["pl"], engine="cfgrib")
-        datasets.append(pl_ds)
-
-    for k, path in grib_paths.items():
-        if k in {"sfc", "sfc_2m", "pl"}:
-            continue
-        datasets.append(xr.open_dataset(path, engine="cfgrib"))
-
-    dataset = xr.merge(datasets, compat='override')
-
-    for var in ["tclw", "tciw", "r", "entireAtmosphere", "step", "surface", "valid_time"]:
-        if var in dataset:
-            dataset = dataset.drop_vars(var)
-
+def normalize_soil(dataset: xr.Dataset, ic_card: dict) -> xr.Dataset:
+    """Expose the first two soil moisture layers under the standard's separate IDs."""
+    for spec in ic_card["variables"].values():
+        if "soil_level" in spec:
+            dataset[spec["name"]] = dataset["vsw"].sel(soilLayer=spec["soil_level"], drop=True)
     return dataset
+
+
+def align_support_grid(dataset: xr.Dataset, selected: xr.Dataset) -> xr.Dataset:
+    """Align coordinates by value; never attach a new grid to unchanged data."""
+    dataset = dataset.assign_coords(longitude=dataset.longitude % 360).sortby("longitude")
+    # Periodic extension avoids NaNs around the Greenwich meridian.
+    if dataset.longitude.size > 1 and float(dataset.longitude[-1] - dataset.longitude[0]) > 350:
+        left = dataset.isel(longitude=[-1]).assign_coords(longitude=[float(dataset.longitude[-1]) - 360])
+        right = dataset.isel(longitude=[0]).assign_coords(longitude=[float(dataset.longitude[0]) + 360])
+        dataset = xr.concat([left, dataset, right], dim="longitude")
+    return dataset.interp(latitude=selected.latitude, longitude=selected.longitude)
+
+
+def add_fallback(selected: xr.Dataset, missing: dict | None, card: dict,
+                 path: str, climatology: bool = False) -> tuple:
+    if not missing:
+        return selected, None
+    names, rename, long_names, units, remaining = define_ics_mappers(card["variables"], missing)
+    if not names:
+        return selected, remaining
+    with xr.open_dataset(path) as source:
+        absent = set(names.values()) - set(source.data_vars)
+        if absent:
+            raise ValueError(f"Missing fallback variables {sorted(absent)} in {path}. "
+                             "Extend the ERA5 climatology with u100/v100 for Aurora 1.5.")
+        fallback = source[list(names.values())].rename(rename).load()
+    if climatology:
+        # Select actual UTC hours, not the first two entries (which may be 00/01).
+        if "month" in fallback.dims:
+            fallback = fallback.sel(month=selected.time.dt.month)
+        if "dayofyear" in fallback.dims:
+            fallback = fallback.sel(dayofyear=selected.time.dt.dayofyear)
+        if "hour" not in fallback.dims:
+            raise ValueError(f"ERA5 climatology {path} must have an 'hour' dimension (UTC).")
+        fallback = fallback.sel(hour=selected.time.dt.hour)
+        fallback = fallback.drop_vars([c for c in ["hour", "month", "dayofyear"] if c in fallback.coords])
+    fallback = align_support_grid(fallback, selected)
+    fallback = reassign_long_names_units(fallback, long_names, units)
+    for var in fallback.data_vars:
+        fallback[var].attrs["source"] = "ERA5 climatology" if climatology else "static support data"
+        if climatology:
+            fallback[var].attrs["fallback_reason"] = "Not archived in EERIE expver 0001"
+        if var in {"u100", "v100"} and not bool(np.isfinite(fallback[var]).all()):
+            raise ValueError(f"Non-finite {var} in ERA5 climatology after grid alignment: {path}")
+    return xr.merge([selected, fallback], join="exact", compat="no_conflicts"), remaining
+
+
+def prepare_initial_conditions(dataset: xr.Dataset, config: dict, ic_card: dict,
+                               standard_dict: dict) -> xr.Dataset:
+    standard_variables = standard_dict["variables"]["data"]
+    names, rename, long_names, units, missing = define_ics_mappers(ic_card["variables"], standard_variables)
+    dataset = normalize_soil(dataset, ic_card)
+    times = np.datetime64(config["START_TIME"], "ns") + np.array([0, 6]) * np.timedelta64(1, "h")
+    selected = dataset[list(names.values())].rename(rename).sel(time=times)
+    selected = reassign_long_names_units(selected, long_names, units)
+    selected = check_pressure_levels(selected, ic_card, standard_dict["pressure_levels"])
+    selected = selected.assign_coords(longitude=selected.longitude % 360).sortby("longitude")
+    for card_name, key, climatology in [("static", "STATIC_DATA", False),
+                                        ("climatology", "CLIMATOLOGY_DATA", True)]:
+        selected, missing = add_fallback(
+            selected, missing, read_ic_card(config["HPCROOTDIR"], card_name),
+            config[key], climatology,
+        )
+    if missing:
+        raise ValueError(f"No EERIE/static/climatology source for variable IDs: {sorted(missing)}")
+    if "soilLayer" in selected.dims:
+        selected = selected.rename({"soilLayer": "SoilLevel"})
+    # Land/ocean masks in SST, sea ice and soil variables are expected in EERIE.
+    for name, da in selected.data_vars.items():
+        if name in {"sst", "ci", "swvl1", "swvl2", "sot"}:
+            continue
+        if not bool(np.isfinite(da).all().compute()):
+            raise ValueError(f"Non-finite values in EERIE initial conditions: {name}")
+    selected.attrs.update(source="EERIE", eerie_expver=str(ic_card.get("expver", "0001")),
+                          fallback_source="ERA5 climatology")
+    return selected
 
 
 
 def main() -> None:
-
-    # Read config
     args = parse_arguments()
     config = read_config(args.config)
-
-    _INI_DATA_PATH  = config.get('INI_DATA_PATH', "")
-    _START_TIME     = config.get("START_TIME", "")
-    _END_TIME       = config.get("END_TIME", "")
-    _STATIC_DATA    = config.get("STATIC_DATA", "")
-    _CLIMATOLOGY_DATA = config.get("CLIMATOLOGY_DATA", "")
-    _HPCROOTDIR     = config.get("HPCROOTDIR", "")
-    _IC             = config.get("IC_NAME", "")
-    _STD_VERSION    = config.get("STD_VERSION", "")
-    _TEMP_DIR       = config.get("TEMP_DIR", "")
-
-    # Skip download if output already exists and is non-empty
-    if os.path.exists(_INI_DATA_PATH) and os.listdir(_INI_DATA_PATH):
-        print(f"Output already exists at {_INI_DATA_PATH}, skipping download.")
+    output = config["INI_DATA_PATH"]
+    ic_card = read_ic_card(config["HPCROOTDIR"], config["IC_NAME"])
+    standard = read_std_version(config["HPCROOTDIR"], config["STD_VERSION"])
+    if os.path.isdir(output) and os.listdir(output):
+        with xr.open_zarr(output) as existing:
+            expected = {v["short_name"] for v in standard["variables"]["data"].values()}
+            if (existing.attrs.get("eerie_expver") != ic_card["expver"]
+                    or not expected.issubset(existing.data_vars)):
+                raise ValueError(f"Existing ICs at {output} do not match the EERIE card; "
+                                 "use a new INI_DATA_PATH or explicitly remove the old ICs.")
+        print(f"Output already exists at {output}, skipping download.")
         return
-    
-    ic_card = read_ic_card(_HPCROOTDIR, _IC)
-    static_card = read_ic_card(_HPCROOTDIR, 'static')
-    climatology_card = read_ic_card(_HPCROOTDIR, 'climatology')
-    standard_dict = read_std_version(_HPCROOTDIR, _STD_VERSION)
-
-    # Create the mappers between model requirement and IC variables
-    ic_names, rename_dict, long_names_dict, units_dict, missing_vars = define_ics_mappers(
-        ic_card['variables'], 
-        standard_dict['variables']['data']
-        )
-    
-    vars_to_take_mars = {}
-
-    for k in list(ic_names.keys()):
-        lev = ic_card['variables'][k]['levtype']
-        vars_to_take_mars.setdefault(lev, []).append(k)
-
-    vars_to_take_mars
-
-    # Here the specific code to retrieve EERIE from GCS
     grib_paths = download_datasets(
-        start_date=_START_TIME,
-        temp_dir=_TEMP_DIR,
-        vars_to_take_mars=vars_to_take_mars,
-        grid=".25/.25",
+        start_date=config["START_TIME"],
+        temp_dir=config.get("ICS_TEMP_DIR") or config["TEMP_DIR"],
+        vars_to_take_mars=mars_variables(ic_card, standard["variables"]["data"]),
+        grid=".25/.25", expver=ic_card["expver"],
     )
-    
     dataset = open_and_prepare_datasets(grib_paths)
+    selected = prepare_initial_conditions(dataset, config, ic_card, standard)
+    # A failed write must not appear to be a complete set of initial conditions.
+    temporary = output + ".partial"
+    selected.chunk({"time": 1}).to_zarr(temporary, mode="w", zarr_format=2)
+    os.replace(temporary, output)
 
-    # Standard pipeline to make the data consistent with Auto-UQ requirements
-    selected = (
-        dataset[list(ic_names.values())]
-        .rename(rename_dict)
-        .sel(time=slice(_START_TIME, _END_TIME))
-        .isel(time=slice(0, 2))
-        .pipe(reassign_long_names_units, long_names_dict, units_dict)
-        .pipe(check_pressure_levels, ic_card, standard_dict['pressure_levels'])
-        .compute()
-        )
-    
-    # Adjust longitudes to -0 - 360
-    selected['longitude'] = selected['longitude'] % 360
-    selected = selected.sortby('longitude')
-    
-    # FALLBACK FOR STATIC VARIABLES
-    if missing_vars is not None:
 
-        ic_names_static, rename_dict_static, long_names_dict_static, units_dict_static, missing_vars_static = define_ics_mappers(
-            static_card['variables'],
-            missing_vars
-        )
-
-        static_dataset = (
-            (xr.open_dataset(_STATIC_DATA)[list(ic_names_static.values())])
-            .rename(rename_dict_static)
-            .pipe(reassign_long_names_units, long_names_dict_static, units_dict_static)
-            .compute()
-        )
-
-        static_dataset['longitude'] = selected['longitude']
-        static_dataset['latitude'] = selected['latitude']
-
-        selected = (
-            xr.merge([selected, static_dataset], join="exact")
-        )
-
-        # FALLBACK FOR CLIMATOLOGY VARIABLES
-        if missing_vars_static is not None:
-
-            ic_names_climatology, rename_dict_climatology, long_names_dict_climatology, units_dict_climatology, missing_vars_climatology = define_ics_mappers(
-                climatology_card['variables'],
-                missing_vars_static
-            )
-
-            climatology_dataset = (
-                xr.open_dataset(_CLIMATOLOGY_DATA)[list(ic_names_climatology.values())]
-                .rename(rename_dict_climatology)
-                .isel(hour=slice(0, 2))
-                .rename({'hour': 'time'})
-                .pipe(reassign_long_names_units, long_names_dict_climatology, units_dict_climatology)
-                .compute()
-            )
-
-            climatology_dataset['time'] = selected['time']
-
-            selected = (
-                xr.merge([selected, climatology_dataset], join="exact")
-            ) 
-            
-    # Rename soilLayer in SoilLevel
-    selected = selected.rename({'soilLayer': 'SoilLevel'}) 
-        
-    # Final part - Savimg in zarr
-    final = selected.chunk({"time": 1})        # Chunking by time for efficient access
-
-    shutil.rmtree(                          # Remove existing data if any - avoid conflicts
-        _INI_DATA_PATH,
-        ignore_errors=True)
-    
-    final.to_zarr(                          # Save to zarr format - using version 2
-        f"{_INI_DATA_PATH}",                # Zarr version 3 has some issues with BytesBytesCodec
-        mode="w",                           # See https://github.com/pydata/xarray/issues/10032 as reference    
-        zarr_format=2)
-    
 if __name__ == "__main__":
     main()

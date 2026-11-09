@@ -2,6 +2,11 @@ ic_name: climatology
 ic_source: ERA5 postprocessed
 
 variables:
+  # EERIE expver 0001 does not archive 100 m winds: use ERA5 climatology.
+  228246 :
+    name : u100
+  228247 :
+    name : v100
   246 : 
     name : clwc
   247 : 
