@@ -4,6 +4,7 @@
 > NEW: AMIP simulations now supported. 
 > Currently, forcings prescribed in the [AIMIP project](https://zenodo.org/records/17065758) and from [ESA-CCI-v3.0](https://climate.esa.int/en/projects/sea-surface-temperature/) are available. Future releases will allow a full customization of the experiment. 
 
+
 AIUQ (Artificial Intelligence weather forecasting models for Uncertainty Quantification) is a framework for running AI-based weather and climate models using Autosubmit. It is designed to efficiently handle different combinations of initial conditions (ICs) and models. The integration of multiple fallback methods allows the use of different sets of initial conditions, even when they do not fully match the AI model requirements.
 
 
