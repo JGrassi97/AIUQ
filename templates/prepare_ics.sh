@@ -43,8 +43,13 @@ if [ "$IC_SOURCE" = "era5" ]; then
 elif [ "$IC_SOURCE" = "eerie" ]; then
     SIF_PATH=%PATHS.SIF_FOLDER%/image_eerie.sif
     prepare_ics_eerie_mars $HPCROOTDIR $LOGS_DIR $CONFIGFILE $SIF_PATH
-    
+
+elif [ "$IC_SOURCE" = "ecmwf-an" ]; then
+    # cfgrib/xarray image shared with EERIE; Open Data needs no credentials.
+    SIF_PATH=%PATHS.SIF_FOLDER%/image_eerie.sif
+    prepare_ics_ecmwf_an $HPCROOTDIR $LOGS_DIR $CONFIGFILE $SIF_PATH
+
 else
-    echo "Invalid IC source specified. Please use 'fdb' / 'era5' / 'eerie'."
+    echo "Invalid IC source specified. Please use 'era5' / 'eerie' / 'ecmwf-an'."
     exit 1
 fi

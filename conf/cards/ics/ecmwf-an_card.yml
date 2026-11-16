@@ -1,0 +1,148 @@
+ic_name: ecmwf-an
+ic_source: ecmwf_open_data
+
+# IFS HRES analysed state (step 0 of the operational runs) from ECMWF Open Data
+# (CC BY 4.0, https://www.ecmwf.int/en/forecasts/datasets/open-data).
+# The latest cycle T with both T-6h and T published is selected, among the cycles
+# from START_TIME - max_lookback_hours up to START_TIME 18 UTC. With DATELIST set to
+# today the forecast starts from the newest analysis available when PREPARE_ICS runs.
+open_data:
+  # Tried in order. data.ecmwf.int keeps ~4 days; the Google Cloud mirror keeps the
+  # archive (0.25 deg files exist from 2024-02). Both share the same layout. The AWS
+  # mirror (ecmwf-forecasts.s3.eu-central-1.amazonaws.com) often answers 503 SlowDown.
+  sources:
+    - https://data.ecmwf.int/forecasts
+    - https://storage.googleapis.com/ecmwf-open-data
+  model: ifs
+  resol: 0p25
+  # Since IFS 50r1 (12 May 2026) all cycles use 'oper'; older 06/18 UTC runs use 'scda'.
+  streams: [oper, scda]
+  max_lookback_hours: 24
+  # Number of parallel HTTP range requests per file.
+  workers: 8
+
+# Fields downloaded but not exposed as standard variables (used to derive sst/ci).
+auxiliary:
+  sfc: [lsm, sithick]
+
+# Pressure levels published in Open Data (since 50r1). Values outside this range
+# (1-7 hPa) are extrapolated: constant t/u/v/q/w, hypsometric z.
+pressure_levels:
+  name : isobaricInhPa
+  units : hPa
+  values : [
+    10, 50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000
+  ]
+
+# Standard ID -> Open Data parameter (short name, levtype). Variables not listed here
+# come from the static (slt, lsm, sdor, slor, orog) or climatology (clwc, ciwc) cards;
+# 'derived' variables are computed from the downloaded fields.
+variables:
+  31  :
+    name : ci
+    derived : true
+  34  :
+    name : sst
+    derived : true
+  39  :
+    name : swvl1
+    param : vsw
+    levtype : sol
+    soil_level : 1
+  40  :
+    name : swvl2
+    param : vsw
+    levtype : sol
+    soil_level : 2
+  129 :
+    name : z
+    param : z
+    levtype : pl
+  130 :
+    name : t
+    param : t
+    levtype : pl
+  131 :
+    name : u
+    param : u
+    levtype : pl
+  132 :
+    name : v
+    param : v
+    levtype : pl
+  133 :
+    name : q
+    param : q
+    levtype : pl
+  134 :
+    name : sp
+    param : sp
+    levtype : sfc
+  135 :
+    name : w
+    param : w
+    levtype : pl
+  136 :
+    name : tcw
+    param : tcw
+    levtype : sfc
+  137 :
+    name : tcwv
+    param : tcwv
+    levtype : sfc
+  141 :
+    name : sd
+    param : sd
+    levtype : sfc
+  151 :
+    name : msl
+    param : msl
+    levtype : sfc
+  164 :
+    name : tcc
+    param : tcc
+    levtype : sfc
+  165 :
+    name : u10
+    param : 10u
+    levtype : sfc
+  166 :
+    name : v10
+    param : 10v
+    levtype : sfc
+  167 :
+    name : t2m
+    param : 2t
+    levtype : sfc
+  168 :
+    name : d2m
+    param : 2d
+    levtype : sfc
+  186 :
+    name : lcc
+    param : lcc
+    levtype : sfc
+  187 :
+    name : mcc
+    param : mcc
+    levtype : sfc
+  188 :
+    name : hcc
+    param : hcc
+    levtype : sfc
+  228246 :
+    name : u100
+    param : 100u
+    levtype : sfc
+  228247 :
+    name : v100
+    param : 100v
+    levtype : sfc
+  235 :
+    name : skt
+    param : skt
+    levtype : sfc
+  260360 :
+    name : sot
+    param : sot
+    levtype : sol

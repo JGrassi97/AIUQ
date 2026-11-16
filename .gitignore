@@ -211,3 +211,5 @@ __marimo__/
 docs/generate_table.py
 docs/generated-table.html
 .DS_Store
+
+/tools

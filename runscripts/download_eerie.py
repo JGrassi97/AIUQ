@@ -26,6 +26,9 @@ from AIUQst_lib.functions import parse_arguments, read_config
 from AIUQst_lib.pressure_levels import check_pressure_levels
 from AIUQst_lib.cards import read_ic_card, read_std_version
 from AIUQst_lib.variables import reassign_long_names_units, define_ics_mappers
+from AIUQst_lib.support_data import add_fallback, align_support_grid  # noqa: F401 (re-exported)
+
+_FALLBACK_REASON = "Not archived in EERIE expver 0001"
 
 # MARS has problems if 2m variables (167, 168) are requested together with other sfc variables.
 # Here we define the codes to be requested separately.
@@ -170,51 +173,6 @@ def normalize_soil(dataset: xr.Dataset, ic_card: dict) -> xr.Dataset:
     return dataset
 
 
-def align_support_grid(dataset: xr.Dataset, selected: xr.Dataset) -> xr.Dataset:
-    """Align coordinates by value; never attach a new grid to unchanged data."""
-    dataset = dataset.assign_coords(longitude=dataset.longitude % 360).sortby("longitude")
-    # Periodic extension avoids NaNs around the Greenwich meridian.
-    if dataset.longitude.size > 1 and float(dataset.longitude[-1] - dataset.longitude[0]) > 350:
-        left = dataset.isel(longitude=[-1]).assign_coords(longitude=[float(dataset.longitude[-1]) - 360])
-        right = dataset.isel(longitude=[0]).assign_coords(longitude=[float(dataset.longitude[0]) + 360])
-        dataset = xr.concat([left, dataset, right], dim="longitude")
-    return dataset.interp(latitude=selected.latitude, longitude=selected.longitude)
-
-
-def add_fallback(selected: xr.Dataset, missing: dict | None, card: dict,
-                 path: str, climatology: bool = False) -> tuple:
-    if not missing:
-        return selected, None
-    names, rename, long_names, units, remaining = define_ics_mappers(card["variables"], missing)
-    if not names:
-        return selected, remaining
-    with xr.open_dataset(path) as source:
-        absent = set(names.values()) - set(source.data_vars)
-        if absent:
-            raise ValueError(f"Missing fallback variables {sorted(absent)} in {path}. "
-                             "Extend the ERA5 climatology with u100/v100 for Aurora 1.5.")
-        fallback = source[list(names.values())].rename(rename).load()
-    if climatology:
-        # Select actual UTC hours, not the first two entries (which may be 00/01).
-        if "month" in fallback.dims:
-            fallback = fallback.sel(month=selected.time.dt.month)
-        if "dayofyear" in fallback.dims:
-            fallback = fallback.sel(dayofyear=selected.time.dt.dayofyear)
-        if "hour" not in fallback.dims:
-            raise ValueError(f"ERA5 climatology {path} must have an 'hour' dimension (UTC).")
-        fallback = fallback.sel(hour=selected.time.dt.hour)
-        fallback = fallback.drop_vars([c for c in ["hour", "month", "dayofyear"] if c in fallback.coords])
-    fallback = align_support_grid(fallback, selected)
-    fallback = reassign_long_names_units(fallback, long_names, units)
-    for var in fallback.data_vars:
-        fallback[var].attrs["source"] = "ERA5 climatology" if climatology else "static support data"
-        if climatology:
-            fallback[var].attrs["fallback_reason"] = "Not archived in EERIE expver 0001"
-        if var in {"u100", "v100"} and not bool(np.isfinite(fallback[var]).all()):
-            raise ValueError(f"Non-finite {var} in ERA5 climatology after grid alignment: {path}")
-    return xr.merge([selected, fallback], join="exact", compat="no_conflicts"), remaining
-
-
 def prepare_initial_conditions(dataset: xr.Dataset, config: dict, ic_card: dict,
                                standard_dict: dict) -> xr.Dataset:
     standard_variables = standard_dict["variables"]["data"]
@@ -229,7 +187,7 @@ def prepare_initial_conditions(dataset: xr.Dataset, config: dict, ic_card: dict,
                                         ("climatology", "CLIMATOLOGY_DATA", True)]:
         selected, missing = add_fallback(
             selected, missing, read_ic_card(config["HPCROOTDIR"], card_name),
-            config[key], climatology,
+            config[key], climatology, reason=_FALLBACK_REASON,
         )
     if missing:
         raise ValueError(f"No EERIE/static/climatology source for variable IDs: {sorted(missing)}")

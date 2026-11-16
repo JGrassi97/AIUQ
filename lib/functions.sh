@@ -21,6 +21,26 @@ prepare_ics_era5() {
 }
 
 
+# Function to prepare ICs from the latest ECMWF analysis (ECMWF Open Data, IFS step 0)
+prepare_ics_ecmwf_an() {
+    local hpc_rootdir="$1"
+    local logs_dir="$2"
+    local configfile="$3"
+    local sif_path="$4"
+
+    aiuq_root=$(dirname "$(dirname "$sif_path")")
+
+    echo "Downloading the latest ECMWF analysis from ECMWF Open Data..."
+    singularity exec \
+        --bind "$hpc_rootdir","$logs_dir" \
+        --bind "$aiuq_root:$aiuq_root:ro" \
+        --env HPCROOTDIR="$hpc_rootdir" \
+        --env configfile="$configfile" \
+        "$sif_path" \
+        python3 "$hpc_rootdir/runscripts/download_ecmwf_an.py" --config "$configfile"
+}
+
+
 # Function to prepare ICs from EERIE source
 # a) From mars
 prepare_ics_eerie_mars() {
