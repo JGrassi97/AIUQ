@@ -1,6 +1,7 @@
 # AIUQ
 
 > **v0.2.0**
+> NEW: forecasts from the latest ECMWF analysis (`ICS: ecmwf-an`, ECMWF Open Data, no credentials required).
 > NEW: AMIP simulations now supported. 
 > Currently, forcings prescribed in the [AIMIP project](https://zenodo.org/records/17065758) and from [ESA-CCI-v3.0](https://climate.esa.int/en/projects/sea-surface-temperature/) are available. Future releases will allow a full customization of the experiment. 
 
@@ -19,6 +20,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <th>Checkpoint</th>
 <th>ERA5</th>
 <th>EERIE (AMIP)</th>
+<th>ECMWF analysis</th>
 </tr>
 <tr>
 <td rowspan="6"><b>NeuralGCM</b></td>
@@ -26,9 +28,11 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">stochastic_1_4_deg.pkl</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
+<td align="center">✅</td>
 </tr>
 <tr>
 <td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">stochastic_precip_2_8_deg.pkl</a></td>
+<td align="center">✅</td>
 <td align="center">✅</td>
 <td align="center">✅</td>
 </tr>
@@ -36,9 +40,11 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">stochastic_evap_2_8_deg.pkl</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
+<td align="center">✅</td>
 </tr>
 <tr>
 <td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">deterministic_0_7_deg.pkl</a></td>
+<td align="center">✅</td>
 <td align="center">✅</td>
 <td align="center">✅</td>
 </tr>
@@ -46,9 +52,11 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">deterministic_1_4_deg.pkl</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
+<td align="center">✅</td>
 </tr>
 <tr>
 <td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">deterministic_2_8_deg.pkl</a></td>
+<td align="center">✅</td>
 <td align="center">✅</td>
 <td align="center">✅</td>
 </tr>
@@ -58,11 +66,13 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td><a href="https://huggingface.co/ecmwf/aifs-single-1.1">aifs-single-mse-1.1.ckpt</a></td>
 <td align="center">✅</td>
 <td align="center">⚠️</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td><a href="https://huggingface.co/ecmwf/aifs-ens-1.0">aifs-ens-crps-1.0.ckpt</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td rowspan="4"><b>MS Aurora</b></td>
@@ -70,9 +80,11 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td><a href="https://microsoft.github.io/aurora/models.html">aurora-0.25-pretrained.ckpt</a></td>
 <td align="center">✅</td>
 <td align="center">⚠️</td>
+<td align="center">✅</td>
 </tr>
 <tr>
 <td><a href="https://microsoft.github.io/aurora/models.html">aurora-0.25-finetuned.ckpt</a></td>
+<td align="center">⚠️</td>
 <td align="center">⚠️</td>
 <td align="center">⚠️</td>
 </tr>
@@ -80,10 +92,12 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td><a href="https://microsoft.github.io/aurora/example_v1p5.html">aurora-0.25-v1.5.ckpt</a></td>
 <td align="center">⚠️</td>
 <td align="center">⚠️</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td><a href="https://microsoft.github.io/aurora/models.html#aurora-1-5-ensemble-0-25">aurora-0.25-v1.5-ensemble.ckpt</a></td>
 <td align="center">✅</td>
+<td align="center">⚠️</td>
 <td align="center">⚠️</td>
 </tr>
 <tr>
@@ -91,6 +105,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td rowspan="1">amip</td>
 <td><a href="https://huggingface.co/allenai/ACE2-ERA5">ACE2-ERA5</a></td>
 <td align="center">⚠️</td>
+<td align="center">❌</td>
 <td align="center">❌</td>
 </tr>
 </table>
@@ -167,7 +182,7 @@ MODEL:
   # Main settings
   NAME: aifs                                        # aifs / neuralgcm / ms-aurora
   CHECKPOINT_NAME: aifs-single-mse-1.1.ckpt         # checkpoint name as written in the table above
-  ICS: eerie                                        # eerie / era5
+  ICS: eerie                                        # eerie / era5 / ecmwf-an
 
 EXPERIMENT:
   RUN_TYPE: "hindcast" # hincast/amip
@@ -198,6 +213,40 @@ PLATFORM:
 Note that some ICs requires credential to be retrieved. 
 - ERA5  -> Google Cloud Store - No credentials required
 - EERIE -> MARS - ECMWF Web API credentials required ([read here](https://www.ecmwf.int/en/computing/software/ecmwf-web-api))
+- ECMWF analysis (`ecmwf-an`) -> [ECMWF Open Data](https://www.ecmwf.int/en/forecasts/datasets/open-data) - No credentials required
+
+#### Forecasting from the latest ECMWF analysis
+
+With `ICS: ecmwf-an`, `PREPARE_ICS` takes the IFS HRES state at step 0 (the analysis, 0.25°) from ECMWF Open Data and
+selects the newest cycle T for which both T-6h and T are published. Set `DATELIST` to today's date to start from the
+latest analysis available when the job runs; a past date gives that day's 18 UTC analysis (Open Data archive, 0.25° from
+February 2024). The selected cycle is stored in the `analysis_time` attribute of the ICs and sets the valid times of the
+outputs.
+
+Open Data does not publish every variable of the standard, so:
+- `slt`, `lsm`, `sdor`, `slor`, `orog` come from the static file and `clwc`, `ciwc` from the ERA5 climatology;
+- `sst` is the skin temperature over open sea (271.46 K under ice) and `ci` is 1 where the IFS ocean model has sea ice
+  (a binary field that slightly overestimates the ice edge);
+- levels 10-1000 hPa are interpolated in log-pressure, 1-7 hPa are extrapolated (temperature following the US Standard
+  Atmosphere anchored at 10 hPa, hydrostatic geopotential, constant wind and humidity). Only NeuralGCM uses them.
+
+Data: © ECMWF, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+## Monitoring dashboard
+
+A read-only web dashboard for the Autosubmit experiments is available (its code is not yet part of this repository;
+it is kept locally under `tools/dashboard`). It runs on the Autosubmit host as
+a `systemd --user` service listening on `127.0.0.1:8765`, and never launches, stops or modifies runs. Open it with an ssh
+tunnel:
+
+```
+ssh -N -L 8765:localhost:8765 <autosubmit-host>
+```
+
+and browse to <http://localhost:8765> (`?exp=<expid>` selects an experiment). It shows, per experiment: job status
+grid and Gantt timeline, estimated time to finish, PREPARE_ICS/MARS progress, SLURM queue and GPU use, logs of running
+and failed jobs, and maps, point time series and area averages of the outputs. Installation, configuration and data
+sources are described in the dashboard's own README.
 
 ## Developer’s Guide
 

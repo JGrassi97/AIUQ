@@ -24,7 +24,7 @@ and configure experiments through YAML on your HPC platform.
    <div class="guide-grid">
      <a class="guide-card" href="quickstart.html"><span class="card-number">01 / GET STARTED</span><h3>From setup to experiment</h3><p>Prepare the supporting files and create your first Autosubmit experiment.</p><span class="card-link">Quickstart →</span></a>
      <a class="guide-card" href="configuration.html"><span class="card-number">02 / CONFIGURE</span><h3>Make it your own</h3><p>Choose a model, initial conditions, ensemble members and output settings.</p><span class="card-link">Configuration →</span></a>
-     <a class="guide-card" href="models.html"><span class="card-number">03 / EXPLORE</span><h3>Find your model</h3><p>Compare checkpoints and check availability for ERA5 and EERIE initial conditions.</p><span class="card-link">Models &amp; support →</span></a>
+     <a class="guide-card" href="models.html"><span class="card-number">03 / EXPLORE</span><h3>Find your model</h3><p>Compare checkpoints and check availability for ERA5, EERIE and ECMWF-analysis initial conditions.</p><span class="card-link">Models &amp; support →</span></a>
      <a class="guide-card" href="development.html"><span class="card-number">04 / EXTEND</span><h3>Build on a shared standard</h3><p>Understand AIUQ-st, model cards and the structure of the framework.</p><span class="card-link">Developer guide →</span></a>
    </div>
 
@@ -71,4 +71,5 @@ From initial conditions to outputs
    quickstart
    configuration
    models
+   dashboard
    development

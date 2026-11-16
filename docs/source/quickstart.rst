@@ -73,8 +73,12 @@ Data access
    * - EERIE
      - MARS / ECMWF Web API
      - ECMWF Web API credentials required.
+   * - ECMWF analysis (``ecmwf-an``)
+     - ECMWF Open Data (data.ecmwf.int, Google Cloud mirror)
+     - No credentials required. HTTPS access from the platform running ``PREPARE_ICS``.
 
 See the `ECMWF Web API guide <https://www.ecmwf.int/en/computing/software/ecmwf-web-api>`_
 for credential setup. Never store credentials in a committed experiment file.
 
 Next, review :doc:`configuration` for output controls and AMIP forcing settings.
+To follow running experiments, see :doc:`dashboard`.

@@ -1,6 +1,7 @@
 ics:
   - ERA5
   - EERIE (AMIP)
+  - ECMWF analysis
 
 models:
   - name: NeuralGCM
@@ -117,6 +118,24 @@ status:
     aifs_single_1_1: "wip"
     aifs_ens_1_0: "available"
     aurora_0_25_pretrained: "wip"
+    aurora_0_25_finetuned: "wip"
+    aurora_0_25_v1_5: "wip"
+    aurora_0_25_v1_5_ensemble: "wip"
+    ace2_era5: "not_implemented"
+
+  # Latest IFS analysis from ECMWF Open Data (ICS: ecmwf-an). "available" = 1-day forecast
+  # verified from the 2026-11-16 06Z analysis; "wip" = ICs accepted by the model, forecast
+  # not yet verified (AIFS needs a GPU for flash-attention) or checkpoint still wip with ERA5.
+  ECMWF analysis:
+    ngcm_stoc_1_4: "available"
+    ngcm_stoc_2_8_precip: "available"
+    ngcm_stoc_2_8_evap: "available"
+    ngcm_det_0_7: "available"
+    ngcm_det_1_4: "available"
+    ngcm_det_2_8: "available"
+    aifs_single_1_1: "wip"
+    aifs_ens_1_0: "wip"
+    aurora_0_25_pretrained: "available"
     aurora_0_25_finetuned: "wip"
     aurora_0_25_v1_5: "wip"
     aurora_0_25_v1_5_ensemble: "wip"
