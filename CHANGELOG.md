@@ -9,6 +9,10 @@ All notable changes to AIUQ are listed here. Versions follow [semantic versionin
   level to `OUT_RES` and only then selected `OUT_LEVS`. A 16-day NeuralGCM run with `OUT_RES: 0.25` and two levels
   needed about 60 GB and was killed (limit 48 GB). Levels are now selected first and the regridding works in blocks
   of time steps: the same run peaks at about 3.5 GB, and results are unchanged.
+- **AIFS output times were 12 h early**: `valid_time` was rebuilt from the first IC state (T−6h) instead of the
+  initial state used by AIFS (T), so every AIFS step was labelled 12 h before its true valid time (and daily means
+  mixed the wrong hours). Times now come from the states returned by the model. Existing AIFS 6-hourly outputs can
+  be corrected by adding 12 h to `valid_time`; daily means must be recomputed.
 - **AIFS ignored `OUT_RES`**: the POSTPROCESS job always regridded to 1°. It now produces the requested grid
   (0.25° / 0.5° / 1° / 1.5° / 2°, the same regular grids as the other models) and keeps the native N320 grid for
   `original`. AIFS experiments run with another `OUT_RES` need SIM and POSTPROCESS again (the native SIM output is

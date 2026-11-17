@@ -47,6 +47,13 @@ def grid_file(file_path, lats, lons):
         f.write("yvals = " + " ".join(map(str, lats)) + "\n")
 
 
+def _as_datetime64(date) -> np.datetime64:
+    """UTC datetime (aware or naive) -> naive numpy datetime64[ns]."""
+    if date.tzinfo is not None:
+        date = date.astimezone(timezone.utc).replace(tzinfo=None)
+    return np.datetime64(date, "ns")
+
+
 def main() -> None:
 
     # Read config
@@ -124,15 +131,19 @@ def main() -> None:
     stream_dir = os.path.join(_TEMP_DIR, "aifs-stream")
     capacity = outer_steps // 6 + 2          # AIFS steps are 6 h; small margin
 
-    delta_t = np.timedelta64(int(_INNER_STEPS), "h")
-    initial_conditions = xr.open_zarr(_INI_DATA_PATH)
-    initial_time = initial_conditions.time.isel(time=0).values
+    # Times come from the model: the initial time is the date of the input state (the second,
+    # most recent IC state, T) and each valid time is the date of the predicted state (T+6h, ...).
+    # They used to be rebuilt as ICs.time[0] + n*6h, i.e. from T-6h, so every AIFS output was
+    # labelled 12 h early.
+    initial_time = _as_datetime64(input_state["date"])
+    valid_times = []
 
     with StepBuffer(stream_dir, capacity) as buffer:
         template = None                      # first state: dims, coords and attributes
         for state in runner.run(input_state=input_state, lead_time=outer_steps):
             state_name = state["date"].strftime("%Y%m%d%H")
             print(f"Generated state for {state_name}")
+            valid_times.append(_as_datetime64(state["date"]))
 
             ds_t = build_dataset_for_state(state, output_vars, desired_levels)
             buffer.append({name: ds_t[name].values[0] for name in ds_t.data_vars})
@@ -143,9 +154,10 @@ def main() -> None:
         n_out = buffer.count
         print(f"Collected {n_out} states for {buffer.names}")
 
-        # # # --- Build valid_time/step coords consistent with produced outputs ---
-        valid_time = initial_time + np.arange(n_out) * delta_t
-        steps = np.arange(n_out) * delta_t
+        # # # --- valid_time/step coords: the dates of the produced states ---
+        valid_time = np.array(valid_times, dtype="datetime64[ns]")
+        steps = valid_time - initial_time
+        print(f"Initial time {initial_time}, first valid time {valid_time[0]}, last {valid_time[-1]}")
 
         # Drop requested variables AIFS does not produce, as Aurora does.
         keep = [(v, n) for v, n in zip(output_vars, out_vars) if template is not None and v in template.data_vars]
