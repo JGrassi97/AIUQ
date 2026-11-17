@@ -19,6 +19,8 @@ from dinosaur import horizontal_interpolation, spherical_harmonic, xarray_utils
 from AIUQst_lib.functions import parse_arguments, read_config, normalize_out_vars
 from AIUQst_lib.cards import read_model_card, read_std_version
 from AIUQst_lib.variables import name_mapper_for_model, output_translator
+from AIUQst_lib.streaming import StepBuffer
+from AIUQst_lib.regrid import regrid_latlon
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -75,10 +77,13 @@ def main() -> None:
     delta_t = np.timedelta64(_INNER_STEPS, "h")
     times = np.arange(outer_steps) * _INNER_STEPS  # in hours
 
-    # Auto-set CHUNK_STEPS to outer_steps for hindcast to process in single chunk
-    if _RUN_TYPE == "hindcast":
-        _CHUNK_STEPS = outer_steps
-        logging.info(f"Hindcast mode: auto-setting CHUNK_STEPS to {_CHUNK_STEPS} (entire run in single chunk)")
+    # Hindcast: unroll in blocks of CHUNK_STEPS (bounded GPU memory) and stream the requested
+    # variables to disk, then write one file per variable for the whole run, as before.
+    # (Unrolling the whole run at once kept every prediction on the GPU and in host memory:
+    # 20 days at 0.7 deg exhausted a 46 GB L40S and used 23 GB of RAM.)
+    stream_outputs = _RUN_TYPE == "hindcast"
+    if stream_outputs:
+        logging.info(f"Hindcast mode: unrolling in blocks of {_CHUNK_STEPS} steps, single output file per variable")
 
     # Load model
     with open(_MODEL_CHECKPOINT, "rb") as f:
@@ -159,7 +164,11 @@ def main() -> None:
     # Prepare output time coordinates
     initial_time = initial_conditions.time.isel(time=0).values
 
-    # Resume from checkpoint if available
+    # Resume from checkpoint if available (AMIP only: hindcast outputs are assembled at the end
+    # of the run, so a hindcast always restarts from the initial conditions)
+    if stream_outputs and os.path.exists(state_checkpoint_file):
+        logging.info("Hindcast mode: ignoring the stale state checkpoint, starting from scratch")
+        os.remove(state_checkpoint_file)
     if os.path.exists(state_checkpoint_file):
         logging.info("Checkpoint found, resuming from saved state")
         with open(state_checkpoint_file, "rb") as f:
@@ -213,6 +222,12 @@ def main() -> None:
     else:
         desired_levels = None
 
+    buffer = None
+    template = None
+    if stream_outputs:
+        stream_dir = os.path.join(config.get("TEMP_DIR") or os.path.join(_OUTPUT_PATH, "tmp"), "neuralgcm-stream")
+        buffer = StepBuffer(stream_dir, outer_steps)
+
     for chunk_start in range(start_step, outer_steps, _CHUNK_STEPS):
         chunk_end = min(chunk_start + _CHUNK_STEPS, outer_steps)
         current_chunk_steps = chunk_end - chunk_start
@@ -224,20 +239,25 @@ def main() -> None:
             all_forcings,
             steps=current_chunk_steps,
             timedelta=delta_t,
-            start_with_input=(chunk_start == 0),
+            # The input state of every chunk is the previous final state (step chunk_start), so it
+            # is the first output of the chunk: chunks then concatenate exactly like a single
+            # unroll. (With start_with_input=False after the first chunk, step chunk_start was
+            # skipped and every later output was labelled one step early.)
+            start_with_input=True,
         )
 
         current_state = final_state
 
         # Save state checkpoint after each chunk
-        with open(state_checkpoint_file, "wb") as f:
-            pickle.dump(
-                {
-                    "state": current_state,
-                    "step_done": chunk_end,
-                },
-                f,
-            )
+        if not stream_outputs:
+            with open(state_checkpoint_file, "wb") as f:
+                pickle.dump(
+                    {
+                        "state": current_state,
+                        "step_done": chunk_end,
+                    },
+                    f,
+                )
 
         # Convert current chunk predictions to xarray
         chunk_valid_time = initial_time + (
@@ -258,16 +278,32 @@ def main() -> None:
         if "sim_time" in predictions_ds_chunk.variables:
             predictions_ds_chunk = predictions_ds_chunk.drop_vars("sim_time")
 
+        if chunk_start == start_step:
+            # Drop requested variables the model does not produce (e.g. t2m), as Aurora does.
+            keep = [(v, n) for v, n in zip(output_vars, out_vars) if v in predictions_ds_chunk.data_vars]
+            for v, n in zip(output_vars, out_vars):
+                if v not in predictions_ds_chunk.data_vars:
+                    logging.warning(f"Requested output variable '{n}' not found in NeuralGCM predictions; skipped.")
+            if not keep:
+                raise ValueError(f"None of the requested output variables {out_vars} is produced by NeuralGCM.")
+            output_vars, out_vars = [v for v, _ in keep], [n for _, n in keep]
+
+        if stream_outputs:
+            # Keep only the requested variables, one step at a time, on disk.
+            selected = predictions_ds_chunk[output_vars].transpose("valid_time", ...)
+            if template is None:
+                template = selected.isel(valid_time=slice(0, 1)).load()
+            for i in range(selected.sizes["valid_time"]):
+                buffer.append({var: selected[var].isel(valid_time=i).values for var in output_vars})
+            del predictions, predictions_ds_chunk, selected
+            continue
+
         # Apply post-processing per chunk
         if _OUT_FREQ == "daily":
             predictions_ds_chunk = predictions_ds_chunk.resample(valid_time="1D").mean()
 
         if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
-            predictions_ds_chunk = predictions_ds_chunk.interp(
-                latitude=out_latitudes,
-                longitude=out_longitudes,
-                method="linear",
-            )
+            predictions_ds_chunk = regrid_latlon(predictions_ds_chunk, out_latitudes, out_longitudes)
 
         if desired_levels is not None:
             predictions_ds_chunk = predictions_ds_chunk.interp(level=desired_levels)
@@ -285,6 +321,46 @@ def main() -> None:
             )
             predictions_datarray.to_netcdf(output_file)
             logging.info(f"Saved {output_file}")
+
+    if stream_outputs:
+        # Whole-run post-processing, one variable at a time (same steps and file names as the
+        # former single-chunk hindcast).
+        run_valid_time = initial_time + np.arange(outer_steps) * delta_t
+        run_steps = np.arange(outer_steps) * delta_t
+        run_t_start = str(run_valid_time[0])[:10]
+        run_t_end = str(run_valid_time[-1])[:10]
+        try:
+            for var, var_name in zip(output_vars, out_vars):
+                reference = template[var]
+                coords = {name: coord for name, coord in reference.coords.items()
+                          if "valid_time" not in coord.dims}
+                coords["valid_time"] = run_valid_time
+                coords["step"] = ("valid_time", run_steps)
+                dataset = xr.DataArray(
+                    buffer.read(var), dims=reference.dims, coords=coords,
+                    name=reference.name, attrs=reference.attrs,
+                ).to_dataset(name=var)
+
+                if _OUT_FREQ == "daily":
+                    dataset = dataset.resample(valid_time="1D").mean()
+
+                if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
+                    dataset = regrid_latlon(dataset, out_latitudes, out_longitudes)
+
+                if desired_levels is not None:
+                    dataset = dataset.interp(level=desired_levels)
+
+                predictions_datarray = dataset[var].rename(var_name)
+                output_base_path = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
+                os.makedirs(output_base_path, exist_ok=True)
+                output_file = (
+                    f"{output_base_path}/out-{run_t_start}-{run_t_end}-{_RNG_KEY}-{var_name}.nc"
+                )
+                predictions_datarray.to_netcdf(output_file)
+                logging.info(f"Saved {output_file}")
+                del dataset, predictions_datarray
+        finally:
+            buffer.close()
 
     # Remove checkpoint at successful completion
     if os.path.exists(state_checkpoint_file):

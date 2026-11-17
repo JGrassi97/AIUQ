@@ -1,22 +1,29 @@
-Monitoring dashboard
-====================
+Dashboard
+=========
 
-A read-only web dashboard follows AIUQ experiments run with Autosubmit. Its code is
-not yet part of the repository; it is kept locally under ``tools/dashboard``. It runs
-on the Autosubmit host as a ``systemd --user`` service and listens on
-``127.0.0.1:8765`` only. It never launches, stops or modifies runs: it reads
-Autosubmit's job-list pickles, databases (opened read-only), YAML configuration and
-logs, and queries ``squeue`` and ``nvidia-smi`` on the HPC host.
+``tools/dashboard`` is a web dashboard for AIUQ experiments run with Autosubmit. It is
+made of two apps, switched in the header:
+
+* **Autosubmit Monitor** is read-only. It reads Autosubmit's job-list pickles,
+  databases (opened read-only), YAML configuration and logs, and queries ``squeue``
+  and ``nvidia-smi`` on the HPC host.
+* **AIUQ Launcher** creates experiments, starts and stops their runs and deletes
+  them, always through Autosubmit commands (see `Launcher`_). It is the only part
+  that writes.
+
+The dashboard runs on the Autosubmit host as a ``systemd --user`` service and listens
+on a private Unix socket, ``~/.aiuq-dashboard/dash.sock`` (folder 0700, socket 0600),
+so only your user can reach it.
 
 Open it
 -------
 
-From your laptop, open an ssh tunnel to the Autosubmit host and browse to
-http://localhost:8765:
+From your laptop, forward a local port to the socket on the Autosubmit host (the
+socket path must be absolute) and browse to http://localhost:8765:
 
 .. code-block:: bash
 
-   ssh -N -L 8765:localhost:8765 <autosubmit-host>
+   ssh -N -L 8765:/home/<user>/.aiuq-dashboard/dash.sock <autosubmit-host>
 
 The selected experiment is part of the URL (``?exp=<expid>``), so links can be shared.
 
@@ -68,10 +75,41 @@ standard-library probe over stdin, so nothing is installed on the HPC host. Idle
 experiments are refreshed every 600 s (``AIUQ_SLOW_REFRESH``). HTTP requests never wait
 on ssh, except map previews, which are cached.
 
+Launcher
+--------
+
+A five-step form (model and checkpoint, initial conditions and run type, members and
+start dates, outputs) builds ``conf/main.yml`` from the selected Git branch: models and
+initial conditions with a job configuration for the platform, model cards and the
+AIUQ-st standard. Checkpoints are checked on the HPC and the support matrix is shown
+next to each choice.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 20 80
+
+   * - Action
+     - What runs on the Autosubmit host
+   * - Create
+     - ``autosubmit expid``, writes ``<expid>/conf/main.yml`` (never overwrites), ``autosubmit create``. Nothing is submitted.
+   * - Launch / resume
+     - ``autosubmit run <expid>`` in its own ``systemd-run --user`` unit, so restarting the dashboard does not stop it.
+   * - Stop
+     - ``autosubmit stop`` (optionally cancelling queued and running jobs).
+   * - Delete
+     - Refused while the experiment runs or has jobs in the queue. After the expid is typed in:
+       ``autosubmit delete`` and removal of the experiment's working folder on the HPC, which must be
+       ``<scratch root>/<project>/<user>/<expid>``, owned by you, with no symlinks.
+
+Every action needs a confirmation in the page and is appended to
+``~/.local/share/aiuq-dashboard/launcher.log``. Write requests must carry the
+``X-AIUQ-Launcher: 1`` header and come from ``localhost``.
+
 Install and manage
 ------------------
 
-On the Autosubmit host, from a copy of ``tools/dashboard``:
+On the Autosubmit host, from a copy of ``tools/dashboard`` (for example ``rsync``-ed to
+``~/aiuq-dashboard``):
 
 .. code-block:: bash
 
@@ -79,7 +117,7 @@ On the Autosubmit host, from a copy of ``tools/dashboard``:
    systemctl --user status aiuq-dashboard        # state
    systemctl --user restart aiuq-dashboard       # after updating the code
    journalctl --user -u aiuq-dashboard -f        # logs
-   curl -s localhost:8765/api/health             # 200 when fresh, 503 when stale
+   curl -s --unix-socket ~/.aiuq-dashboard/dash.sock http://localhost/api/health   # 200 when fresh
 
 ``install.sh`` creates the conda environment ``aiuq-dash`` (Python, FastAPI, Uvicorn,
 PyYAML), downloads the front-end libraries, installs the systemd unit, enables linger
@@ -92,4 +130,4 @@ Limits
 * GPU figures cover the whole node; other users' processes cannot be attributed to a job.
 * The time-to-finish estimate ignores failed jobs and anything blocked behind them.
 
-See the dashboard's own README for the full list of panels, the API and the code layout.
+See ``tools/dashboard/README.md`` for the full list of panels, the settings, the API and the code layout.

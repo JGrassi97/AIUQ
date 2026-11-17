@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AIUQ</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23101f37'/%3E%3Cpath d='M12 43 27 17h10l15 26H41l-9-17-9 17Z' fill='%235ce0cd'/%3E%3Ccircle cx='32' cy='45' r='5' fill='%23fff'/%3E%3C/svg%3E">
+  <script>
+    // apply the saved theme and sidebar state before first paint
+    try { const t = localStorage.getItem("aiuq-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+    try { if (localStorage.getItem("aiuq-side") === "hidden") document.documentElement.classList.add("side-collapsed"); } catch (e) {}
+  </script>
+  <link rel="stylesheet" href="/static/style.css">
+  <!-- Vendored copies are downloaded by deploy/install.sh; the CDN is a fallback. -->
+  <script src="/static/vendor/plotly.min.js"></script>
+  <script>window.Plotly || document.write('<script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.35.2/plotly.min.js"><\/script>')</script>
+  <script src="/static/vendor/topojson-client.min.js"></script>
+  <script>window.topojson || document.write('<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"><\/script>')</script>
+</head>
+<body>
+  <header class="top">
+    <button class="icon" id="sideBtn" title="Hide the experiments list  [" aria-label="Hide the experiments list" aria-controls="sidebar" aria-expanded="true">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg>
+    </button>
+    <a class="brand" href="/" data-home="1"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#18344e"/><path d="M12 43 27 17h10l15 26H41l-9-17-9 17Z" fill="#5ce0cd"/><circle cx="32" cy="45" r="5" fill="#fff"/></svg>AIUQ</a>
+    <nav class="appswitch" aria-label="Application">
+      <button type="button" data-app="monitor">Autosubmit Monitor</button>
+      <button type="button" data-app="launcher">AIUQ Launcher</button>
+    </nav>
+    <select id="expSelect" aria-label="Experiment"></select>
+    <div class="live" id="freshness" aria-live="polite"><span class="dot"></span>Connecting…</div>
+    <div class="spacer"></div>
+    <label class="hdr-ctl">Refresh
+      <select id="refreshSel" aria-label="Auto-refresh interval">
+        <option value="30">every 30 s</option>
+        <option value="45" selected>every 45 s</option>
+        <option value="60">every 60 s</option>
+        <option value="0">off</option>
+      </select>
+    </label>
+    <button class="icon ghost" id="themeBtn" title="Theme" aria-label="Switch theme"></button>
+    <button class="icon" id="refreshBtn" title="Refresh now" aria-label="Refresh now">
+      <svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>
+    </button>
+    <div id="refresh-bar"></div>
+  </header>
+  <div class="layout">
+    <aside class="side" id="sidebar"></aside>
+    <main id="main"><div class="empty">Loading…</div></main>
+  </div>
+  <script src="/static/map.js"></script>
+  <script src="/static/hpc.js"></script>
+  <script src="/static/data.js"></script>
+  <script src="/static/launcher.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

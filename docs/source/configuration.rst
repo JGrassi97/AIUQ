@@ -105,7 +105,8 @@ Output controls
      - Purpose
    * - ``OUT_VARS``
      - List, for example ``[t]``
-     - Variable names from the AIUQ-st standard.
+     - Variable names from the AIUQ-st standard. Variables the model does not
+       produce (for example ``t2m`` with NeuralGCM) are skipped with a warning.
    * - ``OUT_FREQ``
      - ``original`` / ``daily``
      - Output time frequency.

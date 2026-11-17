@@ -46,10 +46,12 @@ def build_dataset_for_state(state, output_vars, output_levels):
         if base not in output_vars:
             continue
 
-        if lev is not None and lev not in output_levels:
+        if lev is not None and output_levels is not None and lev not in output_levels:
             continue
 
-        data_interp = interp_to_025(data)  # UNA sola interpolazione per campo
+        # Copy: anemoi fields are views of the whole predicted state (all variables of the
+        # step); keeping a view keeps that block alive and memory grows by ~200 MB per step.
+        data_interp = np.array(interp_to_025(data), copy=True)  # UNA sola interpolazione per campo
 
         da2d = xr.DataArray(
             data_interp,

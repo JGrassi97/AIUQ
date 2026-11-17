@@ -28,6 +28,7 @@ from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
 from AIUQst_lib.variables import name_mapper_for_model, output_translator
 
 from postprocess_aifs import build_dataset_for_state
+from AIUQst_lib.streaming import StepBuffer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -82,6 +83,7 @@ def main() -> None:
         output_vars = [var if var != 'gh' else 'z' for var in output_vars]
     
     
+    desired_levels = None                    # 'original': keep every model level
     if _OUT_LEVS != 'original':
         desired_levels = [
             int(plev)
@@ -115,64 +117,79 @@ def main() -> None:
             input_state["fields"][fname] = npz[key]
     
     os.makedirs(_OUTPUT_PATH, exist_ok=True)
-    
-    datasets_per_time = []
 
-    for state in runner.run(input_state=input_state, lead_time=outer_steps):
-        state_name = state["date"].strftime("%Y%m%d%H")
-        print(f"Generated state for {state_name}")
+    # Each state is reduced to the requested variables/levels and written to per-variable
+    # buffers on disk, so memory does not grow with the length of the forecast.
+    _TEMP_DIR = config.get("TEMP_DIR") or os.path.join(_OUTPUT_PATH, "tmp")
+    stream_dir = os.path.join(_TEMP_DIR, "aifs-stream")
+    capacity = outer_steps // 6 + 2          # AIFS steps are 6 h; small margin
 
-
-        ds_t = build_dataset_for_state(state, output_vars, desired_levels)
-        datasets_per_time.append(ds_t)
-
-    lats = state["latitudes"].astype(float)
-    lons = state["longitudes"].astype(float)
-    lons = np.mod(lons, 360.0)
-
-    dataset = xr.concat(datasets_per_time, dim="time", join="exact").sortby("time")
-    dataset.attrs["Conventions"] = "CF-1.8"
-    print(dataset)
-
-
-    # # # --- Build valid_time/step coords consistent with produced outputs ---
     delta_t = np.timedelta64(int(_INNER_STEPS), "h")
-
-    initial_conditions = xr.open_zarr(_INI_DATA_PATH).load()
+    initial_conditions = xr.open_zarr(_INI_DATA_PATH)
     initial_time = initial_conditions.time.isel(time=0).values
 
-    # # how many forecast steps we actually have
-    n_out = dataset.sizes["time"]
+    with StepBuffer(stream_dir, capacity) as buffer:
+        template = None                      # first state: dims, coords and attributes
+        for state in runner.run(input_state=input_state, lead_time=outer_steps):
+            state_name = state["date"].strftime("%Y%m%d%H")
+            print(f"Generated state for {state_name}")
 
-    valid_time = initial_time + np.arange(n_out) * delta_t
-    steps = np.arange(n_out) * delta_t
+            ds_t = build_dataset_for_state(state, output_vars, desired_levels)
+            buffer.append({name: ds_t[name].values[0] for name in ds_t.data_vars})
+            if template is None:
+                template = ds_t
+            del ds_t
 
-    # # rename time -> valid_time and attach coords with matching length
-    dataset = dataset.rename({"time": "valid_time"})
-    dataset = dataset.assign_coords(valid_time=("valid_time", valid_time))
-    dataset = dataset.assign_coords(time=initial_time)
-    dataset = dataset.assign_coords(step=("valid_time", steps))
+        n_out = buffer.count
+        print(f"Collected {n_out} states for {buffer.names}")
 
-    # # Drop sim_time if present
-    if "sim_time" in dataset.variables:
-        dataset = dataset.drop_vars("sim_time")
+        # # # --- Build valid_time/step coords consistent with produced outputs ---
+        valid_time = initial_time + np.arange(n_out) * delta_t
+        steps = np.arange(n_out) * delta_t
 
-    # # Format output frequency
-    if _OUT_FREQ == "daily":
-        dataset = dataset.resample(valid_time="1D").mean()
+        # Drop requested variables AIFS does not produce, as Aurora does.
+        keep = [(v, n) for v, n in zip(output_vars, out_vars) if template is not None and v in template.data_vars]
+        for v, n in zip(output_vars, out_vars):
+            if template is None or v not in template.data_vars:
+                print(f"WARNING: requested output variable '{n}' not found in AIFS predictions; skipped.")
+        if not keep:
+            raise ValueError(f"None of the requested output variables {out_vars} is produced by AIFS.")
 
-    
-    for var in output_vars:
+        # Outputs are written under the AIUQ-st names (OUT_VARS), like NeuralGCM and Aurora:
+        # templates/postprocess_aifs.sh looks them up by those names.
+        for var, var_name in keep:
+            reference = template[var]
+            predictions = xr.DataArray(
+                buffer.read(var),
+                dims=reference.dims,
+                coords={name: coord for name, coord in reference.coords.items() if name != "time"},
+                name=reference.name,
+                attrs=reference.attrs,
+            )
+            dataset = predictions.to_dataset(name=var)
+            dataset.attrs["Conventions"] = "CF-1.8"
 
-        predictions_datarray = dataset[var]
-        OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var}/{str(_RNG_KEY)}"
+            # # rename time -> valid_time and attach coords with matching length
+            dataset = dataset.rename({"time": "valid_time"})
+            dataset = dataset.assign_coords(valid_time=("valid_time", valid_time))
+            dataset = dataset.assign_coords(time=initial_time)
+            dataset = dataset.assign_coords(step=("valid_time", steps))
 
-        # if not os.path.exists(f"{_OUTPUT_PATH}/grid.txt"):
-        #     grid_file(f"{_OUTPUT_PATH}/grid.txt", lats, lons)
+            # # Drop sim_time if present
+            if "sim_time" in dataset.variables:
+                dataset = dataset.drop_vars("sim_time")
 
-        os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
-        OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/out-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var}_temp.nc"
-        predictions_datarray.to_netcdf(OUTPUT_FILE)
-            
+            # # Format output frequency
+            if _OUT_FREQ == "daily":
+                dataset = dataset.resample(valid_time="1D").mean()
+
+            predictions_datarray = dataset[var].rename(var_name)
+            OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
+            os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
+            OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/out-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var_name}_temp.nc"
+            predictions_datarray.to_netcdf(OUTPUT_FILE)
+            print(f"Saved {OUTPUT_FILE}")
+            del dataset, predictions, predictions_datarray
+
 if __name__ == "__main__":
     main()

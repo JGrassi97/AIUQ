@@ -1,0 +1,8 @@
+name: aiuq-dash
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - fastapi=0.115
+  - uvicorn=0.32
+  - pyyaml=6

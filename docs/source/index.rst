@@ -4,7 +4,7 @@ AIUQ documentation
 .. raw:: html
 
    <section class="hero" aria-label="Introducing AIUQ">
-     <div class="eyebrow">AI WEATHER &amp; CLIMATE · v0.2.0</div>
+     <div class="eyebrow">AI WEATHER &amp; CLIMATE · v1.0.0</div>
      <h2>Quantifying uncertainty<br><span>in data-driven atmospheric prediction.</span></h2>
      <p>AIUQ initialises machine-learning weather and climate models from reanalyses, operational analyses and climate simulations harmonised to a common standard, and samples forecast uncertainty through stochastic models and ensembles of initial conditions, in hindcast and AMIP experiments run with Autosubmit.</p>
      <div class="hero-actions">

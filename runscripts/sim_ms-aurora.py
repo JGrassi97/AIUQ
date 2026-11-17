@@ -35,6 +35,8 @@ except ImportError:
 from AIUQst_lib.functions import parse_arguments, read_config, normalize_out_vars
 from AIUQst_lib.cards import read_model_card, read_std_version
 from AIUQst_lib.variables import name_mapper_for_model, output_translator
+from AIUQst_lib.streaming import StepBuffer
+from AIUQst_lib.regrid import OUT_RESOLUTIONS, regrid_latlon, target_grid
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -226,29 +228,21 @@ def _extract_outputs(pred: Batch, output_vars: list[str], level_idx: list[int] |
     return out
 
 
-def _steps_to_dataset(
-    steps: list[dict],
-    output_vars: list[str],
+def _variable_dataset(
+    var: str,
+    data: np.ndarray,
     lats: np.ndarray,
     lons: np.ndarray,
     levels: list[int],
     initial_time: np.datetime64,
     delta_t: np.timedelta64,
 ) -> xr.Dataset:
-    """Assemble the per-step outputs into a standardized xarray.Dataset."""
-    n_out = len(steps)
+    """Standardized xarray.Dataset for one output variable (data: steps x [level] x lat x lon)."""
+    n_out = data.shape[0]
     valid_time = initial_time + np.arange(1, n_out + 1) * delta_t
     step_coord = np.arange(1, n_out + 1) * delta_t
 
-    data_vars = {}
-    for var in output_vars:
-        if var not in steps[0]:
-            logging.warning(f"Requested output variable '{var}' not found in Aurora predictions.")
-            continue
-        arr = np.concatenate([s[var] for s in steps], axis=0)
-        dims = ("valid_time", "latitude", "longitude") if arr.ndim == 3 else ("valid_time", "level", "latitude", "longitude")
-        data_vars[var] = (dims, arr)
-
+    dims = ("valid_time", "latitude", "longitude") if data.ndim == 3 else ("valid_time", "level", "latitude", "longitude")
     coords = {
         "valid_time": valid_time,
         "time": initial_time,
@@ -256,10 +250,9 @@ def _steps_to_dataset(
         "latitude": lats,
         "longitude": lons,
     }
-    if any(len(v[0]) == 4 for v in data_vars.values()):
+    if data.ndim == 4:
         coords["level"] = levels
-
-    return xr.Dataset(data_vars=data_vars, coords=coords)
+    return xr.Dataset(data_vars={var: (dims, data)}, coords=coords)
 
 
 def main() -> None:
@@ -377,61 +370,56 @@ def main() -> None:
     if generator is not None:
         rollout_kwargs["generator"] = generator
 
-    # Only the requested variables/levels of each step are copied to host memory.
+    # Only the requested variables/levels of each step leave the GPU, and they are written to
+    # per-variable buffers on disk: memory no longer grows with run length or output size.
     level_idx = _output_level_selection(levels, _OUT_LEVS)
     out_levels = [levels[i] for i in level_idx] if level_idx is not None else list(levels)
-    steps = []
-    lats = lons = None
-    with torch.inference_mode():
-        for pred in rollout(model, batch, steps=ar_steps, **rollout_kwargs):
-            if lats is None:
-                lats = pred.metadata.lat.cpu().numpy()
-                lons = pred.metadata.lon.cpu().numpy()
-            steps.append(_extract_outputs(pred, output_vars, level_idx))
-            del pred
-
+    stream_dir = os.path.join(config.get("TEMP_DIR") or os.path.join(_OUTPUT_PATH, "tmp"), "aurora-stream")
     initial_time = initial_conditions.time.isel(time=1).values
-    dataset = _steps_to_dataset(
-        steps=steps,
-        output_vars=output_vars,
-        lats=lats,
-        lons=lons,
-        levels=out_levels,
-        initial_time=initial_time,
-        delta_t=delta_t,
-    )
-    del steps
 
-    # Post-processing (frequency, horizontal resolution, vertical levels)
-    if _OUT_FREQ == "daily":
-        dataset = dataset.resample(valid_time="1D").mean()
+    with StepBuffer(stream_dir, ar_steps) as buffer:
+        lats = lons = None
+        with torch.inference_mode():
+            for pred in rollout(model, batch, steps=ar_steps, **rollout_kwargs):
+                if lats is None:
+                    lats = pred.metadata.lat.cpu().numpy()
+                    lons = pred.metadata.lon.cpu().numpy()
+                outputs = _extract_outputs(pred, output_vars, level_idx)
+                buffer.append({name: arr[0] for name, arr in outputs.items()})   # batch size 1
+                del pred, outputs
 
-    if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
-        step_deg = float(_OUT_RES)
-        out_latitudes = np.arange(-90, 90 + step_deg / 2, step_deg)
-        out_longitudes = np.arange(0, 360, step_deg)
-        dataset = dataset.interp(
-            latitude=out_latitudes,
-            longitude=out_longitudes,
-            method="linear",
-        )
-    else:
-        dataset = dataset.sortby("latitude")
+        if not any(var in buffer.names for var in output_vars):
+            raise ValueError(f"None of the requested output variables {out_vars} is produced by Aurora.")
 
-    if level_idx is None and _OUT_LEVS != "original" and "level" in dataset.dims:
-        desired_levels = [int(plev) for plev in _OUT_LEVS.strip("[]").split(",")]
-        dataset = dataset.interp(level=desired_levels)
+        # Post-processing (frequency, horizontal resolution, vertical levels), one variable at a time
+        for var, var_name in zip(output_vars, out_vars):
+            if var not in buffer.names:
+                logging.warning(f"Requested output variable '{var}' not found in Aurora predictions.")
+                continue
+            dataset = _variable_dataset(
+                var, buffer.read(var), lats, lons, out_levels, initial_time, delta_t,
+            )
 
-    # Save NetCDF per output variable
-    for var, var_name in zip(output_vars, out_vars):
-        if var not in dataset:
-            continue
-        predictions_datarray = dataset[var].rename(var_name)
-        output_base_path = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
-        os.makedirs(output_base_path, exist_ok=True)
-        output_file = f"{output_base_path}/out-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var_name}.nc"
-        predictions_datarray.to_netcdf(output_file)
-        logging.info(f"Saved {output_file}")
+            if _OUT_FREQ == "daily":
+                dataset = dataset.resample(valid_time="1D").mean()
+
+            if _OUT_RES in OUT_RESOLUTIONS:
+                dataset = regrid_latlon(dataset, *target_grid(_OUT_RES))
+            else:
+                dataset = dataset.sortby("latitude")
+
+            if level_idx is None and _OUT_LEVS != "original" and "level" in dataset.dims:
+                desired_levels = [int(plev) for plev in _OUT_LEVS.strip("[]").split(",")]
+                dataset = dataset.interp(level=desired_levels)
+
+            # Save NetCDF per output variable
+            predictions_datarray = dataset[var].rename(var_name)
+            output_base_path = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
+            os.makedirs(output_base_path, exist_ok=True)
+            output_file = f"{output_base_path}/out-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var_name}.nc"
+            predictions_datarray.to_netcdf(output_file)
+            logging.info(f"Saved {output_file}")
+            del dataset, predictions_datarray
 
 
 if __name__ == "__main__":
