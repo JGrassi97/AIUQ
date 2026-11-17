@@ -196,36 +196,63 @@ def _load_aurora_model(checkpoint_path: str, is_v1p5: bool, is_ensemble: bool):
     return model
 
 
-def _preds_to_dataset(
-    preds: list[Batch],
+def _output_level_selection(model_levels: tuple[int, ...], out_levs) -> list[int] | None:
+    """Indices of the requested output levels when all of them are model levels, else None
+    (all levels are then kept and interpolated after the rollout)."""
+    if out_levs in (None, "", "original"):
+        return None
+    desired = [int(plev) for plev in str(out_levs).strip("[]").split(",") if str(plev).strip()]
+    levels = list(model_levels)
+    if desired and all(p in levels for p in desired):
+        return [levels.index(p) for p in desired]
+    return None
+
+
+def _extract_outputs(pred: Batch, output_vars: list[str], level_idx: list[int] | None) -> dict:
+    """Copy to host memory only the requested variables (and levels) of one rollout step.
+
+    Keeping whole predicted Batches (all surface and atmospheric variables on 13 levels at
+    0.25 deg, ~345 MB per step for Aurora 1.5) exhausts the job memory on multi-week runs.
+    """
+    out = {}
+    for var in output_vars:
+        if var in pred.surf_vars:
+            out[var] = pred.surf_vars[var][:, 0].float().cpu().numpy()          # (b, lat, lon)
+        elif var in pred.atmos_vars:
+            arr = pred.atmos_vars[var][:, 0]                                     # (b, level, lat, lon)
+            if level_idx is not None:
+                arr = arr[:, level_idx]
+            out[var] = arr.float().cpu().numpy()
+    return out
+
+
+def _steps_to_dataset(
+    steps: list[dict],
     output_vars: list[str],
+    lats: np.ndarray,
+    lons: np.ndarray,
+    levels: list[int],
     initial_time: np.datetime64,
     delta_t: np.timedelta64,
 ) -> xr.Dataset:
-    """Convert list of predicted Aurora Batches into a standardized xarray.Dataset."""
-    lats = preds[0].metadata.lat.cpu().numpy()
-    lons = preds[0].metadata.lon.cpu().numpy()
-    levels = list(preds[0].metadata.atmos_levels)
-    n_out = len(preds)
-
+    """Assemble the per-step outputs into a standardized xarray.Dataset."""
+    n_out = len(steps)
     valid_time = initial_time + np.arange(1, n_out + 1) * delta_t
-    steps = np.arange(1, n_out + 1) * delta_t
+    step_coord = np.arange(1, n_out + 1) * delta_t
 
     data_vars = {}
     for var in output_vars:
-        if var in preds[0].surf_vars:
-            arr = np.concatenate([p.surf_vars[var][:, 0].cpu().numpy() for p in preds], axis=0)
-            data_vars[var] = (("valid_time", "latitude", "longitude"), arr)
-        elif var in preds[0].atmos_vars:
-            arr = np.concatenate([p.atmos_vars[var][:, 0].cpu().numpy() for p in preds], axis=0)
-            data_vars[var] = (("valid_time", "level", "latitude", "longitude"), arr)
-        else:
+        if var not in steps[0]:
             logging.warning(f"Requested output variable '{var}' not found in Aurora predictions.")
+            continue
+        arr = np.concatenate([s[var] for s in steps], axis=0)
+        dims = ("valid_time", "latitude", "longitude") if arr.ndim == 3 else ("valid_time", "level", "latitude", "longitude")
+        data_vars[var] = (dims, arr)
 
     coords = {
         "valid_time": valid_time,
         "time": initial_time,
-        "step": ("valid_time", steps),
+        "step": ("valid_time", step_coord),
         "latitude": lats,
         "longitude": lons,
     }
@@ -350,19 +377,30 @@ def main() -> None:
     if generator is not None:
         rollout_kwargs["generator"] = generator
 
+    # Only the requested variables/levels of each step are copied to host memory.
+    level_idx = _output_level_selection(levels, _OUT_LEVS)
+    out_levels = [levels[i] for i in level_idx] if level_idx is not None else list(levels)
+    steps = []
+    lats = lons = None
     with torch.inference_mode():
-        preds = [
-            pred.to("cpu")
-            for pred in rollout(model, batch, steps=ar_steps, **rollout_kwargs)
-        ]
+        for pred in rollout(model, batch, steps=ar_steps, **rollout_kwargs):
+            if lats is None:
+                lats = pred.metadata.lat.cpu().numpy()
+                lons = pred.metadata.lon.cpu().numpy()
+            steps.append(_extract_outputs(pred, output_vars, level_idx))
+            del pred
 
     initial_time = initial_conditions.time.isel(time=1).values
-    dataset = _preds_to_dataset(
-        preds=preds,
+    dataset = _steps_to_dataset(
+        steps=steps,
         output_vars=output_vars,
+        lats=lats,
+        lons=lons,
+        levels=out_levels,
         initial_time=initial_time,
         delta_t=delta_t,
     )
+    del steps
 
     # Post-processing (frequency, horizontal resolution, vertical levels)
     if _OUT_FREQ == "daily":
@@ -380,7 +418,7 @@ def main() -> None:
     else:
         dataset = dataset.sortby("latitude")
 
-    if _OUT_LEVS != "original" and "level" in dataset.dims:
+    if level_idx is None and _OUT_LEVS != "original" and "level" in dataset.dims:
         desired_levels = [int(plev) for plev in _OUT_LEVS.strip("[]").split(",")]
         dataset = dataset.interp(level=desired_levels)
 
