@@ -25,6 +25,7 @@ import earthkit.regrid as ekr
 from AIUQst_lib.functions import parse_arguments, read_config
 from AIUQst_lib.cards import read_model_card, read_std_version
 from AIUQst_lib.variables import name_mapper_for_model
+from AIUQst_lib.support_data import static_fields_flipped
 
 logging.basicConfig(level=logging.DEBUG)
 
@@ -55,22 +56,14 @@ def main():
     # Load ICs
     data_original = xr.open_zarr(_INI_DATA_PATH, chunks=None)
 
-    # Some fields are flipped upside down - flip them back to normal orientation (latitudes should be ascending)
-    orog = data_original.orog.values
-    orog = np.flip(orog, axis=0)
-    data_original['orog'] = (('latitude', 'longitude'), orog)
-
-    slor = data_original.slor.values
-    slor = np.flip(slor, axis=0)
-    data_original['slor'] = (('latitude', 'longitude'), slor)
-
-    sdor = data_original.sdor.values
-    sdor = np.flip(sdor, axis=0)
-    data_original['sdor'] = (('latitude', 'longitude'), sdor)
-
-    lsm = data_original.lsm.values
-    lsm = np.flip(lsm, axis=0)
-    data_original['lsm'] = (('latitude', 'longitude'), lsm)
+    # ERA5 ICs store the static fields upside down (coordinates overwritten when merging
+    # the static file); EERIE and ECMWF-analysis ICs align them by value. Flip only when
+    # the land-sea mask says the fields do not match their latitudes.
+    if static_fields_flipped(data_original):
+        logging.info("Static fields stored upside down: flipping orog, slor, sdor, lsm")
+        for name in ("orog", "slor", "sdor", "lsm"):
+            data_original[name] = (("latitude", "longitude"),
+                                   np.flip(data_original[name].values, axis=0))
 
     # Fixing soil level naming
     sot_1 = data_original["sot"].isel(SoilLevel=0).astype(np.float32).rename("stl1")

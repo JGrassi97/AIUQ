@@ -1,3 +1,9 @@
+# Resources measured on felipe (Slurm cgroup v2, RAM strictly enforced; jobs without MEMORY
+# get 1 GB per CPU). MEMORY is in MB.
+# Measured 2026-11-17 (outputs streamed to disk; page cache of those files is reclaimable):
+#   SAVE_ICS: < 7 GB, ~1 min.
+#   SIM: 31 days, 14 variables on all 13 levels: anonymous peak ~3.4 GB, completed under a
+#   24 GB limit; 30 days with 3 variables: 4.8 GB in total. ~2.5 min on an L40S.
 JOBS:
 
   WARMUP_REGRID:
@@ -23,15 +29,18 @@ JOBS:
     PLATFORM: FELIPE
 
   SAVE_ICS:
+    # Regridding to N320 runs on CPU: no GPU requested, CPU partition.
     CHECK: on_submission
     FILE: templates/ics_aifs.sh,templates/config.yml
     PLATFORM: FELIPE-INFERENCE
+    PARTITION: felipe
     DEPENDENCIES: PREPARE_ICS
     RUNNING: DATE
     NODES: 1
     PROCESSORS: 1
     THREADS: 20
-    CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
+    MEMORY: 16384
+    WALLCLOCK: "00:30"
 
   SIM:
     CHECK: on_submission
@@ -42,22 +51,31 @@ JOBS:
     NODES: 1
     PROCESSORS: 1
     THREADS: 20
+    MEMORY: 24576
+    WALLCLOCK: "01:00"
     CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
 
   CLEAN:
     CHECK: on_submission
     FILE: templates/clean.sh
     PLATFORM: FELIPE-INFERENCE
+    PARTITION: felipe
     DEPENDENCIES: SIM
     RUNNING: DATE
     NODES: 1
     PROCESSORS: 1
+    MEMORY: 2048
+    WALLCLOCK: "00:10"
 
   POSTPROCESS:
+    # cdo regridding on CPU (seconds per member).
     CHECK: on_submission
     FILE: templates/postprocess_aifs.sh,templates/config.yml
     PLATFORM: FELIPE-INFERENCE
+    PARTITION: felipe
     DEPENDENCIES: SIM
     RUNNING: CHUNK
     NODES: 1
-    PROCESSORS: 20
+    PROCESSORS: 8
+    MEMORY: 8192
+    WALLCLOCK: "00:30"

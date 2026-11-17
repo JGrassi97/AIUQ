@@ -13,7 +13,7 @@ configfile=$logs_dir/config_${JOBNAME_WITHOUT_EXPID}
 PLATFORM_NAME=%PLATFORM.NAME%
 
 EARTHKIT_CACHE=${HPCROOTDIR}/earthkit_cache
-export EARTHKIT_REGRID_CACHE=EARTHKIT_CACHE
+export EARTHKIT_REGRID_CACHE=${EARTHKIT_CACHE}
 
 # Load Singularity module only on MareNostrum5
 if [ "$PLATFORM_NAME" = "MARENOSTRUM5" ]; then

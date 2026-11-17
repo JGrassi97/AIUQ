@@ -1,3 +1,8 @@
+# Resources measured on felipe (Slurm cgroup v2, RAM strictly enforced; jobs without MEMORY
+# get 1 GB per CPU). MEMORY is in MB.
+# Measured 2026-11-17 (hindcast unrolled in CHUNK_STEPS blocks, outputs streamed to disk):
+#   0.7 deg, 30 days, 5 variables on all 37 levels: ~12.5 GB base, ~15 min on an L40S;
+#   1.4 deg, 20 days: ~9 GB, ~2.5 min.
 JOBS:
   PREPARE_ICS:
     CHECK: on_submission
@@ -13,4 +18,5 @@ JOBS:
     NODES: 1
     PROCESSORS: 1
     THREADS: 20
+    MEMORY: 49152
     CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"

@@ -50,6 +50,10 @@ Repository map
    runscripts/          # Retrieval, inference and postprocessing scripts
    runscripts/AIUQst_lib/ # Shared standard utilities
    templates/           # HPC shell templates and runtime configuration
+   lib/                 # Shell functions shared by the templates
+   remote_set/          # Checkpoint downloads and container recipes
+   tests/               # pytest suite (no HPC or network needed)
+   tools/dashboard/     # Monitor and Launcher web dashboard
    docs/                # Sphinx documentation and support matrix
 
 Add an integration
@@ -62,7 +66,10 @@ Add an integration
    shared convention.
 4. Add the platform-specific job configuration and the required shell templates.
 5. Update ``docs/support-matrix.yml`` with the checkpoint, supported modes and
-   actual integration status. The documentation table updates at build time.
+   actual integration status. The documentation table updates at build time; the
+   README table is regenerated with
+   ``python docs/generate_table.py docs/support-matrix.yml README.md``
+   (``tests/test_support_matrix.py`` fails while they differ).
 
 Build the documentation
 -----------------------
@@ -76,4 +83,21 @@ From the repository root, in your Python environment:
 
 Open ``docs/_build/html/index.html`` to preview the result. Styling lives in
 ``docs/source/_static/aiuq.css``. Read the Docs uses the same source and dependencies
-through the root ``readthedocs.yml`` configuration.
+through the root ``.readthedocs.yaml`` configuration.
+
+Run the tests
+-------------
+
+.. code-block:: bash
+
+   python -m pip install pytest numpy xarray pyyaml
+   python -m pytest tests
+
+Release a version
+-----------------
+
+1. Run the ICS × checkpoint tests on the HPC and record the results in
+   ``docs/support-matrix.yml``; regenerate the README table.
+2. Set the version in ``docs/source/conf.py`` (``release``), ``docs/source/index.rst``
+   and ``README.md``, and add an entry to ``CHANGELOG.md``.
+3. Merge into ``main`` and tag it ``vX.Y.Z``.

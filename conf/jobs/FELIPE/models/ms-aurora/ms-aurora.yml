@@ -1,3 +1,8 @@
+# Resources measured on felipe (Slurm cgroup v2, RAM strictly enforced; jobs without MEMORY
+# get 1 GB per CPU). MEMORY is in MB.
+# Measured 2026-11-17 (Aurora 1.5 ensemble, outputs streamed to disk; their page cache is
+# reclaimable): 30 days, 19 variables on all 13 levels at 0.25 deg: anonymous peak 20.6 GB,
+# completed under a 32 GB limit in ~6 min on an L40S.
 JOBS:
   PREPARE_ICS:
     CHECK: on_submission
@@ -13,4 +18,5 @@ JOBS:
     NODES: 1
     PROCESSORS: 1
     THREADS: 20
+    MEMORY: 49152
     CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"

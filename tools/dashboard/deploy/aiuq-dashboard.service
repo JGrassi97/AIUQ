@@ -1,0 +1,19 @@
+[Unit]
+Description=AIUQ dashboard: Autosubmit Monitor and Launcher (private Unix socket)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Paths are filled in by deploy/install.sh
+WorkingDirectory=@APP_DIR@
+EnvironmentFile=-%h/.config/aiuq-dashboard.env
+ExecStart=@ENV_PYTHON@ -m aiuq_dash
+Restart=always
+RestartSec=10
+# Small footprint; the dashboard never needs more.
+Nice=10
+MemoryMax=1G
+
+[Install]
+WantedBy=default.target

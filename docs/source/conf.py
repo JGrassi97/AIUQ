@@ -5,7 +5,7 @@ sys.path.insert(0, str(Path(__file__).parent / "_ext"))
 
 project = "AIUQ"
 author = "Jacopo Grassi"
-release = "0.2.0"
+release = "1.0.0"
 
 extensions = [
     "sphinx.ext.autodoc",
