@@ -2,6 +2,14 @@
 
 All notable changes to AIUQ are listed here. Versions follow [semantic versioning](https://semver.org/).
 
+## [1.0.1] - unreleased
+
+### Fixed
+- **Out of memory in the SIM post-processing with fine output grids**: NeuralGCM and Aurora regridded every model
+  level to `OUT_RES` and only then selected `OUT_LEVS`. A 16-day NeuralGCM run with `OUT_RES: 0.25` and two levels
+  needed about 60 GB and was killed (limit 48 GB). Levels are now selected first and the regridding works in blocks
+  of time steps: the same run peaks at about 3.5 GB, and results are unchanged.
+
 ## [1.0.0] - 2026-11-17
 
 First stable release. The ERA5 and ECMWF-analysis combinations of the support matrix were run on FELIPE for this
@@ -70,5 +78,6 @@ release; the EERIE column keeps its 0.x status and will be re-tested. See the su
 
 AMIP simulations with AIMIP and ESA-CCI-v3.0 forcings.
 
+[1.0.1]: https://github.com/JGrassi97/AIUQ/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/JGrassi97/AIUQ/compare/v0.2.0...v1.0.0
 [0.2.0]: https://github.com/JGrassi97/AIUQ/releases/tag/v0.2.0

@@ -77,3 +77,13 @@ def test_coords_attrs_and_dims_are_kept():
     assert out.latitude.attrs == {"units": "degrees_north"} and out.longitude.attrs == {"units": "degrees_east"}
     assert "longitude" not in out["step"].dims and "longitude" not in out["time"].dims
     np.testing.assert_array_equal(out["step"].values, ds["step"].values)
+
+
+@pytest.mark.parametrize("max_points", [1, 181 * 360 * 2 * 2, 10**9])   # 1 step, 2 steps, everything
+def test_blocked_regridding_is_identical(max_points):
+    ds = _field(GAUSSIAN_2P8, LON_2P8, times=5)
+    lats, lons = target_grid("1")
+    reference = regrid_latlon(ds, lats, lons, max_block_points=10**12)
+    out = regrid_latlon(ds, lats, lons, max_block_points=max_points)
+    xr.testing.assert_identical(out, reference)
+    assert out["t"].dims == ds["t"].dims

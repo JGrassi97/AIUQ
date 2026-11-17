@@ -302,11 +302,12 @@ def main() -> None:
         if _OUT_FREQ == "daily":
             predictions_ds_chunk = predictions_ds_chunk.resample(valid_time="1D").mean()
 
-        if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
-            predictions_ds_chunk = regrid_latlon(predictions_ds_chunk, out_latitudes, out_longitudes)
-
+        # Levels first: regridding only the requested levels needs far less memory.
         if desired_levels is not None:
             predictions_ds_chunk = predictions_ds_chunk.interp(level=desired_levels)
+
+        if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
+            predictions_ds_chunk = regrid_latlon(predictions_ds_chunk, out_latitudes, out_longitudes)
 
         # Save chunk netCDF per variable
         chunk_t_start = str(chunk_valid_time[0])[:10]
@@ -344,11 +345,13 @@ def main() -> None:
                 if _OUT_FREQ == "daily":
                     dataset = dataset.resample(valid_time="1D").mean()
 
-                if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
-                    dataset = regrid_latlon(dataset, out_latitudes, out_longitudes)
-
+                # Levels first: regridding all 37 model levels to 0.25 deg and discarding most of
+                # them afterwards ran out of memory (a00d: 16 days, 2 levels, > 48 GB).
                 if desired_levels is not None:
                     dataset = dataset.interp(level=desired_levels)
+
+                if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
+                    dataset = regrid_latlon(dataset, out_latitudes, out_longitudes)
 
                 predictions_datarray = dataset[var].rename(var_name)
                 output_base_path = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"

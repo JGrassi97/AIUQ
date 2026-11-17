@@ -403,14 +403,15 @@ def main() -> None:
             if _OUT_FREQ == "daily":
                 dataset = dataset.resample(valid_time="1D").mean()
 
+            # Levels first, so only the requested levels are regridded.
+            if level_idx is None and _OUT_LEVS != "original" and "level" in dataset.dims:
+                desired_levels = [int(plev) for plev in _OUT_LEVS.strip("[]").split(",")]
+                dataset = dataset.interp(level=desired_levels)
+
             if _OUT_RES in OUT_RESOLUTIONS:
                 dataset = regrid_latlon(dataset, *target_grid(_OUT_RES))
             else:
                 dataset = dataset.sortby("latitude")
-
-            if level_idx is None and _OUT_LEVS != "original" and "level" in dataset.dims:
-                desired_levels = [int(plev) for plev in _OUT_LEVS.strip("[]").split(",")]
-                dataset = dataset.interp(level=desired_levels)
 
             # Save NetCDF per output variable
             predictions_datarray = dataset[var].rename(var_name)

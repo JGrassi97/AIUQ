@@ -24,14 +24,61 @@ def target_grid(out_res: str):
     return latitudes, longitudes
 
 
-def regrid_latlon(ds, latitudes, longitudes, method: str = "linear"):
+# Target points interpolated at once: scipy's temporaries are several times this size (in float64),
+# so a block stays around 1-2 GB however long the run or fine the output grid.
+MAX_BLOCK_POINTS = 2**25
+
+
+def regrid_latlon(ds, latitudes, longitudes, method: str = "linear", max_block_points: int = MAX_BLOCK_POINTS):
     """Interpolate ``ds`` (dims ``latitude``/``longitude``, degrees, longitudes in [0, 360)) to the
     given latitudes/longitudes without NaN at the grid edges.
 
     Longitude is periodic: targets between the last source column and the first one + 360 deg are
     interpolated across the date line. Target latitudes beyond the outermost source row take the
-    value of that row. Only the output-sized arrays are created, never a padded copy of the input.
+    value of that row.
+
+    Memory: the output is filled in blocks along the first non-horizontal dimension (time), so the
+    peak is the output itself plus one block of interpolation temporaries. Select pressure levels
+    *before* calling this function: regridding every model level and discarding most of them
+    afterwards costs (model levels / output levels) times more memory.
     """
+    lead = [d for d in ds.dims if d not in ("latitude", "longitude")]
+    if not lead:
+        return _regrid_block(ds, latitudes, longitudes, method)
+    dim, n = lead[0], ds.sizes[lead[0]]
+    per_step = len(latitudes) * len(longitudes) * int(np.prod([ds.sizes[d] for d in lead[1:]]))
+    block = max(1, int(max_block_points // max(per_step, 1)))
+    if block >= n:
+        return _regrid_block(ds, latitudes, longitudes, method)
+
+    first = _regrid_block(ds.isel({dim: slice(0, block)}), latitudes, longitudes, method)
+    blocked = {}
+    for name, var in first.data_vars.items():
+        if dim in var.dims:
+            axis = var.dims.index(dim)
+            shape = list(var.shape)
+            shape[axis] = n
+            blocked[name] = (axis, np.empty(shape, dtype=var.dtype))
+
+    def store(part, start):
+        for name, (axis, array) in blocked.items():
+            index = [slice(None)] * array.ndim
+            index[axis] = slice(start, start + part.sizes[dim])
+            array[tuple(index)] = part[name].values
+
+    store(first, 0)
+    for start in range(block, n, block):
+        store(_regrid_block(ds.isel({dim: slice(start, start + block)}), latitudes, longitudes, method), start)
+
+    data_vars = {name: (first[name].dims, blocked[name][1], first[name].attrs) if name in blocked else first[name]
+                 for name in first.data_vars}
+    coords = {name: coord for name, coord in first.coords.items() if dim not in coord.dims}
+    coords.update({name: coord for name, coord in ds.coords.items() if dim in coord.dims})
+    return xr.Dataset(data_vars, coords=coords, attrs=first.attrs)
+
+
+def _regrid_block(ds, latitudes, longitudes, method):
+    """``regrid_latlon`` on one block (no blocking)."""
     ds = ds.sortby("latitude").sortby("longitude")
     lat_src = ds["latitude"].values
     lon_src = ds["longitude"].values
