@@ -54,13 +54,37 @@ fi
 start_date=$(echo "$CHUNK_START_DATE" | sed 's/^\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)$/\1-\2-\3/')
 end_date=$(echo "$CHUNK_END_DATE"   | sed 's/^\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)$/\1-\2-\3/')
 
+# Output grid from EXPERIMENT.OUT_RES: the regular latitude-longitude grids of the other models
+# (latitudes -90..90, longitudes from 0), or the native N320 grid for "original".
+OUT_RES="%EXPERIMENT.OUT_RES%"
+case "$OUT_RES" in
+    0.25)     target_grid=r1440x721 ;;
+    0.5)      target_grid=r720x361 ;;
+    1)        target_grid=r360x181 ;;
+    1.5)      target_grid=r240x121 ;;
+    2)        target_grid=r180x91 ;;
+    original) target_grid="" ;;
+    *)        echo "ERROR: unsupported OUT_RES '$OUT_RES' (original / 0.25 / 0.5 / 1 / 1.5 / 2)"; exit 1 ;;
+esac
+
 for var in $vars; do
     infile="${OUTPUT_PATH}/${var}/${MEMBER}/out-${start_date}-${end_date}-${MEMBER}-${var}_temp.nc"
     gridf="${OUTPUT_PATH}/${var}/${MEMBER}/out-${start_date}-${end_date}-${MEMBER}-${var}_grid.nc"
     outf="${OUTPUT_PATH}/${var}/${MEMBER}/out-${start_date}-${end_date}-${MEMBER}-${var}.nc"
 
-    cdo -P 8 -setgrid,${GRID_FILE} "${infile}" "${gridf}"
+    if [ ! -f "${infile}" ]; then
+        # SIM skips requested variables that AIFS does not produce.
+        echo "WARNING: no SIM output for '${var}' (${infile}), skipped"
+        continue
+    fi
+
+    # The SIM output is removed only once the final file has been written.
+    cdo -P 8 -setgrid,${GRID_FILE} "${infile}" "${gridf}" || exit 1
+    if [ -n "$target_grid" ]; then
+        cdo -P 8 -f nc4 remapdis,${target_grid} "${gridf}" "${outf}" || exit 1
+        rm -f "${gridf}"
+    else
+        mv "${gridf}" "${outf}"
+    fi
     rm -f "${infile}"
-    cdo -P 8 -f nc4 remapdis,r360x181 "${gridf}" "${outf}"
-    rm -f "${gridf}"
 done

@@ -9,6 +9,16 @@ All notable changes to AIUQ are listed here. Versions follow [semantic versionin
   level to `OUT_RES` and only then selected `OUT_LEVS`. A 16-day NeuralGCM run with `OUT_RES: 0.25` and two levels
   needed about 60 GB and was killed (limit 48 GB). Levels are now selected first and the regridding works in blocks
   of time steps: the same run peaks at about 3.5 GB, and results are unchanged.
+- **AIFS ignored `OUT_RES`**: the POSTPROCESS job always regridded to 1°. It now produces the requested grid
+  (0.25° / 0.5° / 1° / 1.5° / 2°, the same regular grids as the other models) and keeps the native N320 grid for
+  `original`. AIFS experiments run with another `OUT_RES` need SIM and POSTPROCESS again (the native SIM output is
+  removed after POSTPROCESS).
+- AIFS POSTPROCESS now fails when cdo fails (it used to finish as COMPLETED without the output), removes the SIM
+  output only after the final file is written, and skips variables the SIM did not produce.
+
+### Known issues
+- AIFS output files (written by cdo) name the horizontal dimensions `lat`/`lon`; the other models use
+  `latitude`/`longitude`.
 
 ## [1.0.0] - 2026-11-17
 

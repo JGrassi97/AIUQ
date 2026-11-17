@@ -112,7 +112,8 @@ Output controls
      - Output time frequency.
    * - ``OUT_RES``
      - ``original`` / ``0.25`` / ``0.5`` / ``1`` / ``1.5`` / ``2``
-     - Target horizontal resolution in degrees.
+     - Target horizontal resolution in degrees: a regular grid with latitudes −90…90
+       and longitudes from 0. ``original`` keeps the model grid (N320 for AIFS).
    * - ``OUT_LEVS``
      - List of pressure levels in hPa, or ``original``
      - Pressure-level selection.
