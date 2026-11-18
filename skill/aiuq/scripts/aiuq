@@ -1,0 +1,232 @@
+#!/usr/bin/env bash
+# aiuq — drive AIUQ experiments from the laptop.
+#
+#   laptop ──ssh──> Autosubmit host (mafalda: autosubmit + AIUQ dashboard API on a private socket)
+#          └─ssh──> HPC (felipe: Slurm, GPUs, experiment folders, outputs)
+#
+# All ssh traffic goes through one ControlMaster connection per host (mafalda blocks bursts of
+# new connections). Read-only commands run freely; commands that change state need --yes, which
+# the agent may only pass after the user has confirmed that exact action.
+#
+# Run `aiuq help` for the command list. Compatible with macOS bash 3.2.
+set -euo pipefail
+
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CLIENT="$HERE/dash_client.py"
+
+AS_HOST="${AIUQ_AS_HOST:-mafalda}"        # Autosubmit host (ssh alias)
+HPC_HOST="${AIUQ_HPC_HOST:-felipe}"       # HPC host (ssh alias)
+HPC_USER="${AIUQ_HPC_USER:-$(ssh -G "$HPC_HOST" 2>/dev/null | awk '/^user /{print $2; exit}')}"
+HPC_BASE="${AIUQ_HPC_BASE:-/work/users/$HPC_USER/autosubmit_scratch/test/$HPC_USER}"   # <SCRATCH>/<PROJECT>/<USER>
+AS_PATH='$HOME/miniconda3/bin'            # where `autosubmit` lives on the Autosubmit host (expanded remotely)
+FETCH_MAX_GB="${AIUQ_FETCH_MAX_GB:-5}"
+CM_DIR="${AIUQ_SSH_CM_DIR:-$HOME/.ssh/cm}"   # keep short: macOS limits socket paths to 104 bytes
+
+mkdir -p "$CM_DIR" && chmod 700 "$CM_DIR"
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=4
+          -o ControlMaster=auto -o "ControlPath=$CM_DIR/aiuq-%C" -o ControlPersist=20m)
+
+die() { echo "aiuq: $*" >&2; exit 1; }
+on_as()  { ssh "${SSH_OPTS[@]}" "$AS_HOST" "$@"; }
+on_hpc() { ssh "${SSH_OPTS[@]}" "$HPC_HOST" "$@"; }
+q() { printf '%q' "$1"; }                  # quote one word for the remote shell
+
+need_expid() { [[ "${1:-}" =~ ^[a-z0-9]{4}$ ]] || die "expected a 4-character experiment id, got '${1:-}'"; }
+need_job()   { [[ "${1:-}" =~ ^[A-Za-z0-9_-]+$ ]] || die "bad job name '${1:-}'"; }
+need_rel()   { [[ "${1:-}" =~ ^[A-Za-z0-9_.*/?-]+$ && "$1" != *..* && "$1" != /* ]] || die "bad relative path '${1:-}' (letters, digits, _ . - / and the globs * ?)"; }
+need_yes()   { [[ "${YES:-0}" == 1 ]] || die "'$1' changes state: re-run with --yes once the user has confirmed it"; }
+root_of()    { echo "$HPC_BASE/$1"; }
+
+# dash METHOD PATH MODE [JSON_FILE] — call the dashboard API on the Autosubmit host
+dash() {
+  local b64=""
+  if [[ -n "${4:-}" ]]; then b64="$(base64 < "$4" | tr -d '\n')"; fi
+  on_as "AIUQ_TAIL=${AIUQ_TAIL:-25} AIUQ_WAIT=${AIUQ_WAIT:-2400} python3 - $(q "$1") $(q "$2") $(q "$3") $(q "$b64")" < "$CLIENT"
+}
+
+usage() {
+  cat <<EOF
+aiuq — AIUQ experiments from the laptop  (Autosubmit host: $AS_HOST · HPC: $HPC_HOST, user $HPC_USER)
+
+Read-only
+  health                         ssh to both hosts, dashboard freshness
+  list                           all experiments: state, model, ICS, progress
+  status   <expid>               progress, ETA, running/queued jobs, SLURM, failures, outputs
+  failed   <expid>               error excerpt (traceback) of every FAILED job
+  conf     <expid>               conf/main.yml + git branch of the experiment
+  runlog   <expid> [N]           tail of the 'autosubmit run' output (default 60 lines)
+  logs     <expid>               list the job logs on the HPC (newest first)
+  log      <expid> <job> [out|err|both] [N]   tail of a job's stdout/stderr (default both, 80 lines)
+  queue                          SLURM queue (yours + GPU partitions), partitions, GPU use
+  outputs  <expid>               output NetCDF files on the HPC (var/member/file, size)
+  ncinfo   <expid> <rel.nc>      xarray summary of an output file (path relative to outputs/)
+  py [--srun] <expid> <script.py> [args...]   run a LOCAL python script on the HPC, cwd = experiment root
+                                 (env AIUQ_EXP_ROOT, AIUQ_OUTPUTS; --srun runs it in a Slurm CPU job)
+  fetch    <expid> <rel|glob> [dest]   rsync outputs to the laptop (default ./aiuq-data/<expid>/)
+  options  [branch]              what can be launched: models, checkpoints on the HPC, ICS, variables, levels
+  template <expid>               launcher JSON of an existing experiment (start a new one from it)
+  preview  <cfg.json>            validate a launcher JSON: errors, warnings, main.yml, cost estimate
+  tasks | task <id>              launcher tasks (create/run/stop) and their output
+  delete-plan <expid>            what deleting would remove, and what blocks it
+  api      <GET path>            raw JSON from the dashboard API (e.g. '/api/series?exp=...')
+  as-ro    <autosubmit args>     read-only autosubmit: describe <expid>, -v, or any command with -h
+
+Changes state (need --yes, only after the user confirmed)
+  create   <cfg.json> --yes      autosubmit expid + conf/main.yml + autosubmit create (nothing submitted)
+  run      <expid> --yes         start 'autosubmit run' detached (systemd --user unit on $AS_HOST)
+  stop     <expid> [--cancel] --yes   stop the run (--cancel also scancels queued/running jobs)
+  as       <autosubmit args> --yes    any autosubmit command (setstatus, refresh, create, recovery ...)
+  sh-as    '<cmd>' / sh-hpc '<cmd>'   raw shell on a host (read-only use is fine; writes need user consent)
+
+Env: AIUQ_AS_HOST AIUQ_HPC_HOST AIUQ_HPC_USER AIUQ_HPC_BASE AIUQ_FETCH_MAX_GB AIUQ_TAIL AIUQ_WAIT
+EOF
+}
+
+# --------------------------------------------------------------------------- parse global flags
+# only the long form: autosubmit's own `-y` (e.g. `aiuq as stop -y <expid> --yes`) must pass through
+YES=0; ARGS=()
+for a in "$@"; do
+  case "$a" in
+    --yes) YES=1 ;;
+    *) ARGS+=("$a") ;;
+  esac
+done
+set -- "${ARGS[@]+"${ARGS[@]}"}"
+cmd="${1:-help}"; shift || true
+
+case "$cmd" in
+  help|-h|--help) usage ;;
+
+  health)
+    echo "== $AS_HOST"
+    on_as 'echo "host $(hostname) · autosubmit $($HOME/miniconda3/bin/autosubmit -v 2>&1 | tail -1) · dashboard unit: $(systemctl --user is-active aiuq-dashboard 2>/dev/null)"'
+    dash GET /api/health health || true
+    echo "== $HPC_HOST"
+    on_hpc 'echo "host $(hostname) · my SLURM jobs: $(squeue -h -u $USER | wc -l)"' ;;
+
+  list)    dash GET /api/experiments list ;;
+  status)  need_expid "${1:-}"; dash GET "/api/exp/$1" status ;;
+  failed)  need_expid "${1:-}"; dash GET "/api/exp/$1" failed ;;
+
+  conf)
+    need_expid "${1:-}"
+    on_as "cat ~/autosubmit/$1/conf/main.yml; echo '--- minimal.yml (git)'; grep -A4 '^GIT:' ~/autosubmit/$1/conf/minimal.yml" ;;
+
+  runlog)
+    need_expid "${1:-}"; n="${2:-60}"; [[ "$n" =~ ^[0-9]+$ ]] || die "N must be a number"
+    # strip colours; collapse the harmless 'sacct ... accounting storage is disabled' noise (felipe has no sacct)
+    on_as "tail -n $((n * 4)) ~/autosubmit/${1}_run.out | sed 's/\x1b\[[0-9;]*m//g' | grep -v -e 'Slurm accounting storage is disabled' -e '^\[eCode=6006\]' | tail -n $n" ;;
+
+  logs)
+    need_expid "${1:-}"
+    on_hpc "ls -lt --time-style=+%m-%d_%H:%M $(q "$(root_of "$1")/LOG_$1") | head -60" ;;
+
+  log)
+    need_expid "${1:-}"; need_job "${2:-}"; kind="${3:-both}"; n="${4:-80}"
+    [[ "$kind" =~ ^(out|err|both)$ ]] || die "kind must be out, err or both"
+    [[ "$n" =~ ^[0-9]+$ ]] || die "N must be a number"
+    script='d=$1; job=$2; kind=$3; n=$4; found=0
+      for k in out err; do
+        [ "$kind" = both ] || [ "$kind" = "$k" ] || continue
+        f=$(ls -t "$d" 2>/dev/null | grep -E "^${job}\.(cmd\.${k}\.[0-9]+|[0-9]{14}\.${k})$" | head -1)
+        [ -n "$f" ] || continue
+        found=1; echo "===== $d/$f"
+        tail -n "$n" "$d/$f" | grep -v "^+" || true
+      done
+      [ $found = 1 ] || { echo "no $kind log for $job in $d"; exit 4; }'
+    if ! on_hpc "bash -c $(q "$script") _ $(q "$(root_of "$1")/LOG_$1") $(q "$2") $kind $n"; then
+      echo "(not on $HPC_HOST — trying jobs that run on $AS_HOST, e.g. SYNCHRONIZE)"
+      on_as "bash -c $(q "$script") _ ~/autosubmit/$1/tmp/LOG_$1 $(q "$2") $kind $n"
+    fi ;;
+
+  queue)
+    on_hpc 'echo "== my jobs"; squeue -u $USER -o "%.10i %.10P %.42j %.9T %.10M %.10l %R"
+            echo; echo "== GPU partitions (all users)"; squeue -h -p gpu,fat_felipe,felipe -o "%u %P %T %b" | sort | uniq -c
+            echo; echo "== partitions"; sinfo -o "%.12P %.6a %.12l %.4D %.8t %G"
+            echo; echo "== GPUs"; nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total --format=csv,noheader 2>/dev/null || echo "nvidia-smi unavailable"' ;;
+
+  outputs)
+    need_expid "${1:-}"
+    on_hpc "cd $(q "$(root_of "$1")/outputs") 2>/dev/null || { echo 'no outputs/ folder yet'; exit 0; }
+            find . -name '*.nc' -printf '%P\t%s\t%TY-%Tm-%Td %TH:%TM\n' | sort -V | awk -F'\t' '{printf \"%-60s %8.2f GB  %s\n\", \$1, \$2/1e9, \$3; t+=\$2; n++} END {printf \"%d files, %.2f GB\n\", n, t/1e9}'" ;;
+
+  ncinfo)
+    need_expid "${1:-}"; need_rel "${2:-}"
+    on_hpc "python3 -W ignore - $(q "$(root_of "$1")/outputs/$2")" <<'PY'
+import sys, xarray as xr
+ds = xr.open_dataset(sys.argv[1], decode_timedelta=True)
+print(ds)
+for v in ds.data_vars:
+    print("\n%s attrs: %s" % (v, dict(ds[v].attrs)))
+print("\nglobal attrs:", dict(ds.attrs))
+PY
+    ;;
+
+  py)
+    srun=0; if [[ "${1:-}" == "--srun" ]]; then srun=1; shift; fi
+    need_expid "${1:-}"; [[ -f "${2:-}" ]] || die "local script '${2:-}' not found"
+    e="$1"; script="$2"; shift 2
+    root="$(root_of "$e")"; rargs=""
+    for a in "$@"; do rargs+=" $(q "$a")"; done
+    runner="python3 -"
+    [[ $srun == 1 ]] && runner="srun -p ${AIUQ_SRUN_PARTITION:-felipe} -c ${AIUQ_SRUN_CPUS:-4} --mem=${AIUQ_SRUN_MEM:-16G} -t ${AIUQ_SRUN_TIME:-60} python3 -"
+    on_hpc "cd $(q "$root") && AIUQ_EXP_ROOT=$(q "$root") AIUQ_OUTPUTS=$(q "$root/outputs") $runner$rargs" < "$script" ;;
+
+  fetch)
+    need_expid "${1:-}"; need_rel "${2:-}"
+    src="$(root_of "$1")/outputs/$2"; dest="${3:-./aiuq-data/$1}"
+    size=$(on_hpc "du -cb $src 2>/dev/null | tail -1 | cut -f1")
+    [[ "$size" =~ ^[0-9]+$ && "$size" -gt 0 ]] || die "nothing matches $src"
+    gbs=$(awk -v s="$size" 'BEGIN{printf "%.2f", s/1e9}')
+    echo "selected $gbs GB on $HPC_HOST:$src (destination $dest)"
+    awk -v s="$size" -v m="$FETCH_MAX_GB" 'BEGIN{exit !(s/1e9 > m)}' && [[ $YES != 1 ]] \
+      && die "$gbs GB is above AIUQ_FETCH_MAX_GB=$FETCH_MAX_GB: reduce on the HPC first (aiuq py), or re-run with --yes after the user agrees"
+    mkdir -p "$dest"
+    rsync -ah --partial --progress -e "ssh -o BatchMode=yes -o ControlMaster=auto -o ControlPath=$CM_DIR/aiuq-%C -o ControlPersist=20m" \
+      "$HPC_HOST:$src" "$dest/" ;;
+
+  options)
+    b="${1:-main}"; [[ "$b" =~ ^[A-Za-z0-9._/-]+$ ]] || die "bad branch name"
+    dash GET "/api/launcher/options?branch=$b" options ;;
+
+  template) need_expid "${1:-}"; dash GET "/api/launcher/template/$1" raw ;;
+  preview)  [[ -f "${1:-}" ]] || die "give a launcher JSON file"; dash POST /api/launcher/preview preview "$1" ;;
+  tasks)    dash GET /api/launcher/tasks tasks ;;
+  task)     [[ "${1:-}" =~ ^[0-9a-f]{6,32}$ ]] || die "bad task id"; AIUQ_TAIL="${AIUQ_TAIL:-60}" dash GET "/api/launcher/tasks/$1" task ;;
+  delete-plan) need_expid "${1:-}"; dash GET "/api/launcher/delete-plan/$1" deleteplan ;;
+
+  api)
+    p="${1:-}"; [[ "$p" == /api/* && "$p" != *launcher* ]] || die "only GET /api/... paths (launcher actions have their own commands)"
+    dash GET "$p" json ;;
+
+  create)
+    [[ -f "${1:-}" ]] || die "give a launcher JSON file"; need_yes create
+    dash POST /api/launcher/create act "$1" ;;
+
+  run)
+    need_expid "${1:-}"; need_yes run
+    dash POST "/api/launcher/run/$1" act ;;
+
+  stop)
+    need_expid "${1:-}"; need_yes stop; cancel=false
+    [[ "${2:-}" == "--cancel" ]] && cancel=true
+    dash POST "/api/launcher/stop/$1?cancel=$cancel" act ;;
+
+  as-ro|as)
+    [[ $# -ge 1 ]] || die "give autosubmit arguments"
+    sub="$1"
+    if [[ "$cmd" == as-ro ]]; then
+      help=0; for a in "$@"; do [[ "$a" == -h || "$a" == --help ]] && help=1; done
+      [[ $help == 1 || "$sub" =~ ^(describe|-v|--version|-h|--help)$ ]] \
+        || die "'$sub' is not in the read-only list (describe, -v, any '-h'); use 'aiuq as ... --yes' after the user confirmed"
+    else
+      need_yes "autosubmit $sub"
+    fi
+    rargs=""; for a in "$@"; do rargs+=" $(q "$a")"; done
+    on_as "set -o pipefail; cd ~/autosubmit && PATH=$AS_PATH:\$PATH autosubmit$rargs < /dev/null 2>&1 | sed 's/\x1b\[[0-9;]*m//g'" ;;
+
+  sh-as)  [[ -n "${1:-}" ]] || die "give a command"; on_as "$1" ;;
+  sh-hpc) [[ -n "${1:-}" ]] || die "give a command"; on_hpc "$1" ;;
+
+  *) usage; die "unknown command '$cmd'" ;;
+esac
