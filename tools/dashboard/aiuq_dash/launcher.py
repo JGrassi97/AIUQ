@@ -10,6 +10,7 @@ import logging
 import os
 import re
 import shlex
+import shutil
 import subprocess
 import threading
 import time
@@ -24,6 +25,9 @@ log = logging.getLogger("aiuq_dash.launcher")
 GIT_REPO = os.environ.get("AIUQ_GIT_REPO", "https://github.com/JGrassi97/AIUQ.git")
 PLATFORM = os.environ.get("AIUQ_LAUNCH_PLATFORM", "FELIPE")
 SUPPORT_FOLDER = os.environ.get("AIUQ_SUPPORT_FOLDER", f"/work/users/{settings.REMOTE_USER}/AIUQ")
+# OUTPUT_STORE.DIR (a folder on this host) is written into main.yml only when the form sets it; otherwise the
+# branch's default applies: conf/jobs/<platform>/ics/<ics>/<ics>.yml, else conf/general.yml.
+STORE_RE = re.compile(r"^/[A-Za-z0-9_./-]+$")
 REPO_DIR = settings.STATE_DIR / "repo.git"
 AUDIT = settings.STATE_DIR / "launcher.log"
 AS_BIN = os.path.join(os.path.dirname(settings.AS_PYTHON), "autosubmit")
@@ -110,6 +114,27 @@ def repo_yaml(branch, path):
 _opts_cache = {}
 
 
+def _store_dir(conf):
+    return ((conf or {}).get("OUTPUT_STORE") or {}).get("DIR")
+
+
+def output_store_defaults(branch, ics_list):
+    """{ics: default OUTPUT_STORE.DIR} on this branch; empty when the branch has no output store (no ARCHIVE job)."""
+    try:
+        general = _store_dir(repo_yaml(branch, "conf/general.yml"))
+    except RuntimeError:
+        general = None
+    if not general:
+        return {}
+    out = {}
+    for ics in ics_list:
+        try:
+            out[ics] = _store_dir(repo_yaml(branch, f"conf/jobs/{PLATFORM}/ics/{ics}/{ics}.yml")) or general
+        except RuntimeError:
+            out[ics] = general
+    return out
+
+
 def options(branch):
     """Everything the form needs for one branch: models, checkpoints, ICS, variables, levels."""
     if branch not in branches():
@@ -129,6 +154,7 @@ def options(branch):
     std_by_code = {int(k): v for k, v in std.items()}
     plat_models = repo_ls(branch, f"conf/jobs/{PLATFORM}/models")
     plat_ics = repo_ls(branch, f"conf/jobs/{PLATFORM}/ics")
+    store_by_ics = output_store_defaults(branch, plat_ics)
     ckpts = checkpoints_on_hpc()
     models = []
     for card in repo_ls(branch, "conf/cards/models"):
@@ -154,7 +180,8 @@ def options(branch):
     models.sort(key=lambda m: (not m["on_platform"], m["label"]))
     res = {"branch": branch, "platform": PLATFORM, "ics": plat_ics, "models": models, "std_version": std_version,
            "forcings": FORCINGS, "resolutions": RESOLUTIONS, "freqs": FREQS, "chunk_units": CHUNK_UNITS,
-           "support_folder": SUPPORT_FOLDER, "user_code": settings.REMOTE_USER, "checkpoints_checked": bool(ckpts)}
+           "support_folder": SUPPORT_FOLDER, "user_code": settings.REMOTE_USER, "checkpoints_checked": bool(ckpts),
+           "store_by_ics": store_by_ics}
     _opts_cache[branch] = (time.time(), res)
     return res
 
@@ -285,6 +312,18 @@ def validate(cfg):
         errors.append("Write a short description.")
     if len(desc) > 200 or any(ch in desc for ch in "\n\r"):
         errors.append("The description must be a single line under 200 characters.")
+    store = str(cfg.get("output_store") or "").strip().rstrip("/") or None
+    if store is None:
+        pass  # the branch default for these initial conditions (opts["store_by_ics"])
+    elif not opts["store_by_ics"]:
+        errors.append(f"Branch {branch} has no output store (no ARCHIVE job): leave the output store empty.")
+    elif not STORE_RE.match(store) or ".." in store or store.count("/") < 2:
+        errors.append("The output store must be an absolute folder on the Autosubmit host, e.g. /data/users/<user>/AIUQ-outputs.")
+    elif not os.path.isdir(store):
+        if os.path.isdir(os.path.dirname(store)):
+            warnings.append(f"The output store {store} does not exist yet: the ARCHIVE job will create it.")
+        else:
+            errors.append(f"The parent folder of the output store ({os.path.dirname(store)}) does not exist on this host.")
     sims = len(dates) * members * max(num_chunks, 0)
     if sims > 3000:
         warnings.append(f"This creates {sims} simulation jobs.")
@@ -292,7 +331,7 @@ def validate(cfg):
              "run_type": run_type, "forcing": forcing, "members": members, "dates": dates, "chunk_size": chunk_size,
              "chunk_unit": unit, "num_chunks": num_chunks, "out_vars": out_vars, "out_levs": levs, "out_res": res,
              "out_freq": freq, "description": desc, "support_folder": SUPPORT_FOLDER, "user_code": settings.REMOTE_USER,
-             "sims": sims}
+             "output_store": store, "sims": sims}
     return clean, errors, warnings
 
 
@@ -328,7 +367,11 @@ PATHS:
 PLATFORM:
   NAME: {PLATFORM}
   USER_CODE: {c['user_code']}
-"""
+""" + (f"""
+# Finished outputs are moved here (on the Autosubmit host) by the ARCHIVE job.
+OUTPUT_STORE:
+  DIR: {c['output_store']}
+""" if c.get("output_store") else "")
 
 
 def expid_cmd(c):
@@ -362,7 +405,8 @@ def template(expid):
             "chunk_size": conf.get("chunk_size") or 1, "chunk_unit": conf.get("chunk_unit") or "day",
             "num_chunks": conf.get("num_chunks") or 1, "out_vars": conf.get("out_vars") or [],
             "out_levs": lev if lev == "original" else (lev or []), "out_res": str(conf.get("out_res") or "1"),
-            "out_freq": conf.get("out_freq") or "daily", "description": f"copy of {expid}"}
+            "out_freq": conf.get("out_freq") or "daily", "description": f"copy of {expid}",
+            "output_store": conf.get("output_store")}
 
 
 # ---------------------------------------------------------------------------- tasks
@@ -562,6 +606,65 @@ def _slurm_jobs(expid):
     return [j for j in (r.get("slurm") or {}).get("jobs", []) if j.get("name", "").startswith(expid + "_")]
 
 
+def _store_path(expid):
+    """Output-store folder of an archived experiment (recorded by the ARCHIVE job in <expid>/OUTPUT_STORE.json)."""
+    rec = local.store_marker(expid) or {}
+    return rec.get("dir") or None
+
+
+def _inspect_store(expid, path):
+    """Checks before removing an output-store folder (on this host): it must be <store>/<expid>_<suffix>, a real
+    folder owned by us, holding LOG_<expid> or archive.json of this expid. Returns the size like the HPC inspect."""
+    p = os.path.abspath(path)
+    name = os.path.basename(p)
+    if p != path.rstrip("/") or ".." in path or p.count("/") < 3:
+        return {"ok": False, "error": f"unexpected path {path}"}
+    if not re.match(rf"^{re.escape(expid)}_[0-9A-Za-z_]+$", name):
+        return {"ok": False, "error": f"{name} is not named {expid}_<time>"}
+    if not os.path.lexists(p):
+        return {"ok": True, "exists": False}
+    if os.path.islink(p) or not os.path.isdir(p):
+        return {"ok": False, "error": f"{p} is a link or not a folder"}
+    if os.stat(p).st_uid != os.getuid():
+        return {"ok": False, "error": f"{p} is not owned by {settings.USER}"}
+    try:
+        with open(os.path.join(p, "archive.json")) as fh:
+            arch_expid = json.load(fh).get("expid")
+    except (OSError, ValueError):
+        arch_expid = None
+    if arch_expid not in (None, expid) or (arch_expid is None and not os.path.isdir(os.path.join(p, f"LOG_{expid}"))):
+        return {"ok": False, "error": f"{p} does not hold experiment {expid}"}
+    files = size = nc = nc_bytes = 0
+    for dirpath, _dirs, fns in os.walk(p, followlinks=False):
+        for fn in fns:
+            try:
+                sz = os.lstat(os.path.join(dirpath, fn)).st_size
+            except OSError:
+                continue
+            files, size = files + 1, size + sz
+            if fn.endswith(".nc"):
+                nc, nc_bytes = nc + 1, nc_bytes + sz
+    return {"ok": True, "exists": True, "files": files, "bytes": size, "nc_files": nc, "nc_bytes": nc_bytes,
+            "top": sorted(os.listdir(p))}
+
+
+def _delete_store(t, expid, path):
+    t.step(f"Deleting {path} (output store)")
+    _set_leftover(expid, path, True, kind="store")
+    info = _inspect_store(expid, path)  # checked again right before removing
+    if not info.get("ok"):
+        raise RuntimeError(f"{info.get('error')}; listed under “Leftover folders”")
+    if info.get("exists"):
+        errors = []
+        shutil.rmtree(path, onerror=lambda _f, pth, exc: errors.append(f"{pth}: {exc[1]}"))
+        if os.path.lexists(path):
+            for e in errors[:20]:
+                t.say(e)
+            raise RuntimeError(f"{len(errors)} files could not be removed; the folder is listed under “Leftover folders”")
+    _set_leftover(expid, path, False, kind="store")
+    t.say(f"deleted {path}")
+
+
 def _inspect_remote(expid, path):
     return remote.run_helper("felipe_delete.py", {"mode": "inspect", "expid": expid, "path": path, "roots": DELETE_ROOTS}, timeout=180)
 
@@ -579,6 +682,8 @@ def delete_plan(expid):
             remote_info = _inspect_remote(expid, rpath)
         except remote.RemoteError as exc:
             remote_info = {"ok": False, "error": f"cannot inspect the HPC folder: {exc}"}
+    spath = _store_path(expid)
+    store_info = _inspect_store(expid, spath) if spath else {"ok": True, "exists": False}
     jobs = _slurm_jobs(expid)
     blockers = []
     if expid in local.running_autosubmit():
@@ -587,12 +692,15 @@ def delete_plan(expid):
         blockers.append(f"{len(jobs)} job(s) of this experiment are still in the SLURM queue: stop it with “also cancel jobs” first.")
     if rpath and not remote_info.get("ok"):
         blockers.append(f"The HPC folder will not be touched: {remote_info.get('error')}. Fix this before deleting.")
+    if spath and not store_info.get("ok"):
+        blockers.append(f"The output-store folder will not be touched: {store_info.get('error')}. Fix this before deleting.")
     conf = local.read_conf(expid)
     return {"expid": expid, "description": local.descriptions().get(expid), "model": conf.get("model"), "ics": conf.get("ics"),
             "local": {"path": str(lpath), "files": files, "bytes": size,
                       "extra": [f"Autosubmit database entry of {expid}", f"job history (metadata/data/job_data_{expid}.*)",
                                 f"structure database (metadata/structures/structure_{expid}.db)"]},
             "remote": {**remote_info, "path": rpath, "host": settings.REMOTE_HOST},
+            "store": {**store_info, "path": spath},
             "slurm_jobs": [{"id": j.get("id"), "name": j.get("name"), "state": j.get("state")} for j in jobs],
             "blockers": blockers}
 
@@ -604,11 +712,11 @@ def leftovers():
         return []
 
 
-def _set_leftover(expid, path, add):
+def _set_leftover(expid, path, add, kind="hpc"):
     with _left_lock:
-        items = [x for x in leftovers() if x.get("expid") != expid]
+        items = [x for x in leftovers() if not (x.get("expid") == expid and x.get("kind", "hpc") == kind)]
         if add:
-            items.append({"expid": expid, "path": path, "since": dt.datetime.now().isoformat(timespec="seconds")})
+            items.append({"expid": expid, "path": path, "kind": kind, "since": dt.datetime.now().isoformat(timespec="seconds")})
         settings.STATE_DIR.mkdir(parents=True, exist_ok=True)
         tmp = LEFTOVERS.with_suffix(".tmp")
         tmp.write_text(json.dumps(items, indent=1))
@@ -635,42 +743,55 @@ def delete(expid, confirm):
     if plan["blockers"]:
         raise ValueError(" ".join(plan["blockers"]))
     task = Task("delete", expid)
-    rem = plan["remote"]
+    rem, sto = plan["remote"], plan["store"]
     audit("delete:start", expid=expid, local_bytes=plan["local"]["bytes"], remote_path=rem.get("path"),
-          remote_bytes=rem.get("bytes"), remote_files=rem.get("files"), nc_files=rem.get("nc_files"))
+          remote_bytes=rem.get("bytes"), remote_files=rem.get("files"), nc_files=rem.get("nc_files"),
+          store_path=sto.get("path"), store_bytes=sto.get("bytes"), store_nc_files=sto.get("nc_files"))
 
     def work(t):
         t.step("Removing the experiment from Autosubmit (autosubmit delete)")
         _run(t, [AS_BIN, "delete", "-f", expid], timeout=900)
         if (settings.AS_ROOT / expid).exists():
             raise RuntimeError("autosubmit delete finished but the experiment folder is still there; the HPC folder was not touched")
+        if sto.get("path") and sto.get("exists"):  # the record that pointed to it is gone with the experiment
+            _set_leftover(expid, sto["path"], True, kind="store")
         if rem.get("path") and rem.get("ok") and rem.get("exists"):
             _delete_remote(t, expid, rem["path"])
         else:
             t.say(f"nothing to delete on {settings.REMOTE_HOST} ({rem.get('path') or 'no folder recorded'} does not exist)")
+        if sto.get("path") and sto.get("exists"):
+            _delete_store(t, expid, sto["path"])
         t.step(f"{expid} deleted", "done")
 
     return _start(task, work)
 
 
 def retry_leftover(expid):
-    item = next((x for x in leftovers() if x.get("expid") == expid), None)
-    if not item:
+    items = [x for x in leftovers() if x.get("expid") == expid]
+    if not items:
         raise ValueError("no leftover folder for this experiment")
-    if (settings.AS_ROOT / expid).exists():
+    if (settings.AS_ROOT / expid).exists() and any(x.get("kind", "hpc") == "hpc" for x in items):
         raise ValueError(f"{expid} exists again in Autosubmit; not touching its HPC folder")
     task = Task("cleanup", expid)
-    audit("cleanup:start", expid=expid, remote_path=item["path"])
+    audit("cleanup:start", expid=expid, paths=[x["path"] for x in items])
 
     def work(t):
-        info = _inspect_remote(expid, item["path"])
-        if not info.get("ok"):
-            raise RuntimeError(info.get("error"))
-        if info.get("exists"):
-            _delete_remote(t, expid, item["path"])
-        else:
-            _set_leftover(expid, item["path"], False)
-            t.say(f"{item['path']} is already gone")
+        for item in items:
+            if item.get("kind") == "store":  # unique <expid>_<time> folder: safe even if the expid is reused
+                _delete_store(t, expid, item["path"])
+            else:
+                _cleanup_hpc(t, expid, item)
         t.step("Done", "done")
 
     return _start(task, work)
+
+
+def _cleanup_hpc(t, expid, item):
+    info = _inspect_remote(expid, item["path"])
+    if not info.get("ok"):
+        raise RuntimeError(info.get("error"))
+    if info.get("exists"):
+        _delete_remote(t, expid, item["path"])
+    else:
+        _set_leftover(expid, item["path"], False)
+        t.say(f"{item['path']} is already gone")

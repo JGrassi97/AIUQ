@@ -171,7 +171,7 @@ function renderOutputs(v) {
   const vars = Object.keys(o.by_var_member).sort();
   $("#o-note").textContent = o.fetched ? `${o.n} files · ${fmtBytes(o.size)}` : "";
   if (!vars.length) {
-    body.innerHTML = `<div class="empty">No outputs yet${o.fetched ? "" : " (not listed yet)"}. Files will appear here once the simulations write them to ${esc(v.remote.root || "?")}/outputs.</div>`;
+    body.innerHTML = `<div class="empty">No outputs yet${o.fetched ? "" : " (not listed yet)"}. Files will appear here once the simulations write them to ${esc(o.dir || (v.remote.root || "?") + "/outputs")}.</div>`;
     P.built = false;
     return;
   }
@@ -183,6 +183,8 @@ function renderOutputs(v) {
   const latest = Math.max(...vars.flatMap((x) => Object.values(o.by_var_member[x]).map((b) => b.latest)));
   $("#o-sum").innerHTML = `<span class="stat-chip"><b>${o.n}</b> NetCDF files</span><span class="stat-chip"><b>${fmtBytes(o.size)}</b></span>
     <span class="stat-chip">variables <b>${vars.map((x) => esc(varName(x))).join(", ")}</b></span>
+    ${o.archive ? `<span class="stat-chip" title="Moved by the ARCHIVE job${o.archive.updated_at ? " on " + esc(o.archive.updated_at) : ""} from ${esc(o.archive.source || "the HPC")}">in output store <b>${esc(o.archive.dir || o.dir)}</b></span>`
+                : `<span class="stat-chip" title="${esc(o.dir || "")}">on <b>${esc(v.remote.host)}</b></span>`}
     <span class="stat-chip"><b>${mems.length}</b> member${mems.length === 1 ? "" : "s"}</span>
     <span class="stat-chip">newest file <b>${fmtAgo(latest)}</b></span>`;
   $("#x-out-table").innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>Variable</th>${mems.map((m) => `<th class="num">m${esc(m)}</th>`).join("")}<th class="num">Size</th></tr></thead><tbody>

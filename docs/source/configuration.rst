@@ -121,6 +121,42 @@ Output controls
 Output support depends on the model's postprocessing implementation. Consult its
 job configuration and templates when extending these settings to a new model.
 
+Output store
+------------
+
+On FELIPE the ``ARCHIVE`` job runs once, on the Autosubmit host, after every
+simulation job (and, for AIFS, every ``POSTPROCESS`` and ``CLEAN`` job). It copies
+the experiment folder of the HPC to ``<OUTPUT_STORE.DIR>/<expid>_<YYYYmmddTHHMMSS>/``
+(Autosubmit can reuse an expid, so the time of the first archive makes the name
+unique): ``outputs/`` (restart checkpoints included, temporary files excluded),
+the whole ``LOG_<expid>/``, ``runscripts/``, ``conf/`` and ``lib/``, the experiment's
+Autosubmit configuration in ``autosubmit/`` and an ``archive.json`` record (source,
+time, files, bytes, git commit). It records the folder in
+``~/autosubmit/<expid>/OUTPUT_STORE.json``, which the Monitor follows, and then
+removes ``<HPCROOTDIR>`` from the HPC (initial conditions included).
+
+.. list-table:: ``OUTPUT_STORE`` settings (defaults in ``conf/general.yml``)
+   :header-rows: 1
+   :widths: 25 35 40
+
+   * - Setting
+     - Default
+     - Purpose
+   * - ``DIR``
+     - ``/data/users/jgrassi/AIUQ-outputs``
+     - Store folder on the Autosubmit host. Set it per experiment in ``main.yml``
+       or in the Launcher.
+   * - ``DELETE_SOURCE``
+     - ``true``
+     - Remove ``<HPCROOTDIR>`` once a second rsync pass finds nothing left to
+       copy. ``false`` keeps the HPC folder.
+   * - ``ENABLED``
+     - ``true``
+     - ``false`` leaves everything on the HPC (the job finishes without doing anything).
+
+The job refuses to move anything while Slurm still lists jobs of the experiment.
+Running it again completes the same folder.
+
 AMIP forcings
 -------------
 

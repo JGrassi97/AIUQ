@@ -228,6 +228,37 @@ Note that some ICs require credentials to be retrieved:
 - EERIE -> MARS - ECMWF Web API credentials required ([read here](https://www.ecmwf.int/en/computing/software/ecmwf-web-api))
 - ECMWF analysis (`ecmwf-an`) -> [ECMWF Open Data](https://www.ecmwf.int/en/forecasts/datasets/open-data) - No credentials required
 
+#### Output store
+
+On FELIPE the last job of every experiment, `ARCHIVE`, moves the experiment off the HPC scratch into an output store
+on the Autosubmit host, once every simulation (and, for AIFS, every `POSTPROCESS` and `CLEAN`) has completed.
+Autosubmit can reuse an expid after `autosubmit delete`, so each experiment gets its own folder:
+
+```
+<OUTPUT_STORE.DIR>/<expid>_<YYYYmmddTHHMMSS>/
+    outputs/<var>/<member>/*.nc   outputs (restart checkpoints in outputs/checkpoints)
+    LOG_<expid>/                  every job log, configuration, COMPLETED flag and STAT file
+    runscripts/ conf/ lib/        the code that ran
+    autosubmit/                   the experiment's Autosubmit configuration (main.yml, ...)
+    archive.json                  source, time, files, bytes, git commit of the project
+```
+
+The folder has the layout of the experiment folder on the HPC, so the Monitor, Compare, Weather and AIUQ-store read it
+directly. The job writes `~/autosubmit/<expid>/OUTPUT_STORE.json` on the Autosubmit host, which the Monitor and the
+`aiuq` skill follow. The HPC folder (`<HPCROOTDIR>`, initial conditions included) is removed only after a second
+rsync pass finds nothing left to copy. The default store is `/data/users/jgrassi/AIUQ-outputs` (`conf/general.yml`);
+choose another folder per experiment in `main.yml` or in the Launcher's "Output store" field:
+
+```
+OUTPUT_STORE:
+  DIR: /data/users/<user>/AIUQ-outputs   # a folder on the Autosubmit host
+  DELETE_SOURCE: true                    # false: copy only, keep the HPC folder
+  ENABLED: true                          # false: everything stays on the HPC
+```
+
+`ARCHIVE` refuses to move anything while Slurm still has jobs of the experiment; running it again completes the same
+folder. Experiments created before this job existed do not have it.
+
 #### Forecasting from the latest ECMWF analysis
 
 With `ICS: ecmwf-an`, `PREPARE_ICS` takes the IFS HRES state at step 0 (the analysis, 0.25°) from ECMWF Open Data and

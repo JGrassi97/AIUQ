@@ -87,7 +87,8 @@ what it would change.
 | Logs of local jobs (SYNCHRONIZE) | mafalda `~/autosubmit/<expid>/tmp/LOG_<expid>/` |
 | Logs of HPC jobs | felipe `<root>/LOG_<expid>/<job>.cmd.{out,err}.<attempt>` (Slurm) or `<job>.<timestamp>.{out,err}` (direct); `<job>_STAT_<n>` (start, end epoch, result); `<job>_COMPLETED` |
 | Job scripts as submitted | felipe `<root>/LOG_<expid>/<job>.cmd` |
-| Outputs | felipe `<root>/outputs/<var>/<member>/` |
+| Outputs | felipe `<root>/outputs/<var>/<member>/` while running. After `ARCHIVE` the whole experiment (outputs, `LOG_<expid>/`, code) is in mafalda `<store>/<expid>_<time>/` (readable from felipe at the same path; `~/autosubmit/<expid>/OUTPUT_STORE.json` on mafalda says where) and `<root>` is gone from felipe |
+| Logs of ARCHIVE | mafalda `~/autosubmit/<expid>/tmp/LOG_<expid>/` (local job) |
 | Initial conditions | felipe `<root>/ics/<ics>/<date>/` (zarr), temporary `ics_temp/` |
 | Dashboard action log | mafalda `~/.local/share/aiuq-dashboard/launcher.log` |
 

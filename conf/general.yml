@@ -3,6 +3,17 @@ DIRS:
   OUTPUT_DIR: "%HPCROOTDIR%/output"
   INI_DATA_PATH: "%HPCROOTDIR%/ics/%MODEL.ICS%"
 
+# Output store: once every simulation has finished, the ARCHIVE job (platforms that define it, see
+# conf/jobs/<platform>/models/, and templates/archive.sh) copies the experiment folder of the HPC (outputs,
+# logs, code) to <DIR>/<expid>_<time>/ on the Autosubmit host and records that folder in
+# <Autosubmit experiment>/OUTPUT_STORE.json, which the dashboards follow.
+# Override any key in the experiment's conf/main.yml, e.g. OUTPUT_STORE: {DIR: /data/users/me/other-store}.
+OUTPUT_STORE:
+  ENABLED: true
+  DIR: /data/users/jgrassi/AIUQ-outputs
+  # Remove the whole experiment folder from the HPC (<HPCROOTDIR>) once the copy is verified.
+  DELETE_SOURCE: true
+
 JOBS:
   SYNCHRONIZE:
     CHECK: on_submission

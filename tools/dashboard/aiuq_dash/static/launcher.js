@@ -9,6 +9,7 @@ const L = {
     branch: "main", model: null, checkpoint: null, ics: "era5", run_type: "hindcast", forcing: "ESA-CCI-v3.0",
     members: 10, dates: ["19890101"], chunk_size: 30, chunk_unit: "day", num_chunks: 1,
     out_vars: ["t", "z"], out_levs: [1000, 850, 500], out_res: "1", out_freq: "daily", description: "",
+    output_store: null,
   },
 };
 const ICS_LABEL = { era5: ["ERA5", "Google Cloud · from 1940"], eerie: ["EERIE", "MARS · ECMWF Web API"] };
@@ -182,7 +183,11 @@ function renderForm() {
       <div class="ln-row" style="margin-top:12px">
         <div class="ln-field">Resolution ${seg("out_res", o.resolutions.map((r) => [r, r === "original" ? "native" : `${r}°`]), c.out_res)}</div>
         <div class="ln-field">Frequency ${seg("out_freq", o.freqs.map((f) => [f, f === "original" ? "every step" : f]), c.out_freq)}</div>
-      </div>`);
+      </div>
+      <div class="ln-row" style="margin-top:12px">
+        <label class="ln-field grow">Output store <input type="text" class="mono" data-k="output_store" value="${esc(c.output_store || "")}" placeholder="${esc(o.store_by_ics?.[c.ics] || "no output store on this branch")}" spellcheck="false"></label>
+      </div>
+      <div class="note">${o.store_by_ics?.[c.ics] ? `When every simulation has finished, the ARCHIVE job moves the outputs from the HPC to <span class="mono">&lt;output store&gt;/&lt;expid&gt;/outputs</span> on the Autosubmit host and removes them from the HPC. Choose the folder here, or leave it empty for the default of branch <span class="mono">${esc(c.branch)}</span> (shown in grey).` : `Branch <span class="mono">${esc(c.branch)}</span> has no ARCHIVE job: outputs stay on the HPC.`}</div>`);
 }
 
 function onFormClick(e) {
@@ -221,6 +226,7 @@ function onFormChange(e) {
 function onFormInput(e) {
   const t = e.target, k = t.dataset.k, c = L.cfg;
   if (k === "description") { c.description = t.value; updatePreview(); return; }
+  if (k === "output_store") { c.output_store = t.value.trim() || null; updatePreview(); return; }
   if (k === "members") { c.members = Math.max(1, Math.min(100, +t.value || 1)); document.querySelectorAll('[data-k="members"]').forEach((x) => { if (x !== t) x.value = c.members; }); updatePreview(); return; }
   if (k === "chunk_size" || k === "num_chunks") { c[k] = Math.max(1, +t.value || 1); updatePreview(); return; }
   if (k?.startsWith("reg.")) { L.reg[k.slice(4)] = t.value; syncDates(); updateDatesInfo(); updatePreview(); return; }
@@ -404,8 +410,8 @@ async function renderDeleteList() {
   let left = [];
   try { left = (await api("/api/launcher/leftovers")).leftovers; } catch { /* ignore */ }
   el.innerHTML = `
-    ${left.length ? `<div class="finding f-warn" style="margin-bottom:12px">${ICONS.warn}<div><b>Leftover folders on the HPC</b> — these experiments were removed from Autosubmit but their working folder could not be deleted:
-      <ul class="recent" style="margin-top:6px">${left.map((x) => `<li><b>${esc(x.expid)}</b><span class="mono note">${esc(x.path)}</span>
+    ${left.length ? `<div class="finding f-warn" style="margin-bottom:12px">${ICONS.warn}<div><b>Leftover folders</b> — these experiments were removed from Autosubmit but a folder could not be deleted:
+      <ul class="recent" style="margin-top:6px">${left.map((x) => `<li><b>${esc(x.expid)}</b><span class="note">${x.kind === "store" ? "output store" : "HPC"}</span><span class="mono note">${esc(x.path)}</span>
         <button type="button" data-act="retry" data-exp="${esc(x.expid)}" style="margin-left:auto">Retry cleanup</button></li>`).join("")}</ul></div></div>` : ""}
     <div class="tbl-wrap"><table><thead><tr><th>Experiment</th><th>Model · ICS</th><th>Description</th><th>State</th><th></th></tr></thead><tbody>
     ${S.list.map((e) => `<tr><td><b>${e.expid}</b></td><td>${what(e.conf)}</td><td class="note" style="white-space:normal">${esc(e.description || "")}</td>
@@ -419,7 +425,7 @@ async function onDeleteClick(e) {
   if (!b || b.disabled) return;
   const x = b.dataset.exp;
   if (b.dataset.act === "retry") {
-    confirmDialog({ title: `Retry deleting the HPC folder of ${x}?`, body: `<p class="note">The folder was recorded when the deletion started; it is checked again before removing it.</p>`,
+    confirmDialog({ title: `Retry deleting the leftover folders of ${x}?`, body: `<p class="note">The folders were recorded when the deletion started; each is checked again before removing it.</p>`,
       ok: "Retry", danger: true, onOk: async () => startTask(await lapi(`/api/launcher/leftovers/${x}/retry`)) });
     return;
   }
@@ -439,6 +445,12 @@ async function onDeleteClick(e) {
     : `<li><span class="mono">${esc(r.path)}</span> on ${esc(r.host)}<br><b>${fmtBytes(r.bytes)}</b> in ${r.files.toLocaleString()} files${r.partial ? " (count stopped early: there are more)" : ""}
         ${r.nc_files ? `<br><b style="color:var(--st-failed)">including ${r.nc_files.toLocaleString()} NetCDF outputs (${fmtBytes(r.nc_bytes)})</b>` : ""}
         <br><span class="note">contains: ${esc((r.top || []).join(", "))}</span></li>`;
+  const s = p.store || {};
+  const storeHtml = !s.ok ? `<li><b style="color:var(--st-failed)">Will not be touched:</b> <span class="mono">${esc(s.path)}</span> — ${esc(s.error)}</li>`
+    : !s.exists ? `<li><span class="mono">${esc(s.path)}</span> <span class="note">— already gone, nothing to delete</span></li>`
+    : `<li><span class="mono">${esc(s.path)}</span><br><b>${fmtBytes(s.bytes)}</b> in ${s.files.toLocaleString()} files
+        ${s.nc_files ? `<br><b style="color:var(--st-failed)">including ${s.nc_files.toLocaleString()} NetCDF outputs (${fmtBytes(s.nc_bytes)})</b>` : ""}
+        <br><span class="note">contains: ${esc((s.top || []).join(", "))}</span></li>`;
   d.innerHTML = `<form method="dialog"><h3>Delete ${esc(x)} forever?</h3>
     <p>${esc(MODEL_NAMES[p.model] || p.model || "")} · ${esc((p.ics || "").toUpperCase())}${p.description ? ` · ${esc(p.description)}` : ""}</p>
     ${p.blockers.length ? p.blockers.map((m) => `<div class="finding f-warn">${ICONS.warn}<div>${esc(m)}</div></div>`).join("") : ""}
@@ -446,8 +458,9 @@ async function onDeleteClick(e) {
       <div><div class="chart-title">On mafalda — <span class="mono">autosubmit delete -f ${esc(x)}</span></div>
         <ul><li><span class="mono">${esc(p.local.path)}</span> · ${fmtBytes(p.local.bytes)} in ${p.local.files.toLocaleString()} files</li>${p.local.extra.map((t) => `<li>${esc(t)}</li>`).join("")}</ul></div>
       <div><div class="chart-title">On the HPC — working folder</div><ul>${remoteHtml}</ul></div>
+      ${s.path ? `<div><div class="chart-title">On mafalda — output store (archived experiment)</div><ul>${storeHtml}</ul></div>` : ""}
     </div>
-    <p class="note">Deletion runs in this order: Autosubmit first, then the HPC folder. If the HPC step fails, the folder is listed as a leftover you can retry. If other tools (e.g. AIUQ-store) catalogue these outputs, re-sync them afterwards.</p>
+    <p class="note">Deletion runs in this order: Autosubmit first, then the HPC folder, then the output-store folder of an archived experiment. If a folder cannot be removed, it is listed as a leftover you can retry. If other tools (e.g. AIUQ-store) catalogue these outputs, re-sync them afterwards.</p>
     ${p.blockers.length ? "" : `<label class="ln-field" style="margin-top:10px"><span>Type <span class="mono">${esc(x)}</span> to confirm</span>
       <input type="text" id="dl-confirm" autocomplete="off" spellcheck="false" style="max-width:200px"></label>`}
     <div class="dlg-err" id="dlg-err"></div>

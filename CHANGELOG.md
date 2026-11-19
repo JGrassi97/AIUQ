@@ -4,6 +4,14 @@ All notable changes to AIUQ are listed here. Versions follow [semantic versionin
 
 ## [1.0.1] - unreleased
 
+### Added
+- **Output store**: on FELIPE a final `ARCHIVE` job (Autosubmit host, `templates/archive.sh`) moves the experiment
+  folder from the HPC scratch to `<OUTPUT_STORE.DIR>/<expid>_<time>/` (unique even when Autosubmit reuses an expid;
+  default `/data/users/jgrassi/AIUQ-outputs`, configurable per experiment in `main.yml` or in the Launcher): outputs,
+  checkpoints, all job logs, the code that ran, the Autosubmit configuration and an `archive.json` record (git commit
+  included). The HPC folder is removed only after verification, and `~/autosubmit/<expid>/OUTPUT_STORE.json` points
+  to the store. The Monitor, the Launcher (new "Output store" field), Compare, Weather and the `aiuq` skill follow it.
+
 ### Fixed
 - **Out of memory in the SIM post-processing with fine output grids**: NeuralGCM and Aurora regridded every model
   level to `OUT_RES` and only then selected `OUT_LEVS`. A 16-day NeuralGCM run with `OUT_RES: 0.25` and two levels

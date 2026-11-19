@@ -11,12 +11,14 @@ machines over key-based ssh:
 
 | Host (ssh alias) | Role | What lives there |
 |---|---|---|
-| `mafalda` | Autosubmit host | `autosubmit` 4.1 (`~/miniconda3/bin`), experiments in `~/autosubmit/<expid>/` (`conf/main.yml`, `pkl/`, `tmp/LOG_<expid>/`), run output `~/autosubmit/<expid>_run.out`, **AIUQ dashboard** (Monitor + Launcher) on the private socket `~/.aiuq-dashboard/dash.sock` |
+| `mafalda` | Autosubmit host | `autosubmit` 4.1 (`~/miniconda3/bin`), experiments in `~/autosubmit/<expid>/` (`conf/main.yml`, `pkl/`, `tmp/LOG_<expid>/`), run output `~/autosubmit/<expid>_run.out`, **AIUQ dashboard** (Monitor + Launcher) on the private socket `~/.aiuq-dashboard/dash.sock`, **output stores** with finished experiments in `<store>/<expid>_<time>/`: default `/data/users/<user>/AIUQ-outputs`, chosen per experiment (`OUTPUT_STORE.DIR`); the ECMWF-analysis forecasts a00c…a010 are in `/data/users/<user>/AIUQ-forecast` (felipe mounts `/data` read-only at the same path) |
 | `felipe` | HPC (Slurm, 2× L40S GPUs shared with other users) | experiment root `/work/users/<user>/autosubmit_scratch/test/<user>/<expid>/` (`LOG_<expid>/`, `outputs/`, `ics/`), support folder `/work/users/<user>/AIUQ/` (checkpoints, `.sif` images, static, climatology) |
 
 The workflow per experiment: `SYNCHRONIZE` (mafalda → felipe rsync of `lib/ runscripts/ conf/`) →
 `PREPARE_ICS` (download initial conditions) → [AIFS: `WARMUP_REGRID*`, `SAVE_ICS`] → `SIM` (GPU, one per
-start date × member × chunk) → [AIFS: `POSTPROCESS` (cdo regrid), `CLEAN`]. Job names are
+start date × member × chunk) → [AIFS: `POSTPROCESS` (cdo regrid), `CLEAN`] → `ARCHIVE` (mafalda: moves
+the experiment folder to `<store>/<expid>_<time>/`, records it in `~/autosubmit/<expid>/OUTPUT_STORE.json` and removes
+`<root>` from felipe; experiments created before 2026-11-19 lack it). `aiuq logs/log/outputs/ncinfo/py/fetch` follow the record. Job names are
 `<expid>_<SDATE>_<member>_<chunk>_<SECTION>`, `<expid>_<SDATE>_<SECTION>` or `<expid>_<SECTION>`.
 
 ## The tool: `scripts/aiuq`
@@ -103,7 +105,8 @@ diagnose with [references/troubleshooting.md](references/troubleshooting.md) and
 Exact commands: [references/autosubmit-cli.md](references/autosubmit-cli.md). All of these need consent.
 
 ### Look at the results
-- `aiuq outputs <expid>` lists `outputs/<var>/<member>/out-<start>-<end>-<member>-<var>.nc`.
+- `aiuq outputs <expid>` lists `outputs/<var>/<member>/out-<start>-<end>-<member>-<var>.nc` (first line: the folder —
+  the output store once `ARCHIVE` has run, else `<root>/outputs`; `ncinfo`, `py` and `fetch` use the same folder).
 - `aiuq ncinfo <expid> <var>/<member>/<file>` for dimensions, coordinates, times.
 - Analyse on felipe: `aiuq py <expid> scripts/analysis/ensemble_box.py t --level 850 --box 6 10 44 47 --daily`
   (CSV of ensemble mean/spread/min/max per time; a point with `LON0=LON1, LAT0=LAT1`), or write your

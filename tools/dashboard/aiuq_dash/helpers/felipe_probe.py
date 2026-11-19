@@ -9,6 +9,9 @@ Request (base64 JSON in argv[1]):
    "exps": {"<expid>": {"root": "<HPCROOTDIR>", "stat_since": 0, "mars_since": 0,
                         "outputs": true, "failed": [job, ...], "running": [job, ...]}}}
 
+"root" is the HPC working folder or, once the ARCHIVE job is done, the experiment's output-store folder
+(same layout; felipe reads /data at the same path).
+
 Response (JSON on stdout): see ``main``.
 """
 import base64
@@ -210,10 +213,35 @@ def newest(logdir, names):
     return best, best_m
 
 
+def list_outputs(outdir):
+    files = []
+    if not os.path.isdir(outdir):
+        return files
+    for var in sorted(os.listdir(outdir)):
+        vdir = os.path.join(outdir, var)
+        if var in ("checkpoints", "tmp", "temp") or not os.path.isdir(vdir):
+            continue
+        for mem in sorted(os.listdir(vdir)):
+            mdir = os.path.join(vdir, mem)
+            if not os.path.isdir(mdir):
+                continue
+            for fn in os.listdir(mdir):
+                if not fn.endswith(".nc"):
+                    continue
+                try:
+                    st = os.stat(os.path.join(mdir, fn))
+                except OSError:
+                    continue
+                files.append([var, mem, fn, st.st_size, st.st_mtime])
+    return files
+
+
 def probe_exp(expid, opt):
     root = opt["root"]
     logdir = os.path.join(root, "LOG_%s" % expid)
     res = {"exists": os.path.isdir(root), "logdir": logdir}
+    outdir = os.path.join(root, "outputs")
+    res["outputs_dir"] = outdir
     if not res["exists"]:
         return res
     stats, logs = index_logs(logdir)
@@ -284,26 +312,7 @@ def probe_exp(expid, opt):
     res["tail"] = tails
 
     if opt.get("outputs"):
-        files = []
-        outdir = os.path.join(root, "outputs")
-        if os.path.isdir(outdir):
-            for var in sorted(os.listdir(outdir)):
-                vdir = os.path.join(outdir, var)
-                if var == "checkpoints" or not os.path.isdir(vdir):
-                    continue
-                for mem in sorted(os.listdir(vdir)):
-                    mdir = os.path.join(vdir, mem)
-                    if not os.path.isdir(mdir):
-                        continue
-                    for fn in os.listdir(mdir):
-                        if not fn.endswith(".nc"):
-                            continue
-                        try:
-                            st = os.stat(os.path.join(mdir, fn))
-                        except OSError:
-                            continue
-                        files.append([var, mem, fn, st.st_size, st.st_mtime])
-        res["outputs"] = files
+        res["outputs"] = list_outputs(outdir)
     return res
 
 

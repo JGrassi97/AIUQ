@@ -8,6 +8,21 @@
 <root> = /work/users/<user>/autosubmit_scratch/test/<user>/<expid>
 ```
 
+Once every simulation has finished, the `ARCHIVE` job (runs on mafalda) moves the whole experiment to the output
+store (`OUTPUT_STORE.DIR` in `main.yml`, default from `conf/general.yml`: `/data/users/<user>/AIUQ-outputs`), in a
+folder of its own because Autosubmit can reuse an expid:
+
+```
+<store>/<expid>_<YYYYmmddTHHMMSS>/outputs/...   # same layout as above, checkpoints included
+<store>/<expid>_<YYYYmmddTHHMMSS>/LOG_<expid>/  # all job logs
+<store>/<expid>_<YYYYmmddTHHMMSS>/archive.json  # source, time, files, bytes, git commit
+~/autosubmit/<expid>/OUTPUT_STORE.json          # on mafalda: the folder (status "done")
+```
+
+Then `<root>` is removed from felipe. felipe mounts `/data` read-only at the same path, so `aiuq` commands and
+analysis on felipe read the store directly. The ECMWF-analysis forecasts a00c…a010 are in
+`/data/users/<user>/AIUQ-forecast`.
+
 One file per variable × member × chunk (× start date: the start date shows up only as the first day
 in the name). Example: `t/7/out-2026-11-16-2026-12-02-7-t.nc`.
 AIFS writes intermediate `*_temp.nc` / `*_grid.nc` files that POSTPROCESS replaces with the final one;

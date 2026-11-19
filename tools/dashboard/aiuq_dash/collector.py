@@ -39,6 +39,7 @@ class ExpCache:
         self.err, self.err_sig = {}, {}
         self.tails = {}
         self.outputs, self.outputs_t = None, None
+        self.outputs_dir, self.archive = None, None
         self.remote_t, self.remote_error, self.remote_root = None, None, None
         self.local_stats = []
 
@@ -132,7 +133,14 @@ class Collector:
             if host and host != settings.REMOTE_HOST:
                 c.remote_error = f"jobs run on {host}; only {settings.REMOTE_HOST} is probed"
                 continue
-            c.remote_root = hpc.get("HPCROOTDIR") or f"{settings.REMOTE_BASE}/{e}"
+            # Once the ARCHIVE job has finished, the experiment folder (logs, outputs) is in the output store.
+            marker = local.store_marker(e)
+            if marker and marker.get("status") == "done" and marker.get("dir"):
+                root, c.archive = marker["dir"], marker
+            else:
+                root, c.archive = hpc.get("HPCROOTDIR") or f"{settings.REMOTE_BASE}/{e}", None
+            if root != c.remote_root:  # moved to the output store: read everything again from there now
+                c.remote_root, c.remote_t, c.outputs_t, c.outputs_dir = root, None, None, None
             busy = e in active or any(j["status"] in BUSY for j in c.jobs)
             due = busy or c.remote_t is None or now - c.remote_t >= settings.SLOW_REFRESH
             if not due:
@@ -226,6 +234,7 @@ class Collector:
         if "error" in r:
             c.remote_error = r["error"]
             return
+        c.outputs_dir = r.get("outputs_dir")
         if not r.get("exists"):
             c.remote_error = f"{c.remote_root} not found on {settings.REMOTE_HOST}"
             c.remote_t = now
@@ -476,7 +485,8 @@ def build_view(c, description, active, slurm, gpu, now):
                   "error": (slurm or {}).get("error"), "nodes": (slurm or {}).get("nodes", [])},
         "gpu": gpu,
         "outputs": {"files": out_files, "by_var_member": by_vm, "n": len(out_files),
-                    "size": sum(f[3] for f in out_files), "fetched": c.outputs_t},
+                    "size": sum(f[3] for f in out_files), "fetched": c.outputs_t,
+                    "dir": c.outputs_dir or f"{c.remote_root}/outputs", "archive": c.archive},
         "remote": {"t": c.remote_t, "error": c.remote_error, "root": c.remote_root, "host": settings.REMOTE_HOST},
         "pkl_error": c.pkl_error, "pkl_mtime": c.pkl_m,
     }

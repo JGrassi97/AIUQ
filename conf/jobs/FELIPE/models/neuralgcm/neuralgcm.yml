@@ -20,3 +20,16 @@ JOBS:
     THREADS: 20
     MEMORY: 49152
     CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
+
+  ARCHIVE:
+    # Moves the outputs to OUTPUT_STORE.DIR (conf/general.yml). Runs on the Autosubmit host after
+    # every SIM job (all dates, members and chunks).
+    CHECK: on_submission
+    FILE: templates/archive.sh
+    PLATFORM: local
+    RUNNING: once
+    DEPENDENCIES:
+      SIM:
+        DATES_TO: all
+        MEMBERS_TO: all
+        CHUNKS_TO: all

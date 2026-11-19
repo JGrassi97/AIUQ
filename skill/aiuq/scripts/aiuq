@@ -35,7 +35,21 @@ need_expid() { [[ "${1:-}" =~ ^[a-z0-9]{4}$ ]] || die "expected a 4-character ex
 need_job()   { [[ "${1:-}" =~ ^[A-Za-z0-9_-]+$ ]] || die "bad job name '${1:-}'"; }
 need_rel()   { [[ "${1:-}" =~ ^[A-Za-z0-9_.*/?-]+$ && "$1" != *..* && "$1" != /* ]] || die "bad relative path '${1:-}' (letters, digits, _ . - / and the globs * ?)"; }
 need_yes()   { [[ "${YES:-0}" == 1 ]] || die "'$1' changes state: re-run with --yes once the user has confirmed it"; }
-root_of()    { echo "$HPC_BASE/$1"; }
+# Experiment folder: <store>/<expid>_<time> once the ARCHIVE job is done (recorded on the Autosubmit host in
+# ~/autosubmit/<expid>/OUTPUT_STORE.json; felipe reads /data at the same path), otherwise the HPC scratch folder.
+root_of() {
+  local d
+  d=$(on_as "cat ~/autosubmit/$1/OUTPUT_STORE.json 2>/dev/null" | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    print(d["dir"] if d.get("status") == "done" else "")
+except Exception:
+    print("")' 2>/dev/null || true)
+  if [[ -n "$d" ]]; then echo "$d"; else echo "$HPC_BASE/$1"; fi
+}
+# Outputs of an experiment: <root>/outputs, where <root> is the HPC folder or the output-store folder.
+out_of() { echo "$(root_of "$1")/outputs"; }
 
 # dash METHOD PATH MODE [JSON_FILE] — call the dashboard API on the Autosubmit host
 dash() {
@@ -147,12 +161,13 @@ case "$cmd" in
 
   outputs)
     need_expid "${1:-}"
-    on_hpc "cd $(q "$(root_of "$1")/outputs") 2>/dev/null || { echo 'no outputs/ folder yet'; exit 0; }
+    od="$(out_of "$1")"; echo "# $od"
+    on_hpc "cd $(q "$od") 2>/dev/null || { echo 'no outputs/ folder yet'; exit 0; }
             find . -name '*.nc' -printf '%P\t%s\t%TY-%Tm-%Td %TH:%TM\n' | sort -V | awk -F'\t' '{printf \"%-60s %8.2f GB  %s\n\", \$1, \$2/1e9, \$3; t+=\$2; n++} END {printf \"%d files, %.2f GB\n\", n, t/1e9}'" ;;
 
   ncinfo)
     need_expid "${1:-}"; need_rel "${2:-}"
-    on_hpc "python3 -W ignore - $(q "$(root_of "$1")/outputs/$2")" <<'PY'
+    on_hpc "python3 -W ignore - $(q "$(out_of "$1")/$2")" <<'PY'
 import sys, xarray as xr
 ds = xr.open_dataset(sys.argv[1], decode_timedelta=True)
 print(ds)
@@ -166,15 +181,15 @@ PY
     srun=0; if [[ "${1:-}" == "--srun" ]]; then srun=1; shift; fi
     need_expid "${1:-}"; [[ -f "${2:-}" ]] || die "local script '${2:-}' not found"
     e="$1"; script="$2"; shift 2
-    root="$(root_of "$e")"; rargs=""
+    root="$(root_of "$e")"; od="$(out_of "$e")"; rargs=""
     for a in "$@"; do rargs+=" $(q "$a")"; done
     runner="python3 -"
     [[ $srun == 1 ]] && runner="srun -p ${AIUQ_SRUN_PARTITION:-felipe} -c ${AIUQ_SRUN_CPUS:-4} --mem=${AIUQ_SRUN_MEM:-16G} -t ${AIUQ_SRUN_TIME:-60} python3 -"
-    on_hpc "cd $(q "$root") && AIUQ_EXP_ROOT=$(q "$root") AIUQ_OUTPUTS=$(q "$root/outputs") $runner$rargs" < "$script" ;;
+    on_hpc "cd $(q "$root") && AIUQ_EXP_ROOT=$(q "$root") AIUQ_OUTPUTS=$(q "$od") $runner$rargs" < "$script" ;;
 
   fetch)
     need_expid "${1:-}"; need_rel "${2:-}"
-    src="$(root_of "$1")/outputs/$2"; dest="${3:-./aiuq-data/$1}"
+    src="$(out_of "$1")/$2"; dest="${3:-./aiuq-data/$1}"
     size=$(on_hpc "du -cb $src 2>/dev/null | tail -1 | cut -f1")
     [[ "$size" =~ ^[0-9]+$ && "$size" -gt 0 ]] || die "nothing matches $src"
     gbs=$(awk -v s="$size" 'BEGIN{printf "%.2f", s/1e9}')

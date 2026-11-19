@@ -114,7 +114,7 @@ def preview(exp: str, var: str, member: str, file: str,
     match = next((f for f in v["outputs"]["files"] if f[0] == var and f[1] == member and f[2] == file), None)
     if match is None:  # only files we listed ourselves may be opened
         raise HTTPException(404, "file not in the experiment's output listing")
-    path = f'{v["remote"]["root"]}/outputs/{var}/{member}/{file}'
+    path = f'{v["outputs"]["dir"]}/{var}/{member}/{file}'
     key = (path, match[4], var, level, time_index)
     with _preview_lock:
         if key in _preview_cache:
@@ -160,7 +160,7 @@ def point_series(exp: str, var: str, start: str, lat: float | None = None, lon: 
     for fvar, member, fn, _size, fmt in v["outputs"]["files"]:
         meta = parse_output_name(fn)
         if fvar == var and meta and meta[0] == start and meta[3] == var:
-            paths[member] = f'{v["remote"]["root"]}/outputs/{var}/{member}/{fn}'
+            paths[member] = f'{v["outputs"]["dir"]}/{var}/{member}/{fn}'
             mt = max(mt, fmt)
     if not paths:
         raise HTTPException(404, "no output files for this variable and start date")
@@ -191,7 +191,7 @@ def _member_paths(v, var, start):
     for fvar, member, fn, _size, fmt in v["outputs"]["files"]:
         meta = parse_output_name(fn)
         if fvar == var and meta and meta[0] == start and meta[3] == var:
-            paths[member] = f'{v["remote"]["root"]}/outputs/{var}/{member}/{fn}'
+            paths[member] = f'{v["outputs"]["dir"]}/{var}/{member}/{fn}'
             mt = max(mt, fmt)
     if not paths:
         raise HTTPException(404, "no output files for this variable and start date")
@@ -258,7 +258,7 @@ def hindcast(exp: str, var: str, lon0: float, lon1: float, lat0: float, lat1: fl
     for fvar, member, fn, _size, fmt in v["outputs"]["files"]:
         meta = parse_output_name(fn)
         if fvar == var and meta and meta[3] == var:
-            files.append([meta[0], member, f'{v["remote"]["root"]}/outputs/{var}/{member}/{fn}'])
+            files.append([meta[0], member, f'{v["outputs"]["dir"]}/{var}/{member}/{fn}'])
             mt = max(mt, fmt)
     if not files:
         raise HTTPException(404, "no output files for this variable")

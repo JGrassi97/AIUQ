@@ -33,7 +33,7 @@ Then browse to <http://localhost:8765>. The selected experiment is part of the U
 | ICS / MARS | key lines from the PREPARE_ICS stdout (`Requesting N fields`, `Request is …`, `Request cost …`, errors) | measured (parsed logs) |
 | SLURM / GPU | `squeue -u $USER`, `sinfo`, `nvidia-smi` on the HPC host. `sacct` is disabled on felipe | snapshot |
 | Running job logs | tail of the job stdout/stderr, with shell trace (`set -xv`) removed | measured |
-| Outputs and map | `outputs/<var>/<member>/*.nc` listing; the map reads one time step and one level on the HPC host and subsamples to ≤ 360 longitudes | measured |
+| Outputs and map | `outputs/<var>/<member>/*.nc` listing (once `~/autosubmit/<expid>/OUTPUT_STORE.json` says the ARCHIVE job is done, logs and outputs are read from the store folder `<store>/<expid>_<time>/`); the map reads one time step and one level on the HPC host and subsamples to ≤ 360 longitudes | measured |
 | Failed jobs | stderr of each FAILED job, from the last `Traceback` onwards (or its last lines) | measured |
 | Experiment setup card | ICS → model → ensemble → outputs, workflow chain with per-section progress, start-date strip | measured / config |
 | Job panel (click a grid cell, a start date or a Gantt bar) | the job's attempts, duration vs. section median, stderr / log tail / MARS lines | measured |
@@ -85,7 +85,7 @@ experiments with the same model, errors/warnings, the exact `conf/main.yml` and 
 
 | Action | What runs on mafalda |
 |---|---|
-| Create | `autosubmit expid -min -H FELIPE -d … -repo … -b <branch> -conf conf/bootstrap/`, write `<expid>/conf/main.yml` (never overwrites), `autosubmit create <expid> -np`. Nothing is submitted. |
+| Create | `autosubmit expid -min -H FELIPE -d … -repo … -b <branch> -conf conf/bootstrap/`, write `<expid>/conf/main.yml` (never overwrites; includes `OUTPUT_STORE.DIR` only if set in the form, otherwise the branch default for the chosen ICS applies), `autosubmit create <expid> -np`. Nothing is submitted. |
 | Launch / Resume | `systemd-run --user --unit aiuq-run-<expid>-<ts> … autosubmit run <expid>` (own unit, so restarting the dashboard does not kill it); output in `~/autosubmit/<expid>_run.out` |
 | Stop | `autosubmit stop -y [-c] <expid>` (`-c` also cancels queued/running jobs) |
 | Delete | refused while `autosubmit run` is active or jobs are in the SLURM queue; shows a plan (local folder, DB entries, HPC folder with size and NetCDF count), needs the expid typed in; then `autosubmit delete -f <expid>` and removal of the HPC working folder (`HPCROOTDIR`, read before deleting) by `helpers/felipe_delete.py`, which only accepts `<scratch root>/<project>/<user>/<expid>`, no symlinks, owned by you. A failed HPC step is kept in `pending_remote_deletes.json` and can be retried from the page. |

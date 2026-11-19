@@ -87,9 +87,20 @@ def read_conf(expid):
         "out_freq": exp.get("OUT_FREQ"),
         "calendar": exp.get("CALENDAR"),
         "forcing": exp.get("FORCING_VERSION"),
+        "output_store": (main.get("OUTPUT_STORE", {}) or {}).get("DIR"),
         "platform": (main.get("PLATFORM", {}) or {}).get("NAME") or (minimal.get("DEFAULT", {}) or {}).get("HPCARCH"),
         "as_version": (minimal.get("CONFIG", {}) or {}).get("AUTOSUBMIT_VERSION"),
     }
+
+
+def store_marker(expid):
+    """<expid>/OUTPUT_STORE.json written by the ARCHIVE job: {"status", "dir", "outputs", ...}, or None."""
+    try:
+        with open(settings.AS_ROOT / expid / "OUTPUT_STORE.json") as fh:
+            rec = json.load(fh)
+        return rec if isinstance(rec, dict) else None
+    except (OSError, ValueError):
+        return None
 
 
 def conf_mtime(expid):

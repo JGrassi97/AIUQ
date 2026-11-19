@@ -59,7 +59,9 @@ What it shows
      - tail of stdout/stderr; stderr of failed jobs from the last ``Traceback``
      - measured
    * - Outputs: map, point time series, area average
-     - ``outputs/<var>/<member>/*.nc``, read on the HPC host
+     - ``outputs/<var>/<member>/*.nc``, read on the HPC host; for archived experiments from the output
+       store: once ``~/autosubmit/<expid>/OUTPUT_STORE.json`` says the ARCHIVE job is done, the whole experiment
+       (logs and outputs) is read from ``<store>/<expid>_<time>/``
      - measured
    * - HPC performance
      - waiting, queued and running time per step, parallelism, failed attempts

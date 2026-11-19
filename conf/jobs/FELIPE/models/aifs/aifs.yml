@@ -79,3 +79,22 @@ JOBS:
     PROCESSORS: 8
     MEMORY: 8192
     WALLCLOCK: "00:30"
+
+  ARCHIVE:
+    # Moves the outputs to OUTPUT_STORE.DIR (conf/general.yml). Runs on the Autosubmit host after
+    # every SIM and POSTPROCESS job (all dates, members and chunks: AIFS chunks run in parallel).
+    CHECK: on_submission
+    FILE: templates/archive.sh
+    PLATFORM: local
+    RUNNING: once
+    DEPENDENCIES:
+      SIM:
+        DATES_TO: all
+        MEMBERS_TO: all
+        CHUNKS_TO: all
+      POSTPROCESS:
+        DATES_TO: all
+        MEMBERS_TO: all
+        CHUNKS_TO: all
+      CLEAN:
+        DATES_TO: all
