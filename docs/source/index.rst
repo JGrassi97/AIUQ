@@ -31,20 +31,30 @@ and configure experiments through YAML on your HPC platform.
 Forecasts in practice
 ---------------------
 
-Two model families, a shared starting point. These forecasts for **21 January
-1988** were initialized on **1 January 1988** with ERA5 reanalysis data.
+Three model families, one starting point. AIFS ENS 1.0, Aurora 1.5 ENS and
+stochastic NeuralGCM (1.4°) were started from the ECMWF analysis of
+**19 November 2026** (NeuralGCM: 18 UTC on 18 November) and run for 10 days with
+10 members each, with outputs at 0.25° every 6 hours (experiments a00v, a00w and a00x).
 
-.. container:: forecast-grid
+.. container:: forecast-grid single
 
-   .. figure:: ../neuralgcm_forecast.png
-      :alt: NeuralGCM forecast for 21 January 1988 at 1.4 degree resolution.
+   .. figure:: ../images/forecast_maps_light.png
+      :alt: Temperature and geopotential height at 850 hPa over Europe forecast by AIFS ENS, Aurora 1.5 ENS and NeuralGCM, valid at 00 UTC on 24 November 2026.
 
-      **NeuralGCM** · 1.4° resolution
+      **Same day, three models** · temperature (shading) and geopotential height
+      (contours) at 850 hPa, valid at 00 UTC on 24 November 2026, member 1
 
-   .. figure:: ../aifs_forecast.png
-      :alt: AIFS ensemble forecast for 21 January 1988 at 0.25 degree resolution.
+   .. figure:: ../images/ensemble_plume_light.png
+      :alt: Ensemble plumes of 850 hPa temperature over Turin for AIFS ENS, Aurora 1.5 ENS and NeuralGCM.
 
-      **AIFS-ens** · 0.25° resolution
+      **Ensemble plume** · 850 hPa temperature over Turin: every member, ensemble
+      mean and member range
+
+   .. figure:: ../images/ensemble_spread_light.png
+      :alt: Global maps of the ensemble spread of 850 hPa temperature for AIFS ENS, Aurora 1.5 ENS and NeuralGCM, valid at 00 UTC on 27 November 2026.
+
+      **Ensemble spread** · standard deviation of 850 hPa temperature across the
+      10 members, valid at 00 UTC on 27 November 2026
 
 From initial conditions to outputs
 ----------------------------------
