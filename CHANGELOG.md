@@ -5,6 +5,18 @@ All notable changes to AIUQ are listed here. Versions follow [semantic versionin
 ## [1.1.0] - unreleased
 
 ### Added
+- **Every output variable of every checkpoint** (branch `cards/output-variables`): the model cards list per checkpoint
+  what `SIM` can write (`checkpoints` block), checked against the checkpoints themselves (AIFS metadata, Aurora model
+  classes, NeuralGCM `data_to_xarray`) and the upstream documentation. New outputs: AIFS diagnostics `tp cp sf ro
+  ssrd strd tcc lcc mcc hcc u100 v100`, soil temperature `stl1 stl2`, ENS 2.0 `fscov`; Aurora 1.5 `i10fg blh` and its
+  hourly totals as mean rates/fluxes (`avg_tprate avg_tsrwe avg_sdswrf avg_tnlwrf avg_sduvrf`); NeuralGCM
+  precipitation checkpoints `tp` (de-accumulated from the running total) and `avg_ie`. The output-only fields are
+  defined in the new `conf/AIUQ-st/v100/outputs.yml` (the IC sources are not asked for them). Outputs now carry
+  `units`, `long_name` and, for totals and means, the period (`aiuq_period`, `cell_methods`); daily output sums the
+  accumulations instead of averaging them.
+- The Launcher offers the variables and levels of the chosen checkpoint and rejects the others; the Monitor names and
+  scales the new variables; Weather shows model gusts and, marked ≈, Aurora 1.5 precipitation estimated from its
+  hourly rate; the `aiuq options` command prints the outputs per checkpoint.
 - **EC-Earth3 CMIP6 initial conditions** (`ICS: ec-earth3`, branch `ics/ec-earth3`, work in progress): the state of
   the EC-Earth3 `historical` and ScenarioMIP simulations (member `r4i1p1f1`) read from ESGF over OPeNDAP, only the
   time steps needed. Upper-air profiles combine the 6-hourly fields (7 levels) with the daily means (19 levels);
@@ -51,6 +63,8 @@ All notable changes to AIUQ are listed here. Versions follow [semantic versionin
   output only after the final file is written, and skips variables the SIM did not produce.
 
 ### Known issues
+- Aurora 1.5 writes precipitation, snowfall and radiation only for the last hour of each 6 h step; their units are
+  not documented upstream (inferred: m and J m⁻²). None of the new outputs has been produced by a real run yet.
 - AIFS output files (written by cdo) name the horizontal dimensions `lat`/`lon`; the other models use
   `latitude`/`longitude`.
 

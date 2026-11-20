@@ -34,7 +34,7 @@ except ImportError:
 # Local
 from AIUQst_lib.functions import parse_arguments, read_config, normalize_out_vars
 from AIUQst_lib.cards import read_model_card, read_std_version
-from AIUQst_lib.variables import name_mapper_for_model, output_translator
+from AIUQst_lib.variables import name_mapper_for_model, output_attrs, resample_daily, resolve_outputs
 from AIUQst_lib.streaming import StepBuffer
 from AIUQst_lib.regrid import OUT_RESOLUTIONS, regrid_latlon, target_grid
 
@@ -288,12 +288,15 @@ def main() -> None:
     if "orog" in mapper:
         mapper.pop("orog")
 
-    out_vars = normalize_out_vars(_OUT_VARS)
-    translate = output_translator(
-        model_card["variables"],
-        standard_dict["variables"],
-    )
-    output_vars = [translate.get(item, item) for item in out_vars]
+    # Requested outputs (AIUQ-st names) -> Aurora names; names this checkpoint cannot write are skipped.
+    selected, unknown = resolve_outputs(normalize_out_vars(_OUT_VARS), model_card, standard_dict, _MODEL_CHECKPOINT)
+    for name in unknown:
+        logging.warning(f"'{name}' is not an output of {os.path.basename(_MODEL_CHECKPOINT)} (model card); skipped.")
+    out_vars = [name for name, _ in selected]
+    specs = dict(selected)
+    output_vars = [spec["model"] for _, spec in selected]
+    if not output_vars:
+        raise ValueError(f"None of the requested output variables {_OUT_VARS} is written by {os.path.basename(_MODEL_CHECKPOINT)}.")
 
     # Format time settings
     start_date = datetime.strptime(_START_TIME, "%Y-%m-%d")
@@ -400,8 +403,12 @@ def main() -> None:
                 var, buffer.read(var), lats, lons, out_levels, initial_time, delta_t,
             )
 
+            spec = specs[var_name]
+            if spec["scale"] != 1.0:
+                dataset[var] = dataset[var] * spec["scale"]
+
             if _OUT_FREQ == "daily":
-                dataset = dataset.resample(valid_time="1D").mean()
+                dataset = resample_daily(dataset, var, spec["accumulated"])
 
             # Levels first, so only the requested levels are regridded.
             if level_idx is None and _OUT_LEVS != "original" and "level" in dataset.dims:
@@ -415,6 +422,7 @@ def main() -> None:
 
             # Save NetCDF per output variable
             predictions_datarray = dataset[var].rename(var_name)
+            predictions_datarray.attrs.update(output_attrs(spec, _OUT_FREQ == "daily"))
             output_base_path = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
             os.makedirs(output_base_path, exist_ok=True)
             output_file = f"{output_base_path}/out-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var_name}.nc"

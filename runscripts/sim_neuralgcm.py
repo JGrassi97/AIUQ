@@ -18,7 +18,8 @@ from dinosaur import horizontal_interpolation, spherical_harmonic, xarray_utils
 # Local
 from AIUQst_lib.functions import parse_arguments, read_config, normalize_out_vars
 from AIUQst_lib.cards import read_model_card, read_std_version
-from AIUQst_lib.variables import name_mapper_for_model, output_translator
+from AIUQst_lib.variables import (name_mapper_for_model, output_attrs, resample_daily, resolve_outputs,
+                                  deaccumulate)
 from AIUQst_lib.streaming import StepBuffer
 from AIUQst_lib.regrid import regrid_latlon
 
@@ -175,10 +176,12 @@ def main() -> None:
             checkpoint_data = pickle.load(f)
         current_state = checkpoint_data["state"]
         start_step = int(checkpoint_data.get("step_done", 0))
+        resumed_totals = checkpoint_data.get("last_total", {})
     else:
         logging.info("No checkpoint found, starting from scratch")
         current_state = initial_state
         start_step = 0
+        resumed_totals = {}
 
     if start_step >= outer_steps:
         raise RuntimeError(
@@ -188,12 +191,17 @@ def main() -> None:
         )
 
     # Pre-compute output settings (invariant across chunks)
-    out_vars = normalize_out_vars(_OUT_VARS)
-    translate = output_translator(
-        model_card["variables"],
-        standard_dict["variables"],
-    )
-    output_vars = [translate.get(item, item) for item in out_vars]
+    # Requested outputs (AIUQ-st names) -> NeuralGCM names; names this checkpoint cannot write are skipped.
+    selected, unknown = resolve_outputs(normalize_out_vars(_OUT_VARS), model_card, standard_dict, _MODEL_CHECKPOINT)
+    for name in unknown:
+        logging.warning(f"'{name}' is not an output of {os.path.basename(_MODEL_CHECKPOINT)} (model card); skipped.")
+    out_vars = [name for name, _ in selected]
+    specs = dict(selected)
+    output_vars = [spec["model"] for _, spec in selected]
+    if not output_vars:
+        raise ValueError(f"None of the requested output variables {_OUT_VARS} is written by {os.path.basename(_MODEL_CHECKPOINT)}.")
+    # Running totals (precipitation_cumulative_mean) at the end of the previous chunk, to write increments.
+    last_total = dict(resumed_totals)
 
     if _OUT_RES == "0.25":
         out_latitudes = np.arange(-90, 90.25, 0.25)
@@ -248,17 +256,6 @@ def main() -> None:
 
         current_state = final_state
 
-        # Save state checkpoint after each chunk
-        if not stream_outputs:
-            with open(state_checkpoint_file, "wb") as f:
-                pickle.dump(
-                    {
-                        "state": current_state,
-                        "step_done": chunk_end,
-                    },
-                    f,
-                )
-
         # Convert current chunk predictions to xarray
         chunk_valid_time = initial_time + (
             np.arange(chunk_start, chunk_end) * delta_t
@@ -277,6 +274,9 @@ def main() -> None:
 
         if "sim_time" in predictions_ds_chunk.variables:
             predictions_ds_chunk = predictions_ds_chunk.drop_vars("sim_time")
+        # Surface diagnostics (precipitation, evaporation) carry a length-1 'surface' dimension.
+        if "surface" in predictions_ds_chunk.dims:
+            predictions_ds_chunk = predictions_ds_chunk.squeeze("surface", drop=True)
 
         if chunk_start == start_step:
             # Drop requested variables the model does not produce (e.g. t2m), as Aurora does.
@@ -298,9 +298,21 @@ def main() -> None:
             del predictions, predictions_ds_chunk, selected
             continue
 
-        # Apply post-processing per chunk
+        # Apply post-processing per chunk: increments of running totals, units, frequency
+        for var, var_name in zip(output_vars, out_vars):
+            spec = specs[var_name]
+            if spec["deaccumulate"]:
+                da = predictions_ds_chunk[var].transpose("valid_time", ...)
+                total = da.values
+                da = da.copy(data=deaccumulate(total, last_total.get(var)))
+                last_total[var] = total[-1]
+                predictions_ds_chunk[var] = da
+            if spec["scale"] != 1.0:
+                predictions_ds_chunk[var] = predictions_ds_chunk[var] * spec["scale"]
         if _OUT_FREQ == "daily":
-            predictions_ds_chunk = predictions_ds_chunk.resample(valid_time="1D").mean()
+            predictions_ds_chunk = xr.merge([
+                resample_daily(predictions_ds_chunk[[var]], var, specs[var_name]["accumulated"])
+                for var, var_name in zip(output_vars, out_vars)])
 
         # Levels first: regridding only the requested levels needs far less memory.
         if desired_levels is not None:
@@ -315,6 +327,7 @@ def main() -> None:
 
         for var, var_name in zip(output_vars, out_vars):
             predictions_datarray = predictions_ds_chunk[var].rename(var_name)
+            predictions_datarray.attrs.update(output_attrs(specs[var_name], _OUT_FREQ == "daily"))
             output_base_path = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
             os.makedirs(output_base_path, exist_ok=True)
             output_file = (
@@ -322,6 +335,11 @@ def main() -> None:
             )
             predictions_datarray.to_netcdf(output_file)
             logging.info(f"Saved {output_file}")
+
+        # Save the state checkpoint once the chunk's outputs are written (with the running totals of the
+        # accumulated diagnostics, so a resumed run keeps writing increments).
+        with open(state_checkpoint_file, "wb") as f:
+            pickle.dump({"state": current_state, "step_done": chunk_end, "last_total": last_total}, f)
 
     if stream_outputs:
         # Whole-run post-processing, one variable at a time (same steps and file names as the
@@ -332,28 +350,35 @@ def main() -> None:
         run_t_end = str(run_valid_time[-1])[:10]
         try:
             for var, var_name in zip(output_vars, out_vars):
+                spec = specs[var_name]
                 reference = template[var]
                 coords = {name: coord for name, coord in reference.coords.items()
                           if "valid_time" not in coord.dims}
                 coords["valid_time"] = run_valid_time
                 coords["step"] = ("valid_time", run_steps)
+                values = buffer.read(var)
+                if spec["deaccumulate"]:
+                    values = deaccumulate(values)
+                if spec["scale"] != 1.0:
+                    values = values * spec["scale"]
                 dataset = xr.DataArray(
-                    buffer.read(var), dims=reference.dims, coords=coords,
+                    values, dims=reference.dims, coords=coords,
                     name=reference.name, attrs=reference.attrs,
                 ).to_dataset(name=var)
 
                 if _OUT_FREQ == "daily":
-                    dataset = dataset.resample(valid_time="1D").mean()
+                    dataset = resample_daily(dataset, var, spec["accumulated"])
 
                 # Levels first: regridding all 37 model levels to 0.25 deg and discarding most of
                 # them afterwards ran out of memory (a00d: 16 days, 2 levels, > 48 GB).
-                if desired_levels is not None:
+                if desired_levels is not None and "level" in dataset.dims:
                     dataset = dataset.interp(level=desired_levels)
 
                 if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
                     dataset = regrid_latlon(dataset, out_latitudes, out_longitudes)
 
                 predictions_datarray = dataset[var].rename(var_name)
+                predictions_datarray.attrs.update(output_attrs(spec, _OUT_FREQ == "daily"))
                 output_base_path = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
                 os.makedirs(output_base_path, exist_ok=True)
                 output_file = (

@@ -1,0 +1,124 @@
+AIUQ-st: v100
+
+metadata:
+  description : "AIUQ-st v100 output-only variables: fields the models produce (diagnostics, accumulations,
+                mean rates and fluxes, soil layers named as in the model output) but never read from the
+                initial conditions. They are kept apart from variables.yml so that the initial-condition
+                sources are not asked for them. Names, units and codes follow the ECMWF parameter database.
+                A model card maps them to its own names in its 'outputs' block; each checkpoint lists what it
+                can write in its 'checkpoints' block."
+  reference_url : https://codes.ecmwf.int/grib/param-db/
+  # accumulated: true   the field is a total over a period (the model step for AIFS, 6 h): daily output
+  #                     sums the steps of the day instead of averaging them.
+  # Time-mean rates and fluxes (avg_*) are averages over a period, given for each model by the 'window' of
+  # its card; daily output averages them. Names as in ecCodes (the ERA5 names were mtpr, msr, mer, msdwswrf,
+  # mtnlwrf, msdwuvrf).
+
+data:
+  139 :
+    short_name  : stl1
+    long_name   : Soil temperature level 1
+    units       : K
+    type        : sfc
+
+  170 :
+    short_name  : stl2
+    long_name   : Soil temperature level 2
+    units       : K
+    type        : sfc
+
+  143 :
+    short_name  : cp
+    long_name   : Convective precipitation
+    units       : m
+    type        : sfc
+    accumulated : true
+
+  144 :
+    short_name  : sf
+    long_name   : Snowfall
+    units       : m of water equivalent
+    type        : sfc
+    accumulated : true
+
+  159 :
+    short_name  : blh
+    long_name   : Boundary layer height
+    units       : m
+    type        : sfc
+
+  169 :
+    short_name  : ssrd
+    long_name   : Surface short-wave (solar) radiation downwards
+    units       : J m**-2
+    type        : sfc
+    accumulated : true
+
+  175 :
+    short_name  : strd
+    long_name   : Surface long-wave (thermal) radiation downwards
+    units       : J m**-2
+    type        : sfc
+    accumulated : true
+
+  205 :
+    short_name  : ro
+    long_name   : Runoff
+    units       : m
+    type        : sfc
+    accumulated : true
+
+  228 :
+    short_name  : tp
+    long_name   : Total precipitation
+    units       : m
+    type        : sfc
+    accumulated : true
+
+  228029 :
+    short_name  : i10fg
+    long_name   : Instantaneous 10 metre wind gust
+    units       : m s**-1
+    type        : sfc
+
+  235027 :
+    short_name  : avg_sduvrf
+    long_name   : Time-mean surface downward UV radiation flux
+    units       : W m**-2
+    type        : sfc
+
+  235031 :
+    short_name  : avg_tsrwe
+    long_name   : Time-mean total snowfall rate water equivalent
+    units       : kg m**-2 s**-1
+    type        : sfc
+
+  235035 :
+    short_name  : avg_sdswrf
+    long_name   : Time-mean surface downward short-wave radiation flux
+    units       : W m**-2
+    type        : sfc
+
+  235040 :
+    short_name  : avg_tnlwrf
+    long_name   : Time-mean top net long-wave radiation flux
+    units       : W m**-2
+    type        : sfc
+
+  235043 :
+    short_name  : avg_ie
+    long_name   : Time-mean moisture flux (evaporation, negative upwards)
+    units       : kg m**-2 s**-1
+    type        : sfc
+
+  235055 :
+    short_name  : avg_tprate
+    long_name   : Time-mean total precipitation rate
+    units       : kg m**-2 s**-1
+    type        : sfc
+
+  260289 :
+    short_name  : fscov
+    long_name   : Fraction of snow cover
+    units       : (0 - 1)
+    type        : sfc

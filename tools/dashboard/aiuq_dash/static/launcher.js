@@ -104,6 +104,14 @@ async function loadOptions() {
 
 function model() { return L.opts?.models.find((m) => m.name === L.cfg.model); }
 function ckpt() { return model()?.checkpoints.find((c) => c.name === L.cfg.checkpoint); }
+// What the chosen checkpoint writes (model card), else what the model writes.
+function outVars() {
+  const m = model(), k = ckpt();
+  if (!k?.variables) return m.variables;
+  const by = Object.fromEntries(m.variables.map((v) => [v.name, v]));
+  return k.variables.map((n) => by[n]).filter(Boolean);
+}
+function outLevels() { return ckpt()?.levels || model().levels; }
 
 function fixCfg() {  // keep the form consistent with what the branch offers
   const o = L.opts, c = L.cfg;
@@ -112,12 +120,12 @@ function fixCfg() {  // keep the form consistent with what the branch offers
   if (!ckpt()) c.checkpoint = (m.checkpoints.find((k) => k.present && k.ensemble) || m.checkpoints.find((k) => k.present) || m.checkpoints[0])?.name;
   if (!o.ics.includes(c.ics)) c.ics = o.ics[0];
   if (c.run_type === "amip" && !m.amip) c.run_type = "hindcast";
-  const names = new Set(m.variables.map((v) => v.name));
+  const names = new Set(outVars().map((v) => v.name)), levels = outLevels();
   c.out_vars = c.out_vars.filter((v) => names.has(v));
   if (!c.out_vars.length) c.out_vars = ["t", "z"].filter((v) => names.has(v));
   if (c.out_levs !== "original") {
-    c.out_levs = c.out_levs.filter((l) => !m.levels.length || m.levels.includes(l));
-    if (!c.out_levs.length) c.out_levs = [1000, 850, 500].filter((l) => m.levels.includes(l));
+    c.out_levs = c.out_levs.filter((l) => !levels.length || levels.includes(l));
+    if (!c.out_levs.length) c.out_levs = [1000, 850, 500].filter((l) => levels.includes(l));
   }
 }
 
@@ -132,8 +140,12 @@ function renderForm() {
   const icsSup = (ics) => k?.support?.[ics];
   const datesInfo = c.dates.length ? `<b>${c.dates.length}</b> start date${c.dates.length === 1 ? "" : "s"} · ${fmtDate(c.dates[0])}${c.dates.length > 1 ? ` → ${fmtDate(c.dates[c.dates.length - 1])}` : ""}` : `<span style="color:var(--st-failed)">no valid dates</span>`;
   const leadDays = c.chunk_unit === "day" ? c.chunk_size * c.num_chunks : null;
-  const byType = {};
-  for (const v of m.variables) (byType[v.type === "pl" ? "On pressure levels" : v.type === "sfc" ? "At the surface" : v.type === "wave" ? "Ocean waves (sea points only)" : "Other"] ||= []).push(v);
+  const byType = {}, levels = outLevels();
+  const GROUPS = { pl: "On pressure levels", sfc: "At the surface", soil: "At the surface",
+    period: "Totals and means over a period (precipitation, radiation, …)", wave: "Ocean waves (sea points only)" };
+  for (const g of Object.values(GROUPS)) byType[g] = [];
+  for (const v of outVars()) (byType[GROUPS[v.group || v.type] || "Other"] ||= []).push(v);
+  for (const g of Object.keys(byType)) if (!byType[g].length) delete byType[g];
 
   $("#ln-form").innerHTML =
     step(1, "Start from", "a blank form or the settings of an existing experiment", `
@@ -144,7 +156,7 @@ function renderForm() {
       </div>`)
     + step(2, "Model", `models with a ${esc(o.platform)} configuration on <span class="mono">${esc(c.branch)}</span>`, `
       <div class="choice-grid">${o.models.map((mm) => choice("model", mm.name, mm.name === c.model,
-        `<b>${esc(mm.label)}</b><small>${esc(mm.producer || "")} · ${mm.variables.length} variables · ${mm.levels.length} levels</small>${mm.on_platform ? "" : tag("no", `not on ${o.platform}`)}`, !mm.on_platform)).join("")}</div>
+        `<b>${esc(mm.label)}</b><small>${esc(mm.producer || "")} · up to ${mm.variables.length} variables · ${mm.levels.length} levels</small>${mm.on_platform ? "" : tag("no", `not on ${o.platform}`)}`, !mm.on_platform)).join("")}</div>
       <div class="ln-sub">Checkpoint</div>
       <div class="ck-list">${m.checkpoints.map((kk) => choice("checkpoint", kk.name, kk.name === c.checkpoint,
         `<span class="mono">${esc(kk.name)}</span><span class="tags">${kk.ensemble ? tag("ens", "ensemble") : tag("det", "deterministic")}
@@ -175,12 +187,12 @@ function renderForm() {
             <label class="ln-field">Every <span class="ln-inline"><input type="number" min="1" data-k="reg.every" value="${L.reg.every}" style="width:70px"> days</span></label>`
         : `<label class="ln-field grow">Dates <textarea data-k="list" rows="3" placeholder="19890101 19890201 … or 198901[01 11 21]">${esc(L.listText || compress(c.dates))}</textarea></label>`}</div>
       <div class="note" id="ln-dates-info">${datesInfo}</div>`)
-    + step(5, "Outputs", "what the simulations write", `
+    + step(5, "Outputs", `what the simulations write · ${outVars().length} variables available with <span class="mono">${esc(c.checkpoint || "")}</span>`, `
       ${Object.entries(byType).map(([t, vs]) => `<div class="ln-sub">${t}</div><div class="chips-sel">${vs.map((v) =>
-        `<button type="button" data-k="var" data-v="${esc(v.name)}" aria-pressed="${c.out_vars.includes(v.name)}" title="${esc(v.long)}${v.units ? ` [${esc(v.units)}]` : ""}">${esc(v.name)}<span class="sub">${esc(v.long.length > 22 ? v.long.slice(0, 21) + "…" : v.long)}</span></button>`).join("")}</div>`).join("")}
+        `<button type="button" data-k="var" data-v="${esc(v.name)}" aria-pressed="${c.out_vars.includes(v.name)}" title="${esc(v.long)}${v.units ? ` [${esc(v.units)}]` : ""}${v.period ? ` · ${esc(v.period)}` : ""}">${esc(v.name)}<span class="sub">${esc(v.long.length > 22 ? v.long.slice(0, 21) + "…" : v.long)}</span></button>`).join("")}</div>`).join("")}
       <div class="ln-sub">Pressure levels <label class="switch" style="display:inline-flex;margin-left:12px"><input type="checkbox" data-k="alllev" ${c.out_levs === "original" ? "checked" : ""}><span class="track"></span>all levels of the model</label></div>
-      ${c.out_levs === "original" ? `<div class="note">All ${m.levels.length} levels: ${m.levels.join(", ")} hPa.</div>`
-        : `<div class="chips-sel">${m.levels.map((l) => `<button type="button" data-k="lev" data-v="${l}" aria-pressed="${c.out_levs.includes(l)}">${l}</button>`).join("")}</div>`}
+      ${c.out_levs === "original" ? `<div class="note">All ${levels.length} levels: ${levels.join(", ")} hPa.</div>`
+        : `<div class="chips-sel">${levels.map((l) => `<button type="button" data-k="lev" data-v="${l}" aria-pressed="${c.out_levs.includes(l)}">${l}</button>`).join("")}</div>`}
       <div class="ln-row" style="margin-top:12px">
         <div class="ln-field">Resolution ${seg("out_res", o.resolutions.map((r) => [r, r === "original" ? "native" : `${r}°`]), c.out_res)}</div>
         <div class="ln-field">Frequency ${seg("out_freq", o.freqs.map((f) => [f, f === "original" ? "every step" : f]), c.out_freq)}</div>
@@ -200,7 +212,7 @@ function onFormClick(e) {
   switch (k) {
     case "tpl": if (v) useTemplate(v); else { c.description = ""; renderForm(); updatePreview(); } return;
     case "model": c.model = v; c.checkpoint = null; fixCfg(); break;
-    case "checkpoint": c.checkpoint = v; break;
+    case "checkpoint": c.checkpoint = v; fixCfg(); break;
     case "ics": c.ics = v; break;
     case "var": c.out_vars = c.out_vars.includes(v) ? c.out_vars.filter((x) => x !== v) : [...c.out_vars, v]; break;
     case "lev": { const l = +v; c.out_levs = c.out_levs.includes(l) ? c.out_levs.filter((x) => x !== l) : [...c.out_levs, l].sort((a, b2) => b2 - a); break; }

@@ -55,7 +55,16 @@ def read_std_version(hpcrootdir: str, version: str):
     with open(variables_file, "r") as f:
         variables_std = yaml.safe_load(f)
     
+    # Output-only variables (since v100): diagnostics, accumulations and mean rates the models write but the
+    # initial conditions never provide. Absent in older versions.
+    outputs_file = os.path.join(yaml_path, 'outputs.yml')
+    outputs_std = {'data': {}}
+    if os.path.exists(outputs_file):
+        with open(outputs_file, "r") as f:
+            outputs_std = yaml.safe_load(f) or outputs_std
+
     standard_dict['pressure_levels'] = pressure_levels_std
     standard_dict['variables'] = variables_std
+    standard_dict['outputs'] = outputs_std
     
     return standard_dict

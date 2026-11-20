@@ -39,7 +39,7 @@ followed by `autosubmit create <expid> -np`. Always run `aiuq preview` first; fi
 | `members` | 1–100 → `MEMBERS: "1 2 … N"`. Member number = RNG seed for stochastic checkpoints. |
 | `dates` | `YYYYMMDD` list, ≤ 2000, compressed to Autosubmit notation (`202001[01 15] 20200201`). ERA5 ≥ 1940. |
 | `chunk_size`, `chunk_unit`, `num_chunks` | Forecast length = size × chunks (`day` or `month`). For hindcasts use `num_chunks: 1` and put the whole length in `chunk_size` (that is what every tested experiment does; multi-chunk restarts are meant for NeuralGCM AMIP). |
-| `out_vars` | AIUQ-st short names the model produces (`aiuq options`): e.g. `t z u v q` on levels, `t2m msl sp u10 v10 …` at the surface for AIFS/Aurora. NeuralGCM has no surface atmospheric fields (only `sst ci` + levels). |
+| `out_vars` | AIUQ-st short names the **checkpoint** writes (`aiuq options` prints them per checkpoint; source: `checkpoints` block of `conf/cards/models/<model>_card.yml`). E.g. `t z u v q` on levels; AIFS also `w`, surface fields and diagnostics (`tp cp sf ro ssrd strd tcc lcc mcc hcc u100 v100 stl1 stl2`, ENS 2.0 waves `swh mwd mwp …`, `sd fscov`); Aurora 1.0 only `t2m u10 v10 msl`, Aurora 1.5 many more plus `i10fg blh avg_tprate avg_tsrwe avg_sdswrf avg_tnlwrf avg_sduvrf`; NeuralGCM `z t u v q clwc ciwc`, plus `tp avg_ie` with the `stochastic_precip`/`stochastic_evap` checkpoints. NeuralGCM has no surface atmospheric field (`sst`/`ci` are forcings, not outputs). |
 | `out_levs` | hPa levels from the model's level list, or `"original"` for all of them. |
 | `out_res` | `"original"` (model grid; N320 reduced Gaussian for AIFS), `"0.25" "0.5" "1" "1.5" "2"` regular lat-lon. |
 | `out_freq` | `original` (model step, 6-hourly) or `daily` (daily means). |

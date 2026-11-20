@@ -224,7 +224,12 @@ def m_options(st, d):
             sup = " ".join("%s=%s" % kv for kv in sorted((ck.get("support") or {}).items())) or "-"
             print("  ckpt %-32s %-11s %-13s README support: %s" % (ck["name"], "ON HPC" if ck["present"] else "MISSING",
                                                                  "ensemble" if ck["ensemble"] else "deterministic", sup))
-        print("  variables: " + ", ".join("%s(%s)" % (x["name"], x.get("type")) for x in m["variables"]))
+            if ck.get("variables"):   # per-checkpoint outputs (model card); else the model-wide list below
+                print("       outputs: %s" % " ".join(ck["variables"]))
+                if ck.get("levels"):
+                    print("       levels (hPa): %s" % ck["levels"])
+        print("  variables (any checkpoint): " + ", ".join(
+            "%s(%s%s)" % (x["name"], x.get("type"), ", " + x["period"] if x.get("period") else "") for x in m["variables"]))
         print("  levels (hPa): %s" % m.get("levels"))
 
 

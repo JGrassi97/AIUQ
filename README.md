@@ -416,6 +416,8 @@ Below is a brief description of **AIUQ-st/v100**:
 
 Compared with v010 (kept in `conf/AIUQ-st/v010` as reference), v100 only adds the wave fields; variables, units and pressure levels of v010 are unchanged.
 
+- **Output-only variables:** `conf/AIUQ-st/v100/outputs.yml` defines the fields models write but initial conditions never provide (precipitation and other totals, radiation, cloud and wind diagnostics, mean rates such as `avg_tprate`). Each model card lists per checkpoint what it can write (`checkpoints` block); see the *Output variables* section of the documentation (`docs/source/models.rst`).
+
 In practice, developers who aim to introduce a new initial condition (IC) must provide the code required to retrieve and store the ICs according to the AIUQ-st convention. They should also strive to keep the implementation modular in order to remain resilient to future changes in the standard.
 
 To support this process, the framework provides a set of standard options, utility functions, and best practices. Before proceeding, developers are strongly encouraged to carefully read the relevant Wiki pages.

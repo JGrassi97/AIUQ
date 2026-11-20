@@ -49,6 +49,19 @@ of the missing fields. ERA5 provides them from ARCO ERA5 (the period bands are
 derived from the wave partitions), the ECMWF analysis from the ``wave`` stream of
 ECMWF Open Data.
 
+Output-only variables (diagnostics, accumulations, mean rates and fluxes such as
+``tp``, ``ssrd``, ``i10fg``, ``avg_tprate``) are defined in
+``conf/AIUQ-st/v100/outputs.yml``, apart from ``variables.yml`` so that the
+initial-condition sources are never asked for them. ``accumulated: true`` marks
+totals over a period, which daily output sums instead of averaging. A model card
+maps them to model names in its ``outputs`` block; an entry can be a mapping with
+``name``, ``scale`` (factor to the AIUQ-st units), ``window`` (the period, written
+to the file attributes) and ``deaccumulate`` (the model gives a running total). The
+``checkpoints`` block lists, per checkpoint file, the ``outputs`` it writes and
+optionally its ``levels``; the Launcher and ``SIM`` follow it
+(``AIUQst_lib.variables.resolve_outputs``). ``tests/test_output_variables.py``
+checks the lists against what each checkpoint produces.
+
 AIFS checkpoints are not hard-coded: ``runscripts/ics_aifs.py`` reads the input
 fields a checkpoint needs from its metadata and takes them from the standard through
 the model card, which lists the union of the variables and levels of all AIFS

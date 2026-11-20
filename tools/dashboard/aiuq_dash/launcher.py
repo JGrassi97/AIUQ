@@ -152,7 +152,11 @@ def options(branch):
     except RuntimeError:
         pass
     std = repo_yaml(branch, f"conf/AIUQ-st/{std_version}/variables.yml").get("data", {})
-    std_by_code = {int(k): v for k, v in std.items()}
+    try:   # output-only variables (diagnostics, accumulations, mean rates), when the branch has them
+        std_out = repo_yaml(branch, f"conf/AIUQ-st/{std_version}/outputs.yml").get("data", {}) or {}
+    except RuntimeError:
+        std_out = {}
+    std_by_code = {int(k): v for k, v in {**std, **std_out}.items()}
     plat_models = repo_ls(branch, f"conf/jobs/{PLATFORM}/models")
     plat_ics = repo_ls(branch, f"conf/jobs/{PLATFORM}/ics")
     store_by_ics = output_store_defaults(branch, plat_ics)
@@ -163,20 +167,29 @@ def options(branch):
         name = c.get("model")
         if not name:
             continue
-        variables = []
-        for code in (c.get("variables") or {}):
-            s = std_by_code.get(int(code))
-            if s and s.get("short_name") not in {x["name"] for x in variables}:
-                variables.append({"name": s["short_name"], "long": s.get("long_name", ""), "units": s.get("units", ""), "type": s.get("type", "")})
+        known = card_variables(c, std_by_code)
         levels = (c.get("pressure_levels") or {}).get("values") or []
         on_hpc = ckpts.get(name)
-        model_ck = sorted(set(on_hpc or []) | {k for k in SUPPORT if _ckpt_model(k) == name})
+        ck_blocks = {k: v for k, v in (c.get("checkpoints") or {}).items() if k != "default" and isinstance(v, dict)}
+        model_ck = sorted(set(on_hpc or []) | {k for k in SUPPORT if _ckpt_model(k) == name}
+                          | {k for k, v in ck_blocks.items() if v.get("outputs")})
+        checkpoints = []
+        for k in model_ck:
+            listed = (ck_blocks.get(k) or {}).get("outputs")
+            checkpoints.append({
+                "name": k, "present": on_hpc is not None and k in on_hpc, "ensemble": is_ensemble(k),
+                "support": SUPPORT.get(k) or (NEURALGCM_OK if name == "neuralgcm" else {}),
+                # What this checkpoint writes (model card), or None: the model-wide list applies.
+                "variables": [v for v in listed if v in known] if listed else None,
+                "levels": (ck_blocks.get(k) or {}).get("levels") or None,
+            })
+        # Model-wide list: every output of the listed checkpoints (older branches: every card variable).
+        listed_any = [n for ck in checkpoints for n in (ck["variables"] or [])]
+        names = list(dict.fromkeys(listed_any)) if listed_any else list(known)
         models.append({
             "name": name, "label": MODEL_NAMES.get(name, name), "producer": c.get("producer"),
-            "on_platform": name in plat_models, "variables": variables, "levels": levels,
-            "amip": name in AMIP_MODELS,
-            "checkpoints": [{"name": k, "present": on_hpc is not None and k in on_hpc, "ensemble": is_ensemble(k),
-                             "support": SUPPORT.get(k) or (NEURALGCM_OK if name == "neuralgcm" else {})} for k in model_ck],
+            "on_platform": name in plat_models, "variables": [known[n] for n in names], "levels": levels,
+            "amip": name in AMIP_MODELS, "checkpoints": checkpoints,
         })
     models.sort(key=lambda m: (not m["on_platform"], m["label"]))
     res = {"branch": branch, "platform": PLATFORM, "ics": plat_ics, "models": models, "std_version": std_version,
@@ -185,6 +198,25 @@ def options(branch):
            "store_by_ics": store_by_ics}
     _opts_cache[branch] = (time.time(), res)
     return res
+
+
+def card_variables(card, std_by_code):
+    """{short name: variable info} of everything a model card maps (inputs, then output-only fields)."""
+    out = {}
+    for block in ("variables", "outputs"):
+        for code, entry in (card.get(block) or {}).items():
+            s = std_by_code.get(int(code))
+            if not s or s.get("short_name") in out:
+                continue
+            window = entry.get("window") if isinstance(entry, dict) else None
+            period = bool(s.get("accumulated") or window)
+            out[s["short_name"]] = {
+                "name": s["short_name"], "long": s.get("long_name", ""), "units": s.get("units", ""),
+                "type": s.get("type", ""),
+                "period": window or ("over the output step" if s.get("accumulated") else None),
+                "group": "period" if period else s.get("type", ""),
+            }
+    return out
 
 
 def _ckpt_model(ck):
@@ -288,20 +320,22 @@ def validate(cfg):
     if unit not in CHUNK_UNITS:
         errors.append("Chunk unit must be day or month.")
     out_vars = [v for v in (cfg.get("out_vars") or []) if v]
-    valid_vars = {v["name"] for v in model["variables"]}
+    valid_vars = set((ck or {}).get("variables") or [v["name"] for v in model["variables"]])
+    who = f"{model['label']} ({ck['name']})" if ck and ck.get("variables") else model["label"]
     if not out_vars:
         errors.append("Choose at least one output variable.")
     unknown = [v for v in out_vars if v not in valid_vars]
     if unknown:
-        errors.append(f"{model['label']} does not produce: {', '.join(unknown)}.")
+        errors.append(f"{who} does not produce: {', '.join(unknown)}.")
+    model_levels = (ck or {}).get("levels") or model["levels"]
     levs = cfg.get("out_levs")
     if levs != "original":
         levs = sorted({int(x) for x in (levs or [])}, reverse=True)
         if not levs:
             errors.append("Choose output pressure levels (or 'all levels').")
-        bad_l = [l for l in levs if model["levels"] and l not in model["levels"]]
+        bad_l = [l for l in levs if model_levels and l not in model_levels]
         if bad_l:
-            errors.append(f"{model['label']} has no level {', '.join(map(str, bad_l))} hPa.")
+            errors.append(f"{who} has no level {', '.join(map(str, bad_l))} hPa.")
     res = str(cfg.get("out_res") or "1")
     if res not in RESOLUTIONS:
         errors.append("Unknown output resolution.")

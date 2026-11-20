@@ -1,6 +1,8 @@
 model : neuralgcm
 producer : google
 
+# Standard ID -> NeuralGCM name of the inputs (sea_ice_cover and sea_surface_temperature are forcings, not
+# predicted).
 variables:
   31  : sea_ice_cover
   34  : sea_surface_temperature
@@ -12,6 +14,15 @@ variables:
   246 : specific_cloud_liquid_water_content
   247 : specific_cloud_ice_water_content
 
+# Output-only fields of the precipitation checkpoints (v1_precip) {AIUQ-st code: NeuralGCM name}.
+#   precipitation_cumulative_mean: running total since the start of the run (m); AIUQ writes the total over
+#     each output step (tp). The evap checkpoint diagnoses precipitation from the water budget: it can be
+#     slightly negative.
+#   evaporation: rate of the last 1 h model step (kg m-2 s-1, negative for evaporation, as ERA5).
+outputs:
+  228 : {name: precipitation_cumulative_mean, deaccumulate: true, window: output step ending at valid_time}
+  235043 : {name: evaporation, window: 1 h model step ending at valid_time}
+
 pressure_levels :
   values : [
         1, 2, 3, 5, 7, 10, 20, 30, 50, 70, 100,
@@ -20,3 +31,17 @@ pressure_levels :
         825, 850, 875, 900, 925, 950, 975, 1000
     ]
   unit : hPa
+
+# What SIM can write per checkpoint (AIUQ-st short names), from https://neuralgcm.readthedocs.io (checkpoints)
+# and PressureLevelModel.data_to_xarray of each checkpoint. No surface atmospheric field (t2m, msl, winds):
+# NeuralGCM is a pressure-level model. All on the 37 levels above.
+checkpoints:
+  deterministic_0_7_deg.pkl: &ngcm
+    outputs: [z, t, u, v, q, clwc, ciwc]
+  deterministic_1_4_deg.pkl: *ngcm
+  deterministic_2_8_deg.pkl: *ngcm
+  stochastic_1_4_deg.pkl: *ngcm
+  stochastic_precip_2_8_deg.pkl: &ngcm_precip
+    outputs: [z, t, u, v, q, clwc, ciwc, tp, avg_ie]
+  stochastic_evap_2_8_deg.pkl: *ngcm_precip
+  stochasti_evap_2_8_deg.pkl: *ngcm_precip
