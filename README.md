@@ -1,4 +1,29 @@
+<div align="center">
+
 # AIUQ
+
+**AI weather and climate models for Uncertainty Quantification, run as Autosubmit workflows**
+
+[![Release](https://img.shields.io/github/v/release/JGrassi97/AIUQ?color=2a78d6&label=release)](https://github.com/JGrassi97/AIUQ/releases/latest)
+[![Documentation](https://readthedocs.org/projects/aiuq/badge/?version=latest)](https://aiuq.readthedocs.io)
+[![License](https://img.shields.io/badge/license-Apache%202.0-2a78d6)](LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/JGrassi97/AIUQ?color=2a78d6)](https://github.com/JGrassi97/AIUQ/commits/main)
+<br>
+[![Autosubmit](https://img.shields.io/badge/workflow-Autosubmit%204-101f37)](https://autosubmit.readthedocs.io)
+[![Containers](https://img.shields.io/badge/containers-Apptainer%20%7C%20Singularity-101f37)](https://apptainer.org)
+[![Models](https://img.shields.io/badge/models-NeuralGCM%20%7C%20AIFS%20%7C%20Aurora-eb6834)](https://aiuq.readthedocs.io/en/latest/models.html)
+[![Initial conditions](https://img.shields.io/badge/ICs-ERA5%20%7C%20EERIE%20%7C%20ECMWF%20Open%20Data-1baf7a)](#forecasting-from-the-latest-ecmwf-analysis)
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/forecast_maps_dark.png">
+  <img alt="Temperature and geopotential height at 850 hPa over Europe forecast by AIFS ENS, Aurora 1.5 ENS and NeuralGCM for 24 November 2026" src="docs/images/forecast_maps_light.png" width="100%">
+</picture>
+
+<sub>Three AI models started from the ECMWF analysis of 19 November 2026 (NeuralGCM: 18 UTC on 18 November), valid at
+00 UTC on 24 November: temperature (shading) and geopotential height (contours) at 850 hPa, ensemble member 1.
+Experiments a00v, a00w and a00x.</sub>
+
+</div>
 
 > **v1.0.0**: first stable release ([changelog](CHANGELOG.md), [documentation](https://aiuq.readthedocs.io)).
 > - Three model families: NeuralGCM, AIFS (single and ensemble) and Microsoft Aurora (1.0 and 1.5, including the 1.5 ensemble).
@@ -133,15 +158,26 @@ The framework supports both deterministic and stochastic models. Deterministic m
 
 
 
-<p align="center">
-  <img src="docs/neuralgcm_forecast.png" width="350">
-  <img src="docs/aifs_forecast.png" width="350">
-  <br>
-  <em>
-  NeuralGCM (resolution 1.4°) and AIFS-ens (resolution 0.25°) forecasts for January 21st, 1988.
-  Both simulations are initialized on January 1st, 1988, using ERA5 reanalysis data.
-  </em>
-</p>
+## Ensembles from AI models
+
+Each experiment runs any number of members, so the same initial state becomes a distribution of futures. The
+figures below come from the three 10-member forecasts above (ECMWF analysis, 10 days, outputs at 0.25° every 6 h).
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/ensemble_plume_dark.png">
+  <img alt="Ensemble plumes of 850 hPa temperature over Turin for AIFS ENS, Aurora 1.5 ENS and NeuralGCM" src="docs/images/ensemble_plume_light.png" width="100%">
+</picture>
+
+<sub>Temperature at 850 hPa over Turin (45.07° N, 7.69° E): every member (thin lines), ensemble mean (thick line) and
+member range (band).</sub>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/ensemble_spread_dark.png">
+  <img alt="Global maps of the ensemble spread of 850 hPa temperature for AIFS ENS, Aurora 1.5 ENS and NeuralGCM" src="docs/images/ensemble_spread_light.png" width="100%">
+</picture>
+
+<sub>Ensemble spread (standard deviation across the 10 members) of 850 hPa temperature, valid at 00 UTC on
+27 November 2026.</sub>
 
 ## Quickstart
 
