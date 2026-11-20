@@ -31,14 +31,14 @@ import xarray as xr
 # Local
 from AIUQst_lib.cards import read_ic_card, read_std_version
 from AIUQst_lib.functions import parse_arguments, read_config
+from AIUQst_lib.pressure_levels import (G, RD, extrapolate_above, standard_atmosphere_temperature,  # noqa: F401
+                                        to_standard_levels)
 from AIUQst_lib.support_data import add_fallback
 from AIUQst_lib.variables import (define_ics_mappers, drop_optional_missing, optional_variables,
                                   reassign_long_names_units, variables_of_type)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
-G = 9.80665                 # m s-2, converts geopotential height (gh) to geopotential (z)
-RD = 287.05                 # J kg-1 K-1, dry air gas constant (hypsometric extrapolation)
 SEAWATER_FREEZING = 271.35  # K, used to detect ice where the ocean model is undefined
 SST_UNDER_ICE = 271.46      # K, value used by ERA5/OSTIA under sea ice
 CYCLE_HOURS = 6
@@ -317,88 +317,6 @@ def normalize_soil(dataset: xr.Dataset, ic_card: dict) -> xr.Dataset:
         dataset = dataset.sel(soilLayer=[1, 2])
         dataset = dataset.assign_coords(soilLayer=dataset.soilLayer.astype("int64"))
     return dataset
-
-
-# US Standard Atmosphere 1976 layers: (base pressure Pa, base temperature K, lapse rate dT/dh K/m)
-_STD_ATMOSPHERE = [
-    (22632.06, 216.65, 0.0),
-    (5474.889, 216.65, 0.001),
-    (868.0187, 228.65, 0.0028),
-    (110.9063, 270.65, 0.0),
-    (66.93887, 270.65, -0.0028),
-    (3.956420, 214.65, -0.002),
-]
-
-
-def standard_atmosphere_temperature(p_hpa):
-    """US Standard Atmosphere 1976 temperature (K) at pressure p (hPa), above 226 hPa."""
-    p = np.atleast_1d(np.asarray(p_hpa, dtype="float64")) * 100.0
-    if (p > _STD_ATMOSPHERE[0][0]).any():
-        raise ValueError("Standard-atmosphere profile defined only above 226.32 hPa")
-    temperature = np.empty_like(p)
-    for i, value in enumerate(p):
-        base_p, base_t, lapse = [layer for layer in _STD_ATMOSPHERE if value <= layer[0]][-1]
-        temperature[i] = base_t * (value / base_p) ** (-RD * lapse / G) if lapse else base_t
-    return temperature if np.ndim(p_hpa) else temperature[0]
-
-
-def extrapolate_above(top: xr.Dataset, p_top: float, above: np.ndarray, dim: str) -> xr.Dataset:
-    """Levels above the highest available one.
-
-    t follows the standard-atmosphere shape anchored at the top level,
-    t(p) = t(p_top) + T_std(p) - T_std(p_top); z is integrated hydrostatically with the
-    layer-mean temperature; the other variables (u, v, q, w) are held constant.
-    """
-    levels = np.sort(above)[::-1]                       # from just above p_top upwards
-    profile = standard_atmosphere_temperature(np.concatenate([[p_top], levels]))
-    out = top.expand_dims({dim: levels}).copy()
-    if "t" in top:
-        t_levels = [top["t"] + (profile[k + 1] - profile[0]) for k in range(levels.size)]
-        out["t"] = xr.concat(t_levels, dim=dim).assign_coords({dim: levels})
-        if "z" in top:
-            z_levels, z_below, t_below, p_below = [], top["z"], top["t"], p_top
-            for k, p in enumerate(levels):
-                z_below = z_below + RD * 0.5 * (t_below + t_levels[k]) * np.log(p_below / p)
-                t_below, p_below = t_levels[k], p
-                z_levels.append(z_below)
-            out["z"] = xr.concat(z_levels, dim=dim).assign_coords({dim: levels})
-    return out.sortby(dim)
-
-
-def to_standard_levels(dataset: xr.Dataset, required: Iterable[float], dim: str = "level") -> xr.Dataset:
-    """Interpolate linearly in log(p); extrapolate above the top level with
-    ``extrapolate_above``. Source levels are returned unchanged."""
-    pl_vars = [v for v in dataset.data_vars if dim in dataset[v].dims]
-    if not pl_vars:
-        return dataset
-    source = dataset[pl_vars].sortby(dim)
-    p_source = source[dim].values.astype("float64")
-    target = np.asarray(sorted(float(p) for p in required))
-    if (target > p_source.max()).any():
-        raise ValueError(f"Cannot extrapolate below the lowest level {p_source.max()} hPa")
-    inside = target[target >= p_source.min()]
-    above = target[target < p_source.min()]
-
-    logp = source.assign_coords({dim: np.log(p_source)})
-    parts = []
-    if above.size:
-        top = source.sel({dim: p_source.min()}, drop=True)
-        parts.append(extrapolate_above(top, float(p_source.min()), above, dim))
-    parts.append(logp.interp({dim: np.log(inside)}).assign_coords({dim: inside}))
-    parts = [part.transpose(*source[pl_vars[0]].dims) for part in parts]
-    levels_ds = xr.concat(parts, dim=dim)
-    for v in pl_vars:
-        levels_ds[v] = levels_ds[v].transpose(*dataset[v].dims).astype(dataset[v].dtype)
-        levels_ds[v].attrs = dict(dataset[v].attrs)
-    if np.all(target == np.round(target)):
-        levels_ds = levels_ds.assign_coords({dim: target.astype("int64")})
-    levels_ds[dim].attrs = dict(dataset[dim].attrs)
-    out = dataset.drop_vars(pl_vars + [dim]).merge(levels_ds)
-    out.attrs["levels_extrapolated_hPa"] = [float(p) for p in above]
-    if above.size:
-        out.attrs["levels_extrapolation"] = ("t: anchored US Standard Atmosphere 1976 profile; "
-                                             "z: hydrostatic; u, v, q, w: constant")
-    return out
 
 
 def prepare_initial_conditions(dataset: xr.Dataset, config: dict, ic_card: dict,

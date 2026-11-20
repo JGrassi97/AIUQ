@@ -49,7 +49,12 @@ elif [ "$IC_SOURCE" = "ecmwf-an" ]; then
     SIF_PATH=%PATHS.SIF_FOLDER%/image_eerie.sif
     prepare_ics_ecmwf_an $HPCROOTDIR $LOGS_DIR $CONFIGFILE $SIF_PATH
 
+elif [ "$IC_SOURCE" = "ec-earth3" ]; then
+    # EC-Earth3 CMIP6 state from ESGF over OPeNDAP (netCDF4 in the EERIE image); no credentials.
+    SIF_PATH=%PATHS.SIF_FOLDER%/image_eerie.sif
+    prepare_ics_ec_earth3 $HPCROOTDIR $LOGS_DIR $CONFIGFILE $SIF_PATH
+
 else
-    echo "Invalid IC source specified. Please use 'era5' / 'eerie' / 'ecmwf-an'."
+    echo "Invalid IC source specified. Please use 'era5' / 'eerie' / 'ecmwf-an' / 'ec-earth3'."
     exit 1
 fi

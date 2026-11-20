@@ -33,7 +33,7 @@ followed by `autosubmit create <expid> -np`. Always run `aiuq preview` first; fi
 | `description` | Required, one line, < 200 chars. Shows up in `aiuq list`. |
 | `model` | `neuralgcm`, `aifs`, `ms-aurora` (ACE is not implemented). |
 | `checkpoint` | Must exist in `<support>/models/<model>/` on felipe (`aiuq options` shows ON HPC / MISSING). |
-| `ics` | `era5`, `eerie`, `ecmwf-an` (see below). |
+| `ics` | `era5`, `eerie`, `ecmwf-an`, `ec-earth3` (see below). |
 | `run_type` | `hindcast` (all models) or `amip` (NeuralGCM only). |
 | `forcing` | AMIP only: `ESA-CCI-v3.0` or `AIMIP`. Keep the default for hindcasts (ignored). |
 | `members` | 1–100 → `MEMBERS: "1 2 … N"`. Member number = RNG seed for stochastic checkpoints. |
@@ -79,6 +79,7 @@ On felipe there is also a stray `stochasti_evap_2_8_deg.pkl` (typo copy); use `s
 | `era5` | ARCO ERA5 on Google Cloud | No credentials. 1940 onwards. |
 | `eerie` | MARS via ECMWF Web API | Needs `~/.ecmwfapirc` on felipe (public EERIE data works; the user's key has **no** access to operational MARS `class=od`). PREPARE_ICS can sit in the MARS queue for a long time. |
 | `ecmwf-an` | ECMWF Open Data, IFS HRES step 0 | No credentials. `dates: [today]` → newest analysis cycle T with T-6h and T published (searched back 24 h). Past dates (0.25° archive from Feb 2024, Google mirror) use that day's 18 UTC. Output valid times follow the cycle picked when PREPARE_ICS ran and can start the **previous day** (e.g. DATELIST 20261117 → files `out-2026-11-16-…`). `slt lsm sdor slor orog` from the static file, `clwc ciwc` from climatology; 1–7 hPa extrapolated (NeuralGCM only uses them). |
+| `ec-earth3` | EC-Earth3 CMIP6 via ESGF OPeNDAP | Branch `ics/ec-earth3`, work in progress. No credentials. A climate-model state at 00/06 UTC of the date, not observed weather. ≤ 2014 `historical`, later the card's scenario (`ssp585`); override with `MODEL.ICS_EXPERIMENT`/`ICS_MEMBER` in main.yml (the Launcher does not set them). No wave fields: not for AIFS ENS v2. |
 
 ## The generated `conf/main.yml`
 

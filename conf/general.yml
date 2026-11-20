@@ -3,6 +3,13 @@ DIRS:
   OUTPUT_DIR: "%HPCROOTDIR%/output"
   INI_DATA_PATH: "%HPCROOTDIR%/ics/%MODEL.ICS%"
 
+# ICS: ec-earth3 only - CMIP6 experiment and member of EC-Earth3 (empty: the defaults of
+# conf/cards/ics/ec-earth3_card.yml, historical up to 2014 and the card's scenario after).
+# Set them in the experiment's conf/main.yml, e.g. MODEL: {ICS_EXPERIMENT: ssp245, ICS_MEMBER: r4i1p1f1}.
+MODEL:
+  ICS_EXPERIMENT: ""
+  ICS_MEMBER: ""
+
 # Output store: once every simulation has finished, the ARCHIVE job (platforms that define it, see
 # conf/jobs/<platform>/models/, and templates/archive.sh) copies the experiment folder of the HPC (outputs,
 # logs, code) to <DIR>/<expid>_<time>/ on the Autosubmit host and records that folder in

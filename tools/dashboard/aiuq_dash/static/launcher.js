@@ -12,7 +12,8 @@ const L = {
     output_store: null,
   },
 };
-const ICS_LABEL = { era5: ["ERA5", "Google Cloud · from 1940"], eerie: ["EERIE", "MARS · ECMWF Web API"] };
+const ICS_LABEL = { era5: ["ERA5", "Google Cloud · from 1940"], eerie: ["EERIE", "MARS · ECMWF Web API"],
+  "ecmwf-an": ["ECMWF analysis", "Open Data · latest cycle"], "ec-earth3": ["EC-Earth3", "CMIP6 · ESGF · 1850-2100"] };
 const SUP = { ok: ["ok", "supported"], wip: ["wip", "work in progress"] };
 
 async function lapi(path, body) {

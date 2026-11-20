@@ -51,6 +51,26 @@ prepare_ics_ecmwf_an() {
 }
 
 
+# Function to prepare ICs from the EC-Earth3 CMIP6 simulations (ESGF, OPeNDAP)
+prepare_ics_ec_earth3() {
+    local hpc_rootdir="$1"
+    local logs_dir="$2"
+    local configfile="$3"
+    local sif_path="$4"
+
+    aiuq_root=$(dirname "$(dirname "$sif_path")")
+
+    echo "Reading the EC-Earth3 CMIP6 state from ESGF (OPeNDAP)..."
+    singularity exec \
+        --bind "$hpc_rootdir","$logs_dir" \
+        --bind "$aiuq_root:$aiuq_root:ro" \
+        --env HPCROOTDIR="$hpc_rootdir" \
+        --env configfile="$configfile" \
+        "$sif_path" \
+        python3 "$hpc_rootdir/runscripts/download_ec_earth3.py" --config "$configfile"
+}
+
+
 # Function to prepare ICs from EERIE source
 # a) From mars
 prepare_ics_eerie_mars() {
