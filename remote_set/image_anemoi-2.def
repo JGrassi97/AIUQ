@@ -1,0 +1,62 @@
+Bootstrap: docker
+From: pytorch/pytorch:2.7.0-cuda12.6-cudnn9-devel
+
+# Anemoi inference image for the AIFS v2 checkpoints (aifs-ens-crps-2.0.ckpt), which need
+# anemoi-inference 0.8.x / anemoi-models 0.11.x / torch 2.7 and FlashAttention 2.
+# Versions follow the pyproject.toml published with the checkpoint
+# (https://huggingface.co/ecmwf/aifs-ens-2.0). The 1.x checkpoints keep using image_anemoi.sif
+# (anemoi-inference 0.6.0, torch 2.5); templates/*aifs*.sh choose the image from the checkpoint name.
+#
+# Build (unprivileged, on the HPC):
+#   apptainer build image_anemoi-2.sif image_anemoi-2.def
+
+%labels
+    Description "Anemoi inference 0.8.3 + torch 2.7.0 (CUDA 12.6) + flash-attn 2.8.3 for AIFS v2"
+
+%post
+    set -eux
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y --no-install-recommends ca-certificates curl git build-essential
+    rm -rf /var/lib/apt/lists/*
+    update-ca-certificates
+
+    PY=/opt/conda/bin/python
+    $PY -m pip install -U pip
+
+    # Prebuilt FlashAttention wheel for torch 2.7 / CUDA 12 / Python 3.11 (the base image's
+    # Python); building it from source takes hours. See https://github.com/cathalobrien/get-flash-attn
+    $PY -m pip install --no-deps \
+        "https://github.com/cathalobrien/get-flash-attn/releases/download/v0.1-alpha/flash_attn-2.8.3+cu12torch2.7cxx11abiFALSE-cp311-cp311-linux_x86_64.whl"
+
+    # torch is pinned by the base image; keep pip from replacing it.
+    $PY -m pip install \
+        "anemoi-inference[huggingface]==0.8.3" \
+        "anemoi-models==0.11.2" \
+        "anemoi-graphs==0.8.1" \
+        "anemoi-transform==0.1.16.post2" \
+        "anemoi-utils==0.4.35.post3" \
+        "torch-geometric==2.6.1" \
+        "earthkit-regrid==0.5.1" \
+        "earthkit-data<1" \
+        "ecmwf-opendata==0.3.29" \
+        "xarray" "netCDF4" "h5netcdf" "zarr>=3,<4" "scipy" "pyyaml" "eccodes" \
+        "torch==2.7.0"
+
+    $PY -c "import torch, flash_attn, anemoi.inference, anemoi.models, earthkit.regrid; \
+print('torch', torch.__version__, 'flash_attn', flash_attn.__version__, \
+'anemoi-inference', anemoi.inference.__version__, 'anemoi-models', anemoi.models.__version__)"
+
+%environment
+    export PYTHONUNBUFFERED=1
+    export PATH="/usr/local/nvidia/bin:/usr/local/cuda/bin:/opt/conda/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+    export HF_HOME=${HF_HOME:-$HOME/.cache/huggingface}
+    export TORCH_HOME=${TORCH_HOME:-$HOME/.cache/torch}
+    # SSL fix for HPC: ignore certificate paths inherited from the host.
+    unset SSL_CERT_FILE
+    unset REQUESTS_CA_BUNDLE
+    export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+    export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+
+%runscript
+    exec "$@"

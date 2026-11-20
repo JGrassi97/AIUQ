@@ -17,6 +17,9 @@ open_data:
   resol: 0p25
   # Since IFS 50r1 (12 May 2026) all cycles use 'oper'; older 06/18 UTC runs use 'scda'.
   streams: [oper, scda]
+  # Ocean-wave fields (variables with 'stream: wave' below) come from the wave model file of
+  # the same cycle; a cycle is used only when both files are published.
+  wave_stream: wave
   max_lookback_hours: 24
   # Number of parallel HTTP range requests per file.
   workers: 8
@@ -36,7 +39,8 @@ pressure_levels:
 
 # Standard ID -> Open Data parameter (short name, levtype). Variables not listed here
 # come from the static (slt, lsm, sdor, slor, orog) or climatology (clwc, ciwc) cards;
-# 'derived' variables are computed from the downloaded fields.
+# 'derived' variables are computed from the downloaded fields. 'stream: wave' marks the
+# fields of the wave model (sea points only, missing over land).
 variables:
   31  :
     name : ci
@@ -146,3 +150,58 @@ variables:
     name : sot
     param : sot
     levtype : sol
+  140114 :
+    name : h1012
+    param : h1012
+    levtype : sfc
+    stream : wave
+  140115 :
+    name : h1214
+    param : h1214
+    levtype : sfc
+    stream : wave
+  140116 :
+    name : h1417
+    param : h1417
+    levtype : sfc
+    stream : wave
+  140117 :
+    name : h1721
+    param : h1721
+    levtype : sfc
+    stream : wave
+  140118 :
+    name : h2125
+    param : h2125
+    levtype : sfc
+    stream : wave
+  140119 :
+    name : h2530
+    param : h2530
+    levtype : sfc
+    stream : wave
+  140219 :
+    name : wmb
+    param : wmb
+    levtype : sfc
+    stream : wave
+  140229 :
+    name : swh
+    param : swh
+    levtype : sfc
+    stream : wave
+  140230 :
+    name : mwd
+    param : mwd
+    levtype : sfc
+    stream : wave
+  140232 :
+    name : mwp
+    param : mwp
+    levtype : sfc
+    stream : wave
+  140233 :
+    name : cdww
+    param : cdww
+    levtype : sfc
+    stream : wave

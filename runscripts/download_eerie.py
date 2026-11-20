@@ -25,7 +25,8 @@ from ecmwfapi import ECMWFDataServer
 from AIUQst_lib.functions import parse_arguments, read_config
 from AIUQst_lib.pressure_levels import check_pressure_levels
 from AIUQst_lib.cards import read_ic_card, read_std_version
-from AIUQst_lib.variables import reassign_long_names_units, define_ics_mappers
+from AIUQst_lib.variables import (reassign_long_names_units, define_ics_mappers, drop_optional_missing,
+                                  optional_variables)
 from AIUQst_lib.support_data import add_fallback, align_support_grid  # noqa: F401 (re-exported)
 
 _FALLBACK_REASON = "Not archived in EERIE expver 0001"
@@ -189,6 +190,7 @@ def prepare_initial_conditions(dataset: xr.Dataset, config: dict, ic_card: dict,
             selected, missing, read_ic_card(config["HPCROOTDIR"], card_name),
             config[key], climatology, reason=_FALLBACK_REASON,
         )
+    missing = drop_optional_missing(missing, standard_variables)
     if missing:
         raise ValueError(f"No EERIE/static/climatology source for variable IDs: {sorted(missing)}")
     if "soilLayer" in selected.dims:
@@ -213,7 +215,8 @@ def main() -> None:
     standard = read_std_version(config["HPCROOTDIR"], config["STD_VERSION"])
     if os.path.isdir(output) and os.listdir(output):
         with xr.open_zarr(output) as existing:
-            expected = {v["short_name"] for v in standard["variables"]["data"].values()}
+            variables = standard["variables"]["data"]
+            expected = {v["short_name"] for code, v in variables.items() if code not in optional_variables(variables)}
             if (existing.attrs.get("eerie_expver") != ic_card["expver"]
                     or not expected.issubset(existing.data_vars)):
                 raise ValueError(f"Existing ICs at {output} do not match the EERIE card; "

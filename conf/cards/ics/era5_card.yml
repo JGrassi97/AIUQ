@@ -1,6 +1,16 @@
 ic_name: era5
 ic_source: google_cloud_storage
 
+# Wave partitions of ARCO ERA5 (height, mean period), used to derive the significant wave
+# heights per period band (h1012 ... h2530, 'derived: wave_period_bands'), which ERA5 does not
+# archive: wind waves and the three swell partitions. See runscripts/AIUQst_lib/waves.py.
+auxiliary:
+  wave_partitions:
+    - [significant_height_of_wind_waves, mean_period_of_wind_waves]
+    - [significant_wave_height_of_first_swell_partition, mean_wave_period_of_first_swell_partition]
+    - [significant_wave_height_of_second_swell_partition, mean_wave_period_of_second_swell_partition]
+    - [significant_wave_height_of_third_swell_partition, mean_wave_period_of_third_swell_partition]
+
 pressure_levels:
   name : level
   units : Hectopascal(hPa)
@@ -70,3 +80,31 @@ variables:
     name : specific_cloud_ice_water_content
   260360 : 
     name : soil_temperature
+  140114 :
+    name : h1012
+    derived : wave_period_bands
+  140115 :
+    name : h1214
+    derived : wave_period_bands
+  140116 :
+    name : h1417
+    derived : wave_period_bands
+  140117 :
+    name : h1721
+    derived : wave_period_bands
+  140118 :
+    name : h2125
+    derived : wave_period_bands
+  140119 :
+    name : h2530
+    derived : wave_period_bands
+  140219 :
+    name : model_bathymetry
+  140229 :
+    name : significant_height_of_combined_wind_waves_and_swell
+  140230 :
+    name : mean_wave_direction
+  140232 :
+    name : mean_wave_period
+  140233 :
+    name : coefficient_of_drag_with_waves

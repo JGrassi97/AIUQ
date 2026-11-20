@@ -2,9 +2,25 @@
 
 All notable changes to AIUQ are listed here. Versions follow [semantic versioning](https://semver.org/).
 
-## [1.0.1] - unreleased
+## [1.1.0] - unreleased
 
 ### Added
+- **AIFS ENS v2** (`MODEL.CHECKPOINT_NAME: aifs-ens-crps-2.0.ckpt`, ECMWF's operational ensemble model since
+  May 2026): 14 pressure levels (10 hPa added), snow depth and soil moisture in input, the ocean-wave component
+  (11 wave fields in input and output) and vertical velocity as a diagnostic. It needs a new container image
+  (`remote_set/image_anemoi-2.def`: anemoi-inference 0.8.3, torch 2.7, FlashAttention 2.8), chosen by the AIFS
+  templates from the checkpoint name; the 1.x checkpoints keep `image_anemoi.sif`. Integration on branch
+  `models/aifs-ens-2`, not yet verified on FELIPE (support matrix: work in progress; not available with EERIE,
+  which has no wave fields).
+- **AIUQ-st v100**: the standard adds the wave fields (`swh`, `mwd`, `mwp`, `cdww`, `wmb`, `h1012` … `h2530`, type
+  `wave`, sea points only) as *optional* variables; everything else is as in v010, which stays in
+  `conf/AIUQ-st/v010` as reference. ERA5 takes them from ARCO ERA5 (the period bands `h1012` … `h2530`, not
+  archived, are derived from the wave partitions), the ECMWF analysis from the `wave` stream of Open Data.
+  Initial conditions written with v010 lack the wave fields and cannot initialise AIFS ENS v2, but remain valid
+  for every other checkpoint.
+- `SAVE_ICS` for AIFS builds the checkpoint input from the checkpoint metadata (`Checkpoint.variables_from_input`)
+  instead of a hard-coded field list, so one model card covers the 1.x and 2.x checkpoints
+  (`checkpoints` block of `conf/cards/models/aifs_card.yml`: fields masked over sea, image).
 - **Output store**: on FELIPE a final `ARCHIVE` job (Autosubmit host, `templates/archive.sh`) moves the experiment
   folder from the HPC scratch to `<OUTPUT_STORE.DIR>/<expid>_<time>/` (unique even when Autosubmit reuses an expid;
   default `/data/users/jgrassi/AIUQ-outputs`, configurable per experiment in `main.yml` or in the Launcher): outputs,
@@ -100,6 +116,6 @@ release; the EERIE column keeps its 0.x status and will be re-tested. See the su
 
 AMIP simulations with AIMIP and ESA-CCI-v3.0 forcings.
 
-[1.0.1]: https://github.com/JGrassi97/AIUQ/compare/v1.0.0...HEAD
+[1.1.0]: https://github.com/JGrassi97/AIUQ/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/JGrassi97/AIUQ/compare/v0.2.0...v1.0.0
 [0.2.0]: https://github.com/JGrassi97/AIUQ/releases/tag/v0.2.0

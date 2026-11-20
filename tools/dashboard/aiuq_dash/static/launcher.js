@@ -132,7 +132,7 @@ function renderForm() {
   const datesInfo = c.dates.length ? `<b>${c.dates.length}</b> start date${c.dates.length === 1 ? "" : "s"} · ${fmtDate(c.dates[0])}${c.dates.length > 1 ? ` → ${fmtDate(c.dates[c.dates.length - 1])}` : ""}` : `<span style="color:var(--st-failed)">no valid dates</span>`;
   const leadDays = c.chunk_unit === "day" ? c.chunk_size * c.num_chunks : null;
   const byType = {};
-  for (const v of m.variables) (byType[v.type === "pl" ? "On pressure levels" : v.type === "sfc" ? "At the surface" : "Other"] ||= []).push(v);
+  for (const v of m.variables) (byType[v.type === "pl" ? "On pressure levels" : v.type === "sfc" ? "At the surface" : v.type === "wave" ? "Ocean waves (sea points only)" : "Other"] ||= []).push(v);
 
   $("#ln-form").innerHTML =
     step(1, "Start from", "a blank form or the settings of an existing experiment", `

@@ -25,8 +25,8 @@ def card(name="ecmwf-an"):
 
 def standard():
     return {
-        "variables": yaml.safe_load((ROOT / "conf/AIUQ-st/v010/variables.yml").read_text()),
-        "pressure_levels": yaml.safe_load((ROOT / "conf/AIUQ-st/v010/pressure_levels.yml").read_text()),
+        "variables": yaml.safe_load((ROOT / "conf/AIUQ-st/v100/variables.yml").read_text()),
+        "pressure_levels": yaml.safe_load((ROOT / "conf/AIUQ-st/v100/pressure_levels.yml").read_text()),
     }
 
 
@@ -83,6 +83,24 @@ def test_locate_tries_streams_and_sources_in_order():
     assert [e["step"] for e in found["index"]] == ["0"]
     assert found["grib"].endswith("/20240301/06z/ifs/0p25/scda/20240301060000-0h-scda-fc.grib2")
     assert len(calls) == 4
+    assert "wave_index" not in found
+
+
+def test_locate_with_waves_needs_the_wave_file_of_the_same_source():
+    od = card()["open_data"]
+    entry = [{"step": "0", "param": "swh", "levtype": "sfc", "_offset": 0, "_length": 1}]
+
+    def fetch(url):
+        if "/wave/" in url and url.startswith(od["sources"][0]):
+            return None                                   # first mirror has no wave file yet
+        return index_text(entry)
+
+    found = an.locate_cycle(cycle("2026-11-16 06"), od, fetch, wave=True)
+    assert found["source"] == od["sources"][1]
+    assert found["wave_grib"].endswith("/20261116/06z/ifs/0p25/wave/20261116060000-0h-wave-fc.grib2")
+    assert found["wave_index"] == entry
+    assert an.locate_cycle(cycle("2026-11-16 06"), od, lambda u: None if "/wave/" in u else index_text(entry),
+                           wave=True) is None
 
 
 def test_locate_skips_a_failing_mirror():
@@ -121,8 +139,16 @@ def fake_index(levels=(10, 50, 100, 500, 1000), geopotential="z", soil=(1, 2, 3,
     return entries
 
 
+def test_required_fields_split_by_file():
+    files = an.required_fields(card(), standard()["variables"]["data"])
+    assert set(files) == {an.ATMOSPHERE, "wave"}
+    assert ("sfc", "swh") in files["wave"] and ("sfc", "h1012") in files["wave"]
+    assert ("sfc", "swh") not in files[an.ATMOSPHERE] and ("sfc", "2t") in files[an.ATMOSPHERE]
+    assert files[an.ATMOSPHERE][("pl", "t")] == {str(p) for p in card()["pressure_levels"]["values"]}
+
+
 def test_selection_takes_only_needed_messages():
-    fields = an.required_fields(card(), standard()["variables"]["data"])
+    fields = an.required_fields(card(), standard()["variables"]["data"])[an.ATMOSPHERE]
     entries = an.select_entries(fake_index(), fields)
     keys = {(e["levtype"], e["param"], e.get("levelist")) for e in entries}
     assert ("pl", "r", "500") not in keys and ("sfc", "tp", None) not in keys
@@ -133,13 +159,13 @@ def test_selection_takes_only_needed_messages():
 
 
 def test_geopotential_height_replaces_missing_geopotential():
-    fields = an.required_fields(card(), standard()["variables"]["data"])
+    fields = an.required_fields(card(), standard()["variables"]["data"])[an.ATMOSPHERE]
     entries = an.select_entries(fake_index(geopotential="gh"), fields)
     assert {e["param"] for e in entries if e["levtype"] == "pl"} >= {"gh", "t"}
 
 
 def test_missing_required_field_or_level_fails():
-    fields = an.required_fields(card(), standard()["variables"]["data"])
+    fields = an.required_fields(card(), standard()["variables"]["data"])[an.ATMOSPHERE]
     index = [e for e in fake_index() if e["param"] != "sot"]
     with pytest.raises(RuntimeError, match="sot"):
         an.select_entries(index, fields)
@@ -234,6 +260,11 @@ def synthetic_open_data():
                    np.tile(np.array([[1., 0., 0.]] * 3, dtype="float32"), (2, 1, 1)))
     data.update({name: pl(base) for name, base in {"z": 1e4, "t": 250, "u": 5, "v": 5, "q": 1e-3, "w": 0}.items()})
     data.update({"vsw": soil(0.2), "sot": soil(280)})
+    for name, base in {"swh": 2, "mwd": 180, "mwp": 8, "cdww": 1e-3, "wmb": 2000, "h1012": .5,
+                       "h1214": .4, "h1417": .3, "h1721": .2, "h2125": .1, "h2530": .05}.items():
+        values = base + rng.random((2, 3, 3)).astype("float32")
+        values[:, :, 0] = np.nan                           # wave model: undefined over land
+        data[name] = (("time", "latitude", "longitude"), values)
     return xr.Dataset(data, coords={"time": times, "latitude": lat, "longitude": lon,
                                     "isobaricInhPa": levels, "soilLayer": [1, 2, 3, 4]})
 
@@ -268,6 +299,17 @@ def test_prepared_ics_contain_the_whole_standard(tmp_path):
     assert out.clwc.attrs["source"] == "ERA5 climatology"
     assert out.orog.attrs["source"] == "static support data"
     assert out.sst.attrs["units"] == "K" and out.sst.attrs["long_name"] == "Sea surface temperature"
+    assert out.swh.attrs["units"] == "m"
+    assert out.swh.sel(longitude=350.).isnull().all() and out.swh.sel(longitude=0.).notnull().all()
+
+
+def test_prepared_ics_without_wave_source_keep_the_required_variables(tmp_path):
+    std = standard()
+    wave = {v["short_name"] for v in std["variables"]["data"].values() if v.get("type") == "wave"}
+    out = an.prepare_initial_conditions(synthetic_open_data().drop_vars(list(wave)),
+                                        support_files(tmp_path), card(), std)
+    required = {v["short_name"] for v in std["variables"]["data"].values() if not v.get("optional")}
+    assert required <= set(out.data_vars) and not wave & set(out.data_vars)
 
 
 # ---------------------------------------------------------------- AIFS orientation

@@ -4,7 +4,8 @@ HPCROOTDIR=%HPCROOTDIR%
 EXPID=%DEFAULT.EXPID%
 JOBNAME=%JOBNAME%
 
-SIF_PATH=%PATHS.SIF_FOLDER%/image_anemoi.sif
+source %HPCROOTDIR%/lib/functions.sh
+SIF_PATH=%PATHS.SIF_FOLDER%/$(aifs_sif_name "%MODEL.CHECKPOINT_NAME%")
 AIUQ_ROOT=$(dirname "$(dirname "$SIF_PATH")")
 
 JOBNAME_WITHOUT_EXPID=$(echo ${JOBNAME} | sed 's/^[^_]*_//')
@@ -20,11 +21,14 @@ fi
 
 EARTHKIT_CACHE=${HPCROOTDIR}/earthkit_cache
 export EARTHKIT_REGRID_CACHE=${EARTHKIT_CACHE}
+# Chunks of the anemoi mapper: more chunks, less GPU memory (AIFS ENS 2.0 is larger than 1.0).
+export ANEMOI_INFERENCE_NUM_CHUNKS=${ANEMOI_INFERENCE_NUM_CHUNKS:-16}
 
 singularity exec --nv \
     --bind $HPCROOTDIR \
     --bind "$AIUQ_ROOT:$AIUQ_ROOT:ro" \
     --env HPCROOTDIR=$HPCROOTDIR \
     --env configfile=$configfile \
+    --env ANEMOI_INFERENCE_NUM_CHUNKS=$ANEMOI_INFERENCE_NUM_CHUNKS \
     ${SIF_PATH} \
     python3 $HPCROOTDIR/runscripts/sim_aifs.py -c $configfile

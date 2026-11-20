@@ -5,7 +5,8 @@ The IFS HRES state at step 0 of an operational run is the analysis interpolated 
 0.25 deg. AIUQ models need two consecutive states, so the newest cycle T for which
 both T-6h and T are published is selected (see the 'open_data' block of the card).
 Only the GRIB messages needed are fetched, through HTTP range requests driven by the
-.index files published next to each GRIB file.
+.index files published next to each GRIB file. The ocean-wave fields (AIUQ-st v100) come
+from the wave-model file of the same cycle (stream 'wave').
 
 Data: (c) ECMWF, CC BY 4.0 - https://www.ecmwf.int/en/forecasts/datasets/open-data
 """
@@ -31,7 +32,8 @@ import xarray as xr
 from AIUQst_lib.cards import read_ic_card, read_std_version
 from AIUQst_lib.functions import parse_arguments, read_config
 from AIUQst_lib.support_data import add_fallback
-from AIUQst_lib.variables import define_ics_mappers, reassign_long_names_units
+from AIUQst_lib.variables import (define_ics_mappers, drop_optional_missing, optional_variables,
+                                  reassign_long_names_units, variables_of_type)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -101,26 +103,45 @@ def parse_index(text: str) -> List[dict]:
     return [json.loads(line) for line in text.splitlines() if line.strip()]
 
 
+def _read_index(url: str, fetch: Callable[[str], Optional[bytes]]) -> Optional[List[dict]]:
+    """Step-0 entries of an index file, None when it is not there or the source fails."""
+    try:
+        index = fetch(url)
+    except Exception as err:  # noqa: BLE001 - any transport error means "try the next one"
+        logging.warning(f"Cannot read {url}: {err}")
+        return None
+    if not index:
+        return None
+    entries = [e for e in parse_index(index.decode()) if str(e.get("step")) == "0"]
+    return entries or None
+
+
 def locate_cycle(cycle: datetime, open_data: dict,
-                 fetch: Callable[[str], Optional[bytes]] = http_get) -> Optional[dict]:
+                 fetch: Callable[[str], Optional[bytes]] = http_get,
+                 wave: bool = False) -> Optional[dict]:
     """Find the step-0 file of a cycle in the configured sources/streams.
 
     A source that fails (outage, throttling) is skipped with a warning, so that the
-    next mirror is tried instead of aborting the selection.
+    next mirror is tried instead of aborting the selection. With ``wave`` the wave-model
+    file of the cycle (``open_data['wave_stream']``) must be there as well, from the same
+    source: it is returned under 'wave_index'/'wave_grib'.
     """
     for base in open_data["sources"]:
         for stream in open_data["streams"]:
-            url = file_url(base, cycle, stream, open_data, "index")
-            try:
-                index = fetch(url)
-            except Exception as err:  # noqa: BLE001 - any transport error means "try the next one"
-                logging.warning(f"Cannot read {url}: {err}")
+            entries = _read_index(file_url(base, cycle, stream, open_data, "index"), fetch)
+            if not entries:
                 continue
-            if index:
-                entries = [e for e in parse_index(index.decode()) if str(e.get("step")) == "0"]
-                if entries:
-                    return {"cycle": cycle, "stream": stream, "source": base, "index": entries,
-                            "grib": file_url(base, cycle, stream, open_data, "grib2")}
+            found = {"cycle": cycle, "stream": stream, "source": base, "index": entries,
+                     "grib": file_url(base, cycle, stream, open_data, "grib2")}
+            if wave:
+                wave_stream = open_data["wave_stream"]
+                wave_entries = _read_index(file_url(base, cycle, wave_stream, open_data, "index"), fetch)
+                if not wave_entries:
+                    logging.warning(f"No {wave_stream} file for cycle {cycle:%Y-%m-%d %H}Z at {base}")
+                    continue
+                found.update(wave_index=wave_entries,
+                             wave_grib=file_url(base, cycle, wave_stream, open_data, "grib2"))
+            return found
     return None
 
 
@@ -151,12 +172,23 @@ def select_cycle(candidates: Iterable[datetime],
 # Field selection and download
 # --------------------------------------------------------------------------------------
 
-def required_fields(ic_card: dict, standard_variables: dict) -> Dict[Tuple[str, str], Optional[set]]:
-    """{(levtype, param): levels or None} for the standard variables in the card."""
-    fields: Dict[Tuple[str, str], Optional[set]] = {}
+ATMOSPHERE = "atm"      # key of the fields of the main (oper/scda) file in required_fields()
+
+
+def required_fields(ic_card: dict, standard_variables: dict) -> Dict[str, Dict[Tuple[str, str], Optional[set]]]:
+    """{file: {(levtype, param): levels or None}} for the standard variables in the card.
+
+    ``file`` is ATMOSPHERE for the main step-0 file, or the stream of the variables that
+    carry one in the card (the wave-model file, 'wave').
+    """
+    files: Dict[str, Dict[Tuple[str, str], Optional[set]]] = {ATMOSPHERE: {}}
     for code, spec in ic_card["variables"].items():
         if code not in standard_variables or spec.get("derived"):
             continue
+        if spec.get("stream"):
+            files.setdefault(spec["stream"], {})[(spec["levtype"], spec["param"])] = None
+            continue
+        fields = files[ATMOSPHERE]
         key = (spec["levtype"], spec["param"])
         if spec["levtype"] == "pl":
             fields[key] = {str(p) for p in ic_card["pressure_levels"]["values"]}
@@ -168,12 +200,13 @@ def required_fields(ic_card: dict, standard_variables: dict) -> Dict[Tuple[str, 
             fields[key] = levels
         else:
             fields[key] = None
+    fields = files[ATMOSPHERE]
     if any(spec.get("derived") for code, spec in ic_card["variables"].items() if code in standard_variables):
         fields[("sfc", "skt")] = None
     for levtype, params in ic_card.get("auxiliary", {}).items():
         for param in params:
             fields[(levtype, param)] = None
-    return fields
+    return files
 
 
 def select_entries(index: List[dict], fields: Dict[Tuple[str, str], Optional[set]],
@@ -377,6 +410,12 @@ def prepare_initial_conditions(dataset: xr.Dataset, config: dict, ic_card: dict,
     dataset = normalize_soil(dataset, ic_card)
     dataset = derive_sea_surface(dataset)
 
+    # Optional variables (wave fields) may not have been downloaded: treat them as missing.
+    absent = {code: standard_variables[code] for code, name in names.items() if name not in dataset}
+    if absent:
+        missing = {**(missing or {}), **absent}
+        names = {code: name for code, name in names.items() if code not in absent}
+        rename = {name: rename[name] for name in names.values()}
     selected = dataset[list(names.values())].rename(rename)
     selected = selected.rename({ic_card["pressure_levels"]["name"]: "level"})
     selected["level"].attrs["units"] = standard_dict["pressure_levels"]["units"]["valid"]
@@ -389,14 +428,16 @@ def prepare_initial_conditions(dataset: xr.Dataset, config: dict, ic_card: dict,
             selected, missing, read_ic_card(config["HPCROOTDIR"], card_name),
             config[key], climatology, reason=FALLBACK_REASON,
         )
+    missing = drop_optional_missing(missing, standard_variables)
     if missing:
         raise ValueError(f"No ECMWF Open Data/static/climatology source for variable IDs: {sorted(missing)}")
     if "soilLayer" in selected.dims:
         selected = selected.rename({"soilLayer": "SoilLevel"})
 
-    # Masked by construction: sst/ci over land, soil fields over sea.
+    # Masked by construction: sst/ci and the wave fields over land, soil fields over sea.
+    sea_only = {"sst", "ci", "swvl1", "swvl2", "sot"} | variables_of_type(standard_variables, "wave")
     for name, da in selected.data_vars.items():
-        if name in {"sst", "ci", "swvl1", "swvl2", "sot"}:
+        if name in sea_only:
             continue
         if not bool(np.isfinite(da).all()):
             raise ValueError(f"Non-finite values in ECMWF analysis initial conditions: {name}")
@@ -411,7 +452,9 @@ def check_existing(output: str, ic_card: dict, standard: dict) -> bool:
     if not (os.path.isdir(output) and os.listdir(output)):
         return False
     with xr.open_zarr(output) as existing:
-        expected = {v["short_name"] for v in standard["variables"]["data"].values()}
+        variables = standard["variables"]["data"]
+        optional = optional_variables(variables)
+        expected = {v["short_name"] for code, v in variables.items() if code not in optional}
         if existing.attrs.get("ic_name") != ic_card["ic_name"] or not expected.issubset(existing.data_vars):
             raise ValueError(f"Existing ICs at {output} do not match the {ic_card['ic_name']} card; "
                              "use a new INI_DATA_PATH or explicitly remove the old ICs.")
@@ -430,22 +473,31 @@ def main() -> None:
         return
 
     open_data = ic_card["open_data"]
+    files = required_fields(ic_card, standard["variables"]["data"])
+    wave_stream = open_data.get("wave_stream")
+    need_wave = bool(wave_stream and files.get(wave_stream))
     previous, current = select_cycle(
         candidate_cycles(config["START_TIME"], open_data["max_lookback_hours"]),
-        lambda cycle: locate_cycle(cycle, open_data),
+        lambda cycle: locate_cycle(cycle, open_data, wave=need_wave),
     )
     logging.info(f"Selected ECMWF analysis {current['cycle']:%Y-%m-%d %H}Z "
                  f"(with {previous['cycle']:%Y-%m-%d %H}Z) from {current['source']}")
 
     temp_dir = os.path.join(config.get("ICS_TEMP_DIR") or config["TEMP_DIR"], "ecmwf-an")
-    fields = required_fields(ic_card, standard["variables"]["data"])
-    cycles = []
+    cycles, grib_files = [], []
     for located in (previous, current):
-        target = os.path.join(temp_dir, f"{located['cycle']:%Y%m%d%H}-0h.grib2")
-        entries = select_entries(located["index"], fields)
-        logging.info(f"Downloading {len(entries)} fields from {located['grib']}")
-        download_fields(located["grib"], entries, target, open_data.get("workers", 8))
-        cycles.append(open_cycle(target))
+        parts = []
+        sources = [(files[ATMOSPHERE], located["index"], located["grib"], "")]
+        if need_wave:
+            sources.append((files[wave_stream], located["wave_index"], located["wave_grib"], f"-{wave_stream}"))
+        for wanted, index, grib, suffix in sources:
+            target = os.path.join(temp_dir, f"{located['cycle']:%Y%m%d%H}-0h{suffix}.grib2")
+            entries = select_entries(index, wanted)
+            logging.info(f"Downloading {len(entries)} fields from {grib}")
+            download_fields(grib, entries, target, open_data.get("workers", 8))
+            parts.append(open_cycle(target))
+            grib_files.append(grib)
+        cycles.append(xr.merge(parts, join="exact", compat="no_conflicts"))
     dataset = xr.concat(cycles, dim="time", join="exact", data_vars="all")
 
     selected = prepare_initial_conditions(dataset, config, ic_card, standard)
@@ -454,7 +506,7 @@ def main() -> None:
         ic_name=ic_card["ic_name"],
         analysis_time=f"{current['cycle']:%Y-%m-%dT%H:%M}Z",
         previous_time=f"{previous['cycle']:%Y-%m-%dT%H:%M}Z",
-        open_data_files=[previous["grib"], current["grib"]],
+        open_data_files=grib_files,
         fallback_source="static support data; ERA5 climatology (clwc, ciwc)",
         licence="CC BY 4.0, (c) ECMWF",
     )

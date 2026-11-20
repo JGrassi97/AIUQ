@@ -27,6 +27,10 @@ curl -fL "https://huggingface.co/ecmwf/aifs-single-1.1/resolve/main/aifs-single-
 curl -fL "https://huggingface.co/ecmwf/aifs-ens-1.0/resolve/main/aifs-ens-crps-1.0.ckpt" \
   -o "models/aifs/aifs-ens-crps-1.0.ckpt"
 
+# AIFS ENS v2 (needs the image built from image_anemoi-2.def)
+curl -fL "https://huggingface.co/ecmwf/aifs-ens-2.0/resolve/main/aifs-ens-crps-2.0.ckpt" \
+  -o "models/aifs/aifs-ens-crps-2.0.ckpt"
+
 
 # MS Aurora models & static pickles
 curl -fL "https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-pretrained.ckpt" \

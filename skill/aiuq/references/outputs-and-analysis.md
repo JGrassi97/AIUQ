@@ -43,7 +43,7 @@ ignore them (a leftover `_temp.nc` means POSTPROCESS did not run or failed).
 
   Latitudes ascend −90…90 on the regular grids, longitudes run 0…360, `level` is in hPa.
 - Values carry **no meaningful `units` attribute**: units are the ECMWF/AIUQ-st ones
-  (`conf/AIUQ-st/v010/variables.yml`): K, m² s⁻² for `z` (geopotential, divide by 9.80665 for metres),
+  (`conf/AIUQ-st/v100/variables.yml`): K, m² s⁻² for `z` (geopotential, divide by 9.80665 for metres),
   m s⁻¹, kg kg⁻¹, Pa.
 - Time: `OUT_FREQ: original` = 6-hourly; `daily` = daily means. With `ICS: ecmwf-an` the valid times
   follow the analysis cycle chosen when PREPARE_ICS ran, so they can start the day **before** the

@@ -53,6 +53,11 @@ models:
         url: https://huggingface.co/ecmwf/aifs-ens-1.0
         download_url: https://huggingface.co/ecmwf/aifs-ens-1.0/resolve/main/aifs-ens-crps-1.0.ckpt
         size: 922MB
+      - id: aifs_ens_2_0
+        label: aifs-ens-crps-2.0.ckpt
+        url: https://huggingface.co/ecmwf/aifs-ens-2.0
+        download_url: https://huggingface.co/ecmwf/aifs-ens-2.0/resolve/main/aifs-ens-crps-2.0.ckpt
+        size: 2.55GB
       
 
   - name: MS Aurora
@@ -98,6 +103,8 @@ models:
 #                     2-day forecasts from 2010-01-01 (ERA5) and the 2026-11-16 06Z analysis.
 #                     EERIE: statuses from 0.x, not re-tested for 1.0.0 (MARS queue).
 #   wip             = integration present but not verified for this combination.
+#                     aifs_ens_2_0 (AIFS ENS v2, AIUQ-st v100): integration on branch models/aifs-ens-2,
+#                     not yet run on FELIPE. EERIE has no ocean-wave fields, which this checkpoint needs.
 #   not_implemented = no integration.
 status:
   ERA5:
@@ -109,6 +116,7 @@ status:
     ngcm_det_2_8: "available"
     aifs_single_1_1: "available"
     aifs_ens_1_0: "available"
+    aifs_ens_2_0: "wip"
     aurora_0_25_pretrained: "available"
     aurora_0_25_finetuned: "available"
     aurora_0_25_v1_5: "available"
@@ -125,6 +133,7 @@ status:
     ngcm_det_2_8: "available"
     aifs_single_1_1: "wip"
     aifs_ens_1_0: "available"
+    aifs_ens_2_0: "not_implemented"
     aurora_0_25_pretrained: "wip"
     aurora_0_25_finetuned: "wip"
     aurora_0_25_v1_5: "wip"
@@ -141,6 +150,7 @@ status:
     ngcm_det_2_8: "available"
     aifs_single_1_1: "available"
     aifs_ens_1_0: "available"
+    aifs_ens_2_0: "wip"
     aurora_0_25_pretrained: "available"
     aurora_0_25_finetuned: "available"
     aurora_0_25_v1_5: "available"

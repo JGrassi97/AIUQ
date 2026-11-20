@@ -29,6 +29,7 @@ from AIUQst_lib.variables import name_mapper_for_model, output_translator
 
 from postprocess_aifs import build_dataset_for_state
 from AIUQst_lib.streaming import StepBuffer
+from AIUQst_lib.waves import cos_sin_to_direction
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -85,10 +86,6 @@ def main() -> None:
     translate = output_translator(model_card['variables'], standard_dict['variables'])
     output_vars = [translate.get(item, item) for item in out_vars]
 
-    # If 'gh' in output vars we need to change it with 'z' for the model
-    if 'gh' in output_vars:
-        output_vars = [var if var != 'gh' else 'z' for var in output_vars]
-    
     
     desired_levels = None                    # 'original': keep every model level
     if _OUT_LEVS != 'original':
@@ -144,6 +141,11 @@ def main() -> None:
             state_name = state["date"].strftime("%Y%m%d%H")
             print(f"Generated state for {state_name}")
             valid_times.append(_as_datetime64(state["date"]))
+
+            # AIFS ENS 2.0 carries the mean wave direction as cos/sin components.
+            if "mwd" in output_vars and "mwd" not in state["fields"] and "cos_mwd" in state["fields"]:
+                state["fields"]["mwd"] = cos_sin_to_direction(
+                    state["fields"]["cos_mwd"], state["fields"]["sin_mwd"]).astype(np.float32)
 
             ds_t = build_dataset_for_state(state, output_vars, desired_levels)
             buffer.append({name: ds_t[name].values[0] for name in ds_t.data_vars})

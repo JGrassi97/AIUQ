@@ -4,7 +4,8 @@ HPCROOTDIR=%HPCROOTDIR%
 EXPID=%DEFAULT.EXPID%
 JOBNAME=%JOBNAME%
 
-SIF_PATH=%PATHS.SIF_FOLDER%/image_anemoi.sif
+source %HPCROOTDIR%/lib/functions.sh
+SIF_PATH=%PATHS.SIF_FOLDER%/$(aifs_sif_name "%MODEL.CHECKPOINT_NAME%")
 AIUQ_ROOT=$(dirname "$(dirname "$SIF_PATH")")
 
 JOBNAME_WITHOUT_EXPID=$(echo ${JOBNAME} | sed 's/^[^_]*_//')

@@ -2,6 +2,9 @@ ic_name: eerie
 ic_source: mars
 expver: "0001"
 
+# The ocean-wave fields of AIUQ-st v100 (optional) are not retrieved from EERIE: the AIFS ENS
+# 2.0 checkpoint, which needs them, cannot be initialised from EERIE for now.
+
 pressure_levels:
   name : isobaricInhPa
   units : hPa

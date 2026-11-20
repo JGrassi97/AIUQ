@@ -1,4 +1,29 @@
+<div align="center">
+
 # AIUQ
+
+**AI weather and climate models for Uncertainty Quantification, run as Autosubmit workflows**
+
+[![Release](https://img.shields.io/github/v/release/JGrassi97/AIUQ?color=2a78d6&label=release)](https://github.com/JGrassi97/AIUQ/releases/latest)
+[![Documentation](https://readthedocs.org/projects/aiuq/badge/?version=latest)](https://aiuq.readthedocs.io)
+[![License](https://img.shields.io/badge/license-Apache%202.0-2a78d6)](LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/JGrassi97/AIUQ?color=2a78d6)](https://github.com/JGrassi97/AIUQ/commits/main)
+<br>
+[![Autosubmit](https://img.shields.io/badge/workflow-Autosubmit%204-101f37)](https://autosubmit.readthedocs.io)
+[![Containers](https://img.shields.io/badge/containers-Apptainer%20%7C%20Singularity-101f37)](https://apptainer.org)
+[![Models](https://img.shields.io/badge/models-NeuralGCM%20%7C%20AIFS%20%7C%20Aurora-eb6834)](https://aiuq.readthedocs.io/en/latest/models.html)
+[![Initial conditions](https://img.shields.io/badge/ICs-ERA5%20%7C%20EERIE%20%7C%20ECMWF%20Open%20Data-1baf7a)](#forecasting-from-the-latest-ecmwf-analysis)
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/forecast_maps_dark.png">
+  <img alt="Temperature and geopotential height at 850 hPa over Europe forecast by AIFS ENS, Aurora 1.5 ENS and NeuralGCM for 24 November 2026" src="docs/images/forecast_maps_light.png" width="100%">
+</picture>
+
+<sub>Three AI models started from the ECMWF analysis of 19 November 2026 (NeuralGCM: 18 UTC on 18 November), valid at
+00 UTC on 24 November: temperature (shading) and geopotential height (contours) at 850 hPa, ensemble member 1.
+Experiments a00v, a00w and a00x.</sub>
+
+</div>
 
 > **v1.0.0**: first stable release ([changelog](CHANGELOG.md), [documentation](https://aiuq.readthedocs.io)).
 > - Three model families: NeuralGCM, AIFS (single and ensemble) and Microsoft Aurora (1.0 and 1.5, including the 1.5 ensemble).
@@ -64,8 +89,8 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td align="center">✅</td>
 </tr>
 <tr>
-<td rowspan="2"><b>AIFS</b></td>
-<td rowspan="2">hindcast</td>
+<td rowspan="3"><b>AIFS</b></td>
+<td rowspan="3">hindcast</td>
 <td><a href="https://huggingface.co/ecmwf/aifs-single-1.1">aifs-single-mse-1.1.ckpt</a></td>
 <td align="center">✅</td>
 <td align="center">⚠️</td>
@@ -76,6 +101,12 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td align="center">✅</td>
 <td align="center">✅</td>
 <td align="center">✅</td>
+</tr>
+<tr>
+<td><a href="https://huggingface.co/ecmwf/aifs-ens-2.0">aifs-ens-crps-2.0.ckpt</a></td>
+<td align="center">⚠️</td>
+<td align="center">❌</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td rowspan="4"><b>MS Aurora</b></td>
@@ -127,15 +158,26 @@ The framework supports both deterministic and stochastic models. Deterministic m
 
 
 
-<p align="center">
-  <img src="docs/neuralgcm_forecast.png" width="350">
-  <img src="docs/aifs_forecast.png" width="350">
-  <br>
-  <em>
-  NeuralGCM (resolution 1.4°) and AIFS-ens (resolution 0.25°) forecasts for January 21st, 1988.
-  Both simulations are initialized on January 1st, 1988, using ERA5 reanalysis data.
-  </em>
-</p>
+## Ensembles from AI models
+
+Each experiment runs any number of members, so the same initial state becomes a distribution of futures. The
+figures below come from the three 10-member forecasts above (ECMWF analysis, 10 days, outputs at 0.25° every 6 h).
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/ensemble_plume_dark.png">
+  <img alt="Ensemble plumes of 850 hPa temperature over Turin for AIFS ENS, Aurora 1.5 ENS and NeuralGCM" src="docs/images/ensemble_plume_light.png" width="100%">
+</picture>
+
+<sub>Temperature at 850 hPa over Turin (45.07° N, 7.69° E): every member (thin lines), ensemble mean (thick line) and
+member range (band).</sub>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/ensemble_spread_dark.png">
+  <img alt="Global maps of the ensemble spread of 850 hPa temperature for AIFS ENS, Aurora 1.5 ENS and NeuralGCM" src="docs/images/ensemble_spread_light.png" width="100%">
+</picture>
+
+<sub>Ensemble spread (standard deviation across the 10 members) of 850 hPa temperature, valid at 00 UTC on
+27 November 2026.</sub>
 
 ## Quickstart
 
@@ -153,7 +195,8 @@ To run the framework you need
 │   ├── aifs/            # *.ckpt checkpoints
 │   └── ms-aurora/       # *.ckpt checkpoints
 ├── sif/                 # Singularity images: image_era.sif, image_eerie.sif (also used by ecmwf-an),
-│                        #   image_neuralgcm.sif, image_anemoi.sif (AIFS), image_aurora.sif
+│                        #   image_neuralgcm.sif, image_anemoi.sif (AIFS 1.x), image_anemoi-2.sif (AIFS 2.x),
+│                        #   image_aurora.sif
 ├── static/              # AIUQ-static.nc (1st-level fallback: orography, land-sea mask, soil type, ...)
 │                        #   aurora-0.25-static.pickle, aurora-0.25-v1.5-static.pickle
 ├── climatology/         # AIUQ-climatology.nc (2nd-level fallback)
@@ -163,7 +206,9 @@ To run the framework you need
 
 Checkpoints are resolved as `<SUPPORT_FOLDER>/models/<MODEL.NAME>/<MODEL.CHECKPOINT_NAME>`, so the file names must match
 the support matrix above. [`remote_set/get_models.txt`](remote_set/get_models.txt) downloads every checkpoint and the
-Aurora static files, and [`remote_set/image_aurora.def`](remote_set/image_aurora.def) is the recipe of the Aurora image.
+Aurora static files, [`remote_set/image_aurora.def`](remote_set/image_aurora.def) is the recipe of the Aurora image and
+[`remote_set/image_anemoi-2.def`](remote_set/image_anemoi-2.def) the one of the anemoi image for the AIFS 2.x checkpoints
+(anemoi-inference 0.8, torch 2.7, FlashAttention; the 1.x checkpoints keep `image_anemoi.sif`).
 The AIFS POSTPROCESS job also needs [CDO](https://code.mpimet.mpg.de/projects/cdo) on the HPC (loaded as a module on
 MareNostrum 5, from the system on FELIPE).
 
@@ -307,15 +352,15 @@ To address this issue, the framework adopts a standard convention called **AIUQ-
 - ICs are always saved, retrieved, and temporarily restored according to the AIUQ-st standard.
 - AI models always perform inference starting from data formatted in the AIUQ-st standard.
 
-Since this standard may evolve due to future developments or different user requirements, it is versioned. Each version is stored under `docs/AIUQ-st/version`.
+Since this standard may evolve due to future developments or different user requirements, it is versioned. Each version is stored under `conf/AIUQ-st/<version>`; the templates select the current one (`STD_VERSION` in `templates/config.yml`, now `v100`) and the earlier versions (`v010`, `v000`) stay in the repository as reference.
 
 **Note:** Developers are responsible for keeping the codebase as modular as possible in order to remain independent of any single AIUQ-st convention.
 
 ---
 
-#### AIUQ-st v010
+#### AIUQ-st v100
 
-Below is a brief description of **AIUQ-st/v010**:
+Below is a brief description of **AIUQ-st/v100**:
 
 - **Storage format:** `.zarr`
 - **Naming conventions:** [ECMWF Parameter database](https://codes.ecmwf.int/grib/param-db/?encoding=netcdf)
@@ -323,6 +368,10 @@ Below is a brief description of **AIUQ-st/v010**:
 - **Grid:** regular latitude–longitude grid with 0.25° × 0.25° resolution  
   - latitude range: −90° to 90° N  
   - longitude range: 0° to 360° E
+- **Variable types:** `sfc` (single level), `pl` (pressure levels), `soil` (soil layers) and `wave` (ocean waves, sea points only, NaN over land).
+- **Optional variables:** the eleven wave fields (`swh`, `mwd`, `mwp`, `cdww`, `wmb`, `h1012` … `h2530`), needed by AIFS ENS v2, are `optional: true`: an IC source that cannot provide them (EERIE) is still valid for the models that do not use them.
+
+Compared with v010 (kept in `conf/AIUQ-st/v010` as reference), v100 only adds the wave fields; variables, units and pressure levels of v010 are unchanged.
 
 In practice, developers who aim to introduce a new initial condition (IC) must provide the code required to retrieve and store the ICs according to the AIUQ-st convention. They should also strive to keep the implementation modular in order to remain resilient to future changes in the standard.
 

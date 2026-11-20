@@ -1,5 +1,15 @@
 #!/bin/bash
 
+# Anemoi image for an AIFS checkpoint (conf/cards/models/aifs_card.yml, 'checkpoints' block): the
+# 2.x checkpoints need anemoi-inference 0.8 / torch 2.7 (remote_set/image_anemoi-2.def), the 1.x
+# ones keep the original image. Usage: aifs_sif_name <checkpoint file name>
+aifs_sif_name() {
+    case "$1" in
+        aifs-*-[2-9].*.ckpt) echo "image_anemoi-2.sif" ;;
+        *)                   echo "image_anemoi.sif" ;;
+    esac
+}
+
 # Function to prepare ICs from ERA5 source
 prepare_ics_era5() {
     local hpc_rootdir="$1"
