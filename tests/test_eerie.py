@@ -22,13 +22,14 @@ def card(name):
 
 def test_requests_match_historical_archive():
     eerie = card("eerie")
-    standard = yaml.safe_load((ROOT / "conf/AIUQ-st/v010/variables.yml").read_text())["data"]
+    standard = yaml.safe_load((ROOT / "conf/AIUQ-st/v100/variables.yml").read_text())["data"]
     params = mars_variables(eerie, standard)
     base = build_base_request("1980-01-01", ".25/.25", eerie["expver"])
     assert base["expver"] == "0001"
     assert base["time"] == "00:00:00/06:00:00"
     assert params["sol"] == [260199, 260360]
     assert not {228246, 228247}.intersection(params["sfc"])
+    assert not any(140000 <= p < 141000 for p in params["sfc"])   # no wave fields from EERIE
     assert build_request(base, "sol", params["sol"])["levelist"] == "1/2"
     assert "levelist" not in build_request(base, "sfc", params["sfc"])
 

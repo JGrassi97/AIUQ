@@ -62,6 +62,7 @@ Number of SIM jobs = dates × members × num_chunks (each needs one GPU). Above 
 | | `deterministic_0_7_deg.pkl`, `deterministic_1_4_deg.pkl`, `deterministic_2_8_deg.pkl` | deterministic | | |
 | `aifs` | `aifs-ens-crps-1.0.ckpt` | ensemble | N320, 13 levels (50–1000 hPa) | hindcast |
 | | `aifs-single-mse-1.1.ckpt` | deterministic | | |
+| | `aifs-ens-crps-2.0.ckpt` | ensemble | N320, 14 levels (10–1000 hPa), wave fields (`swh mwd mwp cdww h1012…h2530`) in output; needs `image_anemoi-2.sif`; branch `models/aifs-ens-2`, not yet verified; no EERIE | hindcast |
 | `ms-aurora` | `aurora-0.25-v1.5-ensemble.ckpt` | ensemble | 0.25°, 13 levels (50–1000 hPa) | hindcast |
 | | `aurora-0.25-pretrained.ckpt`, `aurora-0.25-finetuned.ckpt`, `aurora-0.25-v1.5.ckpt` | deterministic | | |
 

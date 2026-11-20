@@ -1,10 +1,14 @@
 model : aifs
 producer : ecmwf
 
+# Standard ID -> name used by the anemoi checkpoints. SAVE_ICS (runscripts/ics_aifs.py) reads the
+# input fields each checkpoint actually needs from its metadata and takes them from this list, so
+# the list is the union over the checkpoints: the 1.x ones use neither the wave fields nor sd, the
+# ens 2.0 one needs them all (wave fields over sea only).
 variables:
   39 : swvl1
   40 : swvl2
-  129 : gh
+  129 : z
   130 : t
   131 : u
   132 : v
@@ -12,6 +16,7 @@ variables:
   134 : sp
   135 : w
   136 : tcw
+  141 : sd
   151 : msl
   160 : sdor
   163 : slor
@@ -22,8 +27,34 @@ variables:
   172 : lsm
   235 : skt
   260360 : sot
+  140114 : h1012
+  140115 : h1214
+  140116 : h1417
+  140117 : h1721
+  140118 : h2125
+  140119 : h2530
+  140219 : wmb
+  140229 : swh
+  140230 : mwd
+  140232 : mwp
+  140233 : cdww
   999999 : z
 
+# Union of the pressure levels of the checkpoints (hPa): the 1.x checkpoints stop at 50 hPa, the
+# ens 2.0 one adds 10 hPa (q only down to 100 hPa as input). The levels each field needs come
+# from the checkpoint metadata.
 pressure_levels :
-  values : [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
+  values : [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50, 10]
   unit : hPa
+
+# Per-checkpoint input conventions (SAVE_ICS). Checkpoints not listed use 'default'.
+#   mask_over_sea: fields set to NaN at sea points (land-sea mask < 0.5), as the operational
+#                  AIFS ENS v2 pre-processing does (apply-mask filter of its inference.yaml).
+#   image: Singularity image of the anemoi environment (templates/*aifs*.sh, lib/functions.sh).
+checkpoints:
+  default:
+    mask_over_sea: []
+    image: image_anemoi.sif
+  aifs-ens-crps-2.0.ckpt:
+    mask_over_sea: [sd, swvl1, swvl2]
+    image: image_anemoi-2.sif

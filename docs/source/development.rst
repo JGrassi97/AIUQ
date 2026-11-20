@@ -12,9 +12,10 @@ Initial conditions and model inference use a shared, versioned convention called
 names, grids and pressure levels.
 
 The standard definitions in this repository live under ``conf/AIUQ-st/``.
-Runtime templates currently select ``STD_VERSION: v010``.
+Runtime templates currently select ``STD_VERSION: v100``; the earlier versions
+(``v010``, ``v000``) are kept as reference and are not used by the templates.
 
-.. list-table:: AIUQ-st v010
+.. list-table:: AIUQ-st v100
    :header-rows: 1
    :widths: 30 70
 
@@ -34,8 +35,25 @@ Runtime templates currently select ``STD_VERSION: v010``.
      - 0° to 360° E.
 
 Pressure-level definitions are stored alongside the variables in
-``conf/AIUQ-st/v010/pressure_levels.yml``. Keep integrations independent of a
+``conf/AIUQ-st/v100/pressure_levels.yml``. Keep integrations independent of a
 single standard version wherever possible.
+
+Every variable has a ``type``: ``sfc`` (single level), ``pl`` (pressure levels),
+``soil`` (soil layers) and, since v100, ``wave`` (ocean-wave fields, defined over
+sea only). v100 adds the eleven wave fields used by AIFS ENS v2 (significant wave
+height, mean period and direction, drag coefficient, model bathymetry and the
+heights per period band ``h1012`` … ``h2530``). They are flagged ``optional: true``:
+an initial-condition source that cannot provide them (EERIE) still produces valid
+initial conditions, and a model that needs them fails at ``SAVE_ICS`` with the list
+of the missing fields. ERA5 provides them from ARCO ERA5 (the period bands are
+derived from the wave partitions), the ECMWF analysis from the ``wave`` stream of
+ECMWF Open Data.
+
+AIFS checkpoints are not hard-coded: ``runscripts/ics_aifs.py`` reads the input
+fields a checkpoint needs from its metadata and takes them from the standard through
+the model card, which lists the union of the variables and levels of all AIFS
+checkpoints. Per-checkpoint conventions (fields masked over sea, container image)
+are in the ``checkpoints`` block of ``conf/cards/models/aifs_card.yml``.
 
 Repository map
 --------------

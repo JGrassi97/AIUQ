@@ -97,6 +97,33 @@ def define_ics_mappers(ic_variables: dict, standard_variables: dict) -> tuple:
 
 
 
+def optional_variables(standard_variables: dict) -> set:
+    """IDs of the standard variables flagged ``optional: true`` (AIUQ-st v100: the wave fields)."""
+    return {code for code, spec in standard_variables.items() if spec.get("optional")}
+
+
+def drop_optional_missing(missing: dict | None, standard_variables: dict) -> dict | None:
+    """Remove the optional variables from ``missing`` ({ID: standard specs}), with a warning.
+
+    Optional variables are not an error for the initial conditions: a model whose card
+    needs them fails later (SAVE_ICS/SIM) with the list of the fields it cannot find.
+    Returns the remaining (required) missing variables, or None.
+    """
+    if not missing:
+        return None
+    optional = optional_variables(standard_variables)
+    dropped = sorted(spec["short_name"] for code, spec in missing.items() if code in optional)
+    if dropped:
+        logging.warning(f"Optional standard variables without a source, left out of the ICs: {dropped}")
+    remaining = {code: spec for code, spec in missing.items() if code not in optional}
+    return remaining or None
+
+
+def variables_of_type(standard_variables: dict, kind: str) -> set:
+    """Short names of the standard variables of a given type (sfc, pl, soil, wave)."""
+    return {spec["short_name"] for spec in standard_variables.values() if spec.get("type") == kind}
+
+
 def reassign_long_names_units(ds: xr.Dataset, long_names_dict: dict, units_dict: dict) -> xr.Dataset:
 
     """Reassigns the long names and units of the variables in the dataset according to the standard."""

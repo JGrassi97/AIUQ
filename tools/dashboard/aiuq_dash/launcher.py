@@ -37,6 +37,7 @@ MODEL_NAMES = {"aifs": "AIFS", "ms-aurora": "Aurora", "neuralgcm": "NeuralGCM", 
 SUPPORT = {
     "aifs-single-mse-1.1.ckpt": {"era5": "ok", "eerie": "wip"},
     "aifs-ens-crps-1.0.ckpt": {"era5": "ok", "eerie": "ok"},
+    "aifs-ens-crps-2.0.ckpt": {"era5": "wip", "eerie": "no"},
     "aurora-0.25-pretrained.ckpt": {"era5": "ok", "eerie": "wip"},
     "aurora-0.25-finetuned.ckpt": {"era5": "wip", "eerie": "wip"},
     "aurora-0.25-v1.5.ckpt": {"era5": "wip", "eerie": "wip"},

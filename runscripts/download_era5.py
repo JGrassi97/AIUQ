@@ -1,22 +1,60 @@
 """
-
+Initial conditions from ARCO ERA5 (Google Cloud, 0.25 deg, 37 pressure levels), written in the
+AIUQ-st convention. Variables the archive does not have come from the static support file, the
+ERA5 climatology, or are derived (the wave heights per period band, from the wave partitions).
 """
 
 # Built-in/Generics
-import os 
+import logging
+import os
 import shutil
-import yaml
 
 # Third party
 import gcsfs
 import xarray as xr
-import zarr
 
 # Local
 from AIUQst_lib.functions import parse_arguments, read_config
 from AIUQst_lib.pressure_levels import check_pressure_levels
 from AIUQst_lib.cards import read_ic_card, read_std_version
-from AIUQst_lib.variables import reassign_long_names_units, define_ics_mappers
+from AIUQst_lib.variables import reassign_long_names_units, define_ics_mappers, drop_optional_missing
+from AIUQst_lib.waves import wave_period_bands
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+ARCO_ERA5 = "gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3"
+
+
+def derive_wave_bands(archive: xr.Dataset, selected: xr.Dataset, ic_card: dict,
+                      missing: dict | None) -> tuple:
+    """Significant wave heights per period band ('derived: wave_period_bands' in the card).
+
+    ERA5 does not archive h1012 ... h2530; they are approximated from the wave partitions
+    listed under ``auxiliary.wave_partitions`` (see AIUQst_lib.waves). Returns the dataset
+    with the derived fields and the still-missing variables.
+    """
+    wanted = {code: spec for code, spec in ic_card["variables"].items()
+              if spec.get("derived") == "wave_period_bands" and missing and code in missing}
+    partitions = (ic_card.get("auxiliary") or {}).get("wave_partitions") or []
+    if not wanted or not partitions:
+        return selected, missing
+    names = [n for pair in partitions for n in pair]
+    absent = [n for n in names if n not in archive]
+    if absent:
+        logging.warning(f"Wave partitions {absent} not in the archive: period bands not derived")
+        return selected, missing
+    source = archive[names].sel(time=selected["time"].values).compute()
+    source["longitude"] = source["longitude"] % 360
+    source = source.sortby("longitude")
+    bands = wave_period_bands([(source[h], source[p]) for h, p in partitions])
+    for code, spec in wanted.items():
+        band = bands[spec["name"]].astype("float32")
+        band.attrs.update(long_name=missing[code]["long_name"], units=missing[code]["units"],
+                          source="derived from the ERA5 wave partitions")
+        selected[spec["name"]] = band.transpose(*selected["sst"].dims) if "sst" in selected else band
+    remaining = {code: spec for code, spec in missing.items() if code not in wanted}
+    logging.info(f"Derived wave period bands: {sorted(spec['name'] for spec in wanted.values())}")
+    return selected, remaining or None
 
 
 def main() -> None:
@@ -44,16 +82,17 @@ def main() -> None:
     static_card = read_ic_card(_HPCROOTDIR, 'static')
     climatology_card = read_ic_card(_HPCROOTDIR, 'climatology')
     standard_dict = read_std_version(_HPCROOTDIR, _STD_VERSION)
+    standard_variables = standard_dict['variables']['data']
 
     # Here the specific code to retrieve ERA5 from GCS
     gcs = gcsfs.GCSFileSystem(token="anon")
-    ini_data_path_remote = "gs://gcp-public-data-arco-era5/ar/full_37-1h-0p25deg-chunk-1.zarr-v3"
-    full_era5 = xr.open_zarr(gcs.get_mapper(ini_data_path_remote), chunks={"time":1})
-    
-    # Create the mappers between model requirement and IC variables
+    full_era5 = xr.open_zarr(gcs.get_mapper(ARCO_ERA5), chunks={"time": 1})
+
+    # Create the mappers between model requirement and IC variables (derived ones come later)
+    archived = {code: spec for code, spec in ic_card['variables'].items() if not spec.get('derived')}
     ic_names, rename_dict, long_names_dict, units_dict, missing_vars = define_ics_mappers(
-        ic_card['variables'], 
-        standard_dict['variables']['data']
+        archived,
+        standard_variables
         )
 
     # The following is a workaround for soil temperature levels - google saves them as different variable, one for each level
@@ -79,15 +118,19 @@ def main() -> None:
         .pipe(check_pressure_levels, ic_card, standard_dict['pressure_levels'])
         .compute()
         )
-    
+
     if restore_sot:
         selected = xr.merge([selected, sol])
-    
+
     # Adjust longitudes to -0 - 360
     selected['longitude'] = selected['longitude'] % 360
     selected = selected.sortby('longitude')
-    
+
+    # DERIVED WAVE FIELDS (period bands from the wave partitions)
+    selected, missing_vars = derive_wave_bands(full_era5, selected, ic_card, missing_vars)
+
     # FALLBACK FOR STATIC VARIABLES
+    remaining = missing_vars
     if missing_vars is not None:
 
         ic_names_static, rename_dict_static, long_names_dict_static, units_dict_static, missing_vars_static = define_ics_mappers(
@@ -110,7 +153,7 @@ def main() -> None:
         selected = (
             xr.merge([selected, static_dataset], join="exact")
         )
-
+        remaining = missing_vars_static
 
         # FALLBACK FOR CLIMATOLOGY VARIABLES
         if missing_vars_static is not None:
@@ -133,19 +176,25 @@ def main() -> None:
 
             selected = (
                 xr.merge([selected, climatology_dataset], join="exact")
-            ) 
-        
+            )
+            remaining = missing_vars_climatology
+
+    # Optional variables of the standard (wave fields) may have no source; required ones must.
+    remaining = drop_optional_missing(remaining, standard_variables)
+    if remaining:
+        raise ValueError(f"No ERA5/static/climatology source for variable IDs: {sorted(remaining)}")
+
     # Final part - Savimg in zarr
     final = selected.chunk({"time": 1})        # Chunking by time for efficient access
 
     shutil.rmtree(                          # Remove existing data if any - avoid conflicts
         _INI_DATA_PATH,
         ignore_errors=True)
-    
+
     final.to_zarr(                          # Save to zarr format - using version 2
         f"{_INI_DATA_PATH}",                # Zarr version 3 has some issues with BytesBytesCodec
-        mode="w",                           # See https://github.com/pydata/xarray/issues/10032 as reference    
+        mode="w",                           # See https://github.com/pydata/xarray/issues/10032 as reference
         zarr_format=2)
-    
+
 if __name__ == "__main__":
     main()
