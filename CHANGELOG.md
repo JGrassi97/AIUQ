@@ -5,6 +5,12 @@ All notable changes to AIUQ are listed here. Versions follow [semantic versionin
 ## [1.1.0] - unreleased
 
 ### Added
+- **EC-Earth3 CMIP6 initial conditions** (`ICS: ec-earth3`, branch `ics/ec-earth3`, work in progress): the state of
+  the EC-Earth3 `historical` and ScenarioMIP simulations (member `r4i1p1f1`) read from ESGF over OPeNDAP, only the
+  time steps needed. Upper-air profiles combine the 6-hourly fields (7 levels) with the daily means (19 levels);
+  the variables EC-Earth3 does not publish are derived or taken from the support files. Optional
+  `MODEL.ICS_EXPERIMENT` / `MODEL.ICS_MEMBER`. The vertical-interpolation helpers of the ECMWF analysis moved to
+  `AIUQst_lib/pressure_levels.py`.
 - **AIFS ENS v2** (`MODEL.CHECKPOINT_NAME: aifs-ens-crps-2.0.ckpt`, ECMWF's operational ensemble model since
   May 2026): 14 pressure levels (10 hPa added), snow depth and soil moisture in input, the ocean-wave component
   (11 wave fields in input and output) and vertical velocity as a diagnostic. It needs a new container image

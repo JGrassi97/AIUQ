@@ -35,15 +35,15 @@ AS_BIN = os.path.join(os.path.dirname(settings.AS_PYTHON), "autosubmit")
 MODEL_NAMES = {"aifs": "AIFS", "ms-aurora": "Aurora", "neuralgcm": "NeuralGCM", "ace": "ACE"}
 # Support matrix from the README (ok / wip / no); checkpoints not listed are "unknown".
 SUPPORT = {
-    "aifs-single-mse-1.1.ckpt": {"era5": "ok", "eerie": "wip"},
-    "aifs-ens-crps-1.0.ckpt": {"era5": "ok", "eerie": "ok"},
-    "aifs-ens-crps-2.0.ckpt": {"era5": "wip", "eerie": "no"},
-    "aurora-0.25-pretrained.ckpt": {"era5": "ok", "eerie": "wip"},
-    "aurora-0.25-finetuned.ckpt": {"era5": "wip", "eerie": "wip"},
-    "aurora-0.25-v1.5.ckpt": {"era5": "wip", "eerie": "wip"},
-    "aurora-0.25-v1.5-ensemble.ckpt": {"era5": "ok", "eerie": "wip"},
+    "aifs-single-mse-1.1.ckpt": {"era5": "ok", "eerie": "wip", "ec-earth3": "wip"},
+    "aifs-ens-crps-1.0.ckpt": {"era5": "ok", "eerie": "ok", "ec-earth3": "wip"},
+    "aifs-ens-crps-2.0.ckpt": {"era5": "wip", "eerie": "no", "ec-earth3": "no"},
+    "aurora-0.25-pretrained.ckpt": {"era5": "ok", "eerie": "wip", "ec-earth3": "wip"},
+    "aurora-0.25-finetuned.ckpt": {"era5": "wip", "eerie": "wip", "ec-earth3": "wip"},
+    "aurora-0.25-v1.5.ckpt": {"era5": "wip", "eerie": "wip", "ec-earth3": "wip"},
+    "aurora-0.25-v1.5-ensemble.ckpt": {"era5": "ok", "eerie": "wip", "ec-earth3": "wip"},
 }
-NEURALGCM_OK = {"era5": "ok", "eerie": "ok"}
+NEURALGCM_OK = {"era5": "ok", "eerie": "ok", "ec-earth3": "wip"}
 AMIP_MODELS = {"neuralgcm"}
 FORCINGS = ["ESA-CCI-v3.0", "AIMIP"]
 RESOLUTIONS = ["original", "0.25", "0.5", "1", "1.5", "2"]

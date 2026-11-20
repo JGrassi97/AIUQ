@@ -1,0 +1,171 @@
+ic_name: ec-earth3
+ic_source: esgf_cmip6
+
+# EC-Earth3 state from its CMIP6 simulations (EC-Earth Consortium, CC BY 4.0), read from ESGF
+# over OPeNDAP: only the time steps around START_TIME 00 and 06 UTC are transferred (a few MB per
+# field), never the yearly files (4-5 GB each). See runscripts/download_ec_earth3.py.
+#
+# The ICs are a climate-model state, not an analysis: they follow the EC-Earth3 climate (and its
+# biases), not the observed weather of START_TIME.
+esgf:
+  source_id: EC-Earth3
+  # Only r4i1p1f1 publishes the 6-hourly upper-air set (6hrPlevPt ta/ua/va/zg/hus) in the SSPs;
+  # in 'historical' it has no 6-hourly hus (the daily means are used, see 'profiles' below).
+  member: r4i1p1f1
+  # Experiment for START_TIME after 'historical_until'; earlier dates use 'historical'.
+  # ssp119, ssp126, ssp245, ssp370 and ssp585 all have the 6-hourly set for r4i1p1f1.
+  # Both can be overridden per experiment with MODEL.ICS_EXPERIMENT / MODEL.ICS_MEMBER.
+  scenario: ssp585
+  historical_until: "2014-12-31"
+  # Search services, tried in order. The LLNL index now redirects to the ORNL bridge, which
+  # rejects the 'fields' parameter.
+  indexes:
+    - https://esgf-node.ornl.gov/esgf-1-5-bridge
+    - https://esgf.ceda.ac.uk/esg-search/search
+    - https://esgf-data.dkrz.de/esg-search/search
+  # OPeNDAP replicas are tried in this order; nodes not listed come last. Some nodes list an
+  # OPeNDAP endpoint that does not answer (esgf-data04.diasjp.net), others have none
+  # (eagle.alcf.anl.gov): the next replica is used.
+  preferred_nodes:
+    - esgf-node.ornl.gov
+    - esgf.ceda.ac.uk
+    - esgf-cnr.hpc.ext.cineca.it
+    - esgf-data.dkrz.de
+  timeout: 120
+  retries: 3
+
+# Time sampling of the CMIP6 tables. 'point': instantaneous values, the exact time stamps
+# (00/06 UTC) are required. 'mean': interval means (time stamp at the middle of the interval),
+# interpolated linearly in time to 00/06 UTC.
+tables:
+  6hrPlevPt: point
+  3hr: point
+  6hrPlev: mean
+  Eday: mean
+  day: mean
+  SIday: mean
+  Oday: mean
+
+# Levels (hPa) of the daily upper-air means (Eday, plev19), which span the whole standard range
+# (1-1000 hPa). The 6-hourly fields exist only on a few of them (6hrPlevPt: 925, 850, 700, 600,
+# 500, 250, 50 hPa; 6hrPlev wap: 925, 850, 500, 250 hPa).
+pressure_levels:
+  name: level
+  units: hPa
+  values: [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 70, 50, 30, 20, 10, 5, 1]
+
+# Upper-air variables: profile = daily mean at 00/06 UTC + the 6-hourly departure from it.
+# The departure (instant - daily mean) is known on the 6-hourly levels; it is interpolated in
+# log(p) between them, held constant below the lowest one (to 1000 hPa) and tapered to zero over
+# 'taper_decades' decades of pressure above the highest one. Without an 'instant' source for the
+# experiment (hus in 'historical') the profile is the daily mean alone.
+profiles:
+  taper_decades: 1.0
+
+# Standard ID -> source. 'profile': upper-air variable (see above). 'field': one CMIP6 field.
+# 'scale': factor applied to the CMIP6 values. 'derived': computed in download_ec_earth3.py
+# from the fields listed under 'inputs'. Variables not listed (slt, lsm, sdor, slor, orog;
+# clwc, ciwc) come from the static file and from the ERA5 climatology, as for the other ICs.
+variables:
+  129 :
+    name : z
+    profile : {instant: [6hrPlevPt, zg], daily: [Eday, zg]}
+    scale : 9.80665                     # geopotential height (m) -> geopotential (m2 s-2)
+  130 :
+    name : t
+    profile : {instant: [6hrPlevPt, ta], daily: [Eday, ta]}
+  131 :
+    name : u
+    profile : {instant: [6hrPlevPt, ua], daily: [Eday, ua]}
+  132 :
+    name : v
+    profile : {instant: [6hrPlevPt, va], daily: [Eday, va]}
+  133 :
+    name : q
+    profile : {instant: [6hrPlevPt, hus], daily: [Eday, hus]}
+  135 :
+    name : w
+    profile : {instant: [6hrPlev, wap], daily: [Eday, wap]}
+  151 :
+    name : msl
+    field : [6hrPlevPt, psl]
+  165 :
+    name : u10
+    field : [3hr, uas]
+  166 :
+    name : v10
+    field : [3hr, vas]
+  167 :
+    name : t2m
+    field : [3hr, tas]
+  228246 :
+    name : u100
+    field : [6hrPlev, ua100m]
+  228247 :
+    name : v100
+    field : [6hrPlev, va100m]
+  164 :
+    name : tcc
+    field : [day, clt]
+    scale : 0.01                        # %
+  141 :
+    name : sd
+    field : [day, snw]
+    scale : 0.001                       # kg m-2 -> m of water equivalent; 0 over sea
+    land_only : true
+  39 :
+    name : swvl1
+    field : [day, mrsos]
+    scale : 0.01                        # kg m-2 in the top 0.1 m -> m3 m-3; 0 over sea
+    land_only : true
+  40 :
+    name : swvl2
+    field : [day, mrsos]                # no deeper layer published: same as swvl1
+    scale : 0.01
+    land_only : true
+  31 :
+    name : ci
+    field : [SIday, siconca]            # declared in %, stored as a fraction: detected from the values
+    fraction : true
+  34 :
+    name : sst
+    derived : true
+  134 :
+    name : sp
+    derived : true
+  136 :
+    name : tcw
+    derived : true
+  137 :
+    name : tcwv
+    derived : true
+  168 :
+    name : d2m
+    derived : true
+  186 :
+    name : lcc
+    derived : true
+  187 :
+    name : mcc
+    derived : true
+  188 :
+    name : hcc
+    derived : true
+  235 :
+    name : skt
+    derived : true
+  260360 :
+    name : sot
+    derived : true
+
+# CMIP6 fields used only by the derived variables.
+#   tos:      sst, on the ORCA1 ocean grid (gn), regridded with inverse-distance weights
+#   huss:     d2m (with sp)
+#   tslsi:    skt over land, daily mean, given the diurnal cycle of tas (tas_day: daily mean tas)
+#   tsl:      sot, soil temperature at 5 cm (layer 1; layer 2 = mean of the day's four instants)
+inputs:
+  tos : [Oday, tos]
+  huss : [3hr, huss]
+  tslsi : [day, tslsi]
+  tas_day : [day, tas]
+  tsl : [6hrPlevPt, tsl]

@@ -49,6 +49,7 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <th>ERA5</th>
 <th>EERIE (AMIP)</th>
 <th>ECMWF analysis</th>
+<th>EC-Earth3 (CMIP6)</th>
 </tr>
 <tr>
 <td rowspan="6"><b>NeuralGCM</b></td>
@@ -57,36 +58,42 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td align="center">✅</td>
 <td align="center">✅</td>
 <td align="center">✅</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">stochastic_precip_2_8_deg.pkl</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
 <td align="center">✅</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">stochastic_evap_2_8_deg.pkl</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
 <td align="center">✅</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">deterministic_0_7_deg.pkl</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
 <td align="center">✅</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">deterministic_1_4_deg.pkl</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
 <td align="center">✅</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td><a href="https://neuralgcm.readthedocs.io/en/latest/checkpoints.html">deterministic_2_8_deg.pkl</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
 <td align="center">✅</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td rowspan="3"><b>AIFS</b></td>
@@ -95,18 +102,21 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td align="center">✅</td>
 <td align="center">⚠️</td>
 <td align="center">✅</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td><a href="https://huggingface.co/ecmwf/aifs-ens-1.0">aifs-ens-crps-1.0.ckpt</a></td>
 <td align="center">✅</td>
 <td align="center">✅</td>
 <td align="center">✅</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td><a href="https://huggingface.co/ecmwf/aifs-ens-2.0">aifs-ens-crps-2.0.ckpt</a></td>
 <td align="center">⚠️</td>
 <td align="center">❌</td>
 <td align="center">⚠️</td>
+<td align="center">❌</td>
 </tr>
 <tr>
 <td rowspan="4"><b>MS Aurora</b></td>
@@ -115,29 +125,34 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td align="center">✅</td>
 <td align="center">⚠️</td>
 <td align="center">✅</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td><a href="https://microsoft.github.io/aurora/models.html">aurora-0.25-finetuned.ckpt</a></td>
 <td align="center">✅</td>
 <td align="center">⚠️</td>
 <td align="center">✅</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td><a href="https://microsoft.github.io/aurora/example_v1p5.html">aurora-0.25-v1.5.ckpt</a></td>
 <td align="center">✅</td>
 <td align="center">⚠️</td>
 <td align="center">✅</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td><a href="https://microsoft.github.io/aurora/models.html#aurora-1-5-ensemble-0-25">aurora-0.25-v1.5-ensemble.ckpt</a></td>
 <td align="center">✅</td>
 <td align="center">⚠️</td>
 <td align="center">✅</td>
+<td align="center">⚠️</td>
 </tr>
 <tr>
 <td rowspan="1"><b>ACE</b></td>
 <td rowspan="1">amip (planned)</td>
 <td><a href="https://huggingface.co/allenai/ACE2-ERA5">ACE2-ERA5</a></td>
+<td align="center">❌</td>
 <td align="center">❌</td>
 <td align="center">❌</td>
 <td align="center">❌</td>
@@ -238,7 +253,7 @@ MODEL:
   # Main settings
   NAME: aifs                                        # aifs / neuralgcm / ms-aurora
   CHECKPOINT_NAME: aifs-single-mse-1.1.ckpt         # checkpoint name as written in the table above
-  ICS: eerie                                        # eerie / era5 / ecmwf-an
+  ICS: eerie                                        # eerie / era5 / ecmwf-an / ec-earth3
 
 EXPERIMENT:
   RUN_TYPE: "hindcast" # hindcast / amip
@@ -272,6 +287,7 @@ Note that some ICs require credentials to be retrieved:
 - ERA5  -> Google Cloud Store - No credentials required
 - EERIE -> MARS - ECMWF Web API credentials required ([read here](https://www.ecmwf.int/en/computing/software/ecmwf-web-api))
 - ECMWF analysis (`ecmwf-an`) -> [ECMWF Open Data](https://www.ecmwf.int/en/forecasts/datasets/open-data) - No credentials required
+- EC-Earth3 CMIP6 (`ec-earth3`) -> [ESGF](https://esgf.llnl.gov/) over OPeNDAP - No credentials required
 
 #### Output store
 
@@ -320,6 +336,33 @@ Open Data does not publish every variable of the standard, so:
   Atmosphere anchored at 10 hPa, hydrostatic geopotential, constant wind and humidity). Only NeuralGCM uses them.
 
 Data: © ECMWF, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
+#### Starting from an EC-Earth3 climate simulation (work in progress)
+
+With `ICS: ec-earth3`, `PREPARE_ICS` reads the state of the EC-Earth3 CMIP6 simulations at `DATELIST` 00 and 06 UTC from
+ESGF over OPeNDAP, transferring only the time steps it needs. Dates up to 2014 use `historical`, later dates the
+scenario of `conf/cards/ics/ec-earth3_card.yml` (`ssp585`); member `r4i1p1f1` is the only one with the 6-hourly
+upper-air fields. Choose another scenario or member per experiment:
+
+```
+MODEL:
+  ICS: ec-earth3
+  ICS_EXPERIMENT: ssp245     # historical, ssp119, ssp126, ssp245, ssp370, ssp585
+  ICS_MEMBER: r4i1p1f1
+```
+
+The ICs are a climate-model state: they follow the EC-Earth3 climate, not the observed weather of that date.
+EC-Earth3 publishes 6-hourly upper-air fields on 7 levels only (925-50 hPa), so:
+- upper-air profiles are the daily means on 19 levels (1000-1 hPa) plus the 6-hourly departure from them, spread
+  between the 6-hourly levels in log-pressure, held below 925 hPa and tapered to zero above 50 hPa; in `historical`
+  the humidity has no 6-hourly field and is the daily mean;
+- daily and 6-hourly means (cloud cover, snow, soil moisture, sea ice, SST, 100 m wind, vertical velocity) are
+  interpolated in time to 00/06 UTC;
+- `sp`, `d2m`, `tcwv`, `tcw`, `skt`, `sot` and the low/medium/high cloud cover are derived (see the `derivation`
+  attribute of each variable); `slt`, `lsm`, `sdor`, `slor`, `orog`, `clwc`, `ciwc` come from the static file and the
+  ERA5 climatology. There are no ocean-wave fields, so AIFS ENS v2 cannot start from EC-Earth3.
+
+Data: EC-Earth Consortium, CMIP6, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
 ## Dashboard
 

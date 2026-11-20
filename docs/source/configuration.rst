@@ -49,8 +49,12 @@ Model and initial conditions
    Checkpoint filename. It must match the checkpoint installed under
    ``<SUPPORT_FOLDER>/models/<MODEL.NAME>/``.
 ``MODEL.ICS``
-   Initial-condition source: ``era5``, ``eerie`` or ``ecmwf-an``. Availability varies
-   by checkpoint; see :doc:`models`.
+   Initial-condition source: ``era5``, ``eerie``, ``ecmwf-an`` or ``ec-earth3``.
+   Availability varies by checkpoint; see :doc:`models`.
+``MODEL.ICS_EXPERIMENT``, ``MODEL.ICS_MEMBER``
+   ``ec-earth3`` only, optional: CMIP6 experiment (``historical``, ``ssp119`` …
+   ``ssp585``) and member of EC-Earth3. By default dates up to 2014 use
+   ``historical`` and later dates the scenario of ``conf/cards/ics/ec-earth3_card.yml``.
 
 Latest ECMWF analysis (``ecmwf-an``)
 ------------------------------------
@@ -76,6 +80,23 @@ Latest ECMWF analysis (``ecmwf-an``)
   interpolated in log-pressure, and 1–7 hPa are extrapolated (temperature following
   the US Standard Atmosphere profile anchored at 10 hPa, hydrostatic geopotential,
   constant winds and humidity).
+
+EC-Earth3 CMIP6 simulations (``ec-earth3``)
+-------------------------------------------
+
+``ec-earth3`` initialises the models from the state of the EC-Earth3 CMIP6 simulations
+(member ``r4i1p1f1``) at 00 and 06 UTC of the start date, read from ESGF over OPeNDAP
+without credentials. It is a climate-model state, not an analysis.
+
+* **Upper air.** EC-Earth3 publishes instantaneous 6-hourly fields on 7 levels
+  (925–50 hPa) and daily means on 19 levels (1000–1 hPa). The profiles are the daily
+  means plus the 6-hourly departure from them, interpolated in log-pressure between
+  the 6-hourly levels, held below 925 hPa and tapered to zero above 50 hPa.
+* **Means.** Daily and 6-hourly means (cloud cover, snow, soil moisture, sea ice, SST,
+  100 m wind, vertical velocity) are interpolated in time to 00/06 UTC.
+* **Derived.** ``sp`` (``msl`` reduced to the static orography), ``d2m``, ``tcwv``,
+  ``tcw``, ``skt``, ``sot`` and the cloud layers; static fields and ``clwc``/``ciwc``
+  come from the support files. No ocean-wave fields (AIFS ENS v2 is not supported).
 
 Experiment controls
 -------------------
