@@ -213,3 +213,6 @@ docs/generated-table.html
 
 compare/
 weather-app/
+
+*.pdf
+tools/report/
