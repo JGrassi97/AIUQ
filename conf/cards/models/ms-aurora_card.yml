@@ -1,6 +1,9 @@
 model : ms-aurora
 producer : microsoft
 
+# Standard ID -> Aurora name of the inputs (also predicted). Aurora 1.0 uses 2t, 10u, 10v, msl and the
+# atmospheric variables; Aurora 1.5 the whole list. 'scaled_sd' takes the snow depth unscaled (m of water
+# equivalent): the model log-transforms it internally.
 variables:
   31  : ci
   39  : swvl1
@@ -29,7 +32,34 @@ variables:
   260360 : stl1
   999999 : z
 
+# Output-only fields of Aurora 1.5 {AIUQ-st code: Aurora name} (output_only_surf_vars of AuroraV1p5). The
+# '_1h' fields are totals over the hour ending at valid_time (J m-2 for the radiation, m for precipitation and
+# snowfall: units not documented, inferred from the normalisation statistics of the package); AIUQ writes them
+# as time-mean rates and fluxes over that hour. With 6-hourly steps they describe the last hour of each step
+# only, not the whole step.
+outputs:
+  139 : stl1
+  228029 : i10fg
+  159 : blh
+  235027 : {name: uvb_1h, scale: 0.000277777778, window: 1 h ending at valid_time}
+  235035 : {name: ssrd_1h, scale: 0.000277777778, window: 1 h ending at valid_time}
+  235040 : {name: ttr_1h, scale: 0.000277777778, window: 1 h ending at valid_time}
+  235055 : {name: scaled_tp_1h, scale: 0.277777778, window: 1 h ending at valid_time}
+  235031 : {name: scaled_sf_1h, scale: 0.277777778, window: 1 h ending at valid_time}
+
 pressure_levels :
   values : [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
   unit : hPa
 
+# What SIM can write per checkpoint (AIUQ-st short names), from the model classes of the microsoft-aurora
+# package (surf_vars, atmos_vars, output_only_surf_vars) and https://microsoft.github.io/aurora/models.html.
+# Offered by the Launcher; other names are skipped by SIM with a warning. All on the 13 levels above.
+checkpoints:
+  aurora-0.25-pretrained.ckpt: &aurora_v1
+    outputs: [z, t, u, v, q, t2m, u10, v10, msl]
+  aurora-0.25-finetuned.ckpt: *aurora_v1
+  aurora-0.25-v1.5.ckpt: &aurora_v15
+    outputs: [z, t, u, v, q,
+              t2m, d2m, u10, v10, u100, v100, msl, sp, skt, stl1, swvl1, sd, ci, tcwv, tcc, lcc, mcc, hcc,
+              i10fg, blh, avg_tprate, avg_tsrwe, avg_sdswrf, avg_tnlwrf, avg_sduvrf]
+  aurora-0.25-v1.5-ensemble.ckpt: *aurora_v15

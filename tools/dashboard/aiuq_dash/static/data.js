@@ -69,8 +69,8 @@ function renderSpread(v, c) {
 }
 
 function drawSpread() {
-  const D = S.data.spread, el = $("#p-spread");
-  if (!el) return;
+  const D = S.data?.spread, el = $("#p-spread");   // S.data is null when another experiment was opened while this was loading
+  if (!D || !el) return;
   if (D.err) { Plotly.purge(el); el.innerHTML = `<div class="map-error">${esc(D.err)}</div>`; return; }
   if (!D.data) { el.innerHTML = `<div class="series-empty"><div class="spinner"></div>Computing the spread on the HPC…</div>`; return; }
   if (el.querySelector(".map-error, .series-empty")) el.innerHTML = "";
@@ -124,8 +124,8 @@ function renderHov(v, c) {
 }
 
 function drawHov(c) {
-  const D = S.data.hov, el = $("#p-hov");
-  if (!el) return;
+  const D = S.data?.hov, el = $("#p-hov");
+  if (!D || !el) return;
   if (D.err) { Plotly.purge(el); el.innerHTML = `<div class="map-error">${esc(D.err)}</div>`; return; }
   if (!D.data || D.loading) { if (!D.data) el.innerHTML = `<div class="series-empty"><div class="spinner"></div>Computing on the HPC…</div>`; if (!D.data) return; }
   if (el.querySelector(".map-error, .series-empty")) el.innerHTML = "";
@@ -194,6 +194,7 @@ async function runHind(v, c) {
   try { D.data = await api(`/api/hindcast?${q}`); D.key = key; D.ctx = { ...c, region: D.region, times: S.preview.dFill.times }; }
   catch (e) { D.err = e.message; }
   D.loading = false;
+  if (S.data?.hind !== D) return;   // another experiment was opened meanwhile
   renderHind(S.detail, ctxOf());
 }
 

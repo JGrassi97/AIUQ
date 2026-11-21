@@ -27,6 +27,13 @@ socket path must be absolute) and browse to http://localhost:8765:
 
 The selected experiment is part of the URL (``?exp=<expid>``), so links can be shared.
 
+In the Monitor, the experiments panel on the left groups experiments by state and has a
+filter (id, model, initial conditions, start date, description). An experiment page has
+three tabs under the header, **Live**, **Run review** and **Data**; clicking a job
+anywhere opens its attempts and logs in a panel on the right. Keyboard: ``/`` filter,
+``J`` / ``K`` next / previous experiment, ``1``–``4`` tabs, ``R`` refresh, ``[`` hide
+the panel, ``Esc`` close the job details, ``?`` guide.
+
 What it shows
 -------------
 
@@ -80,8 +87,9 @@ on ssh, except map previews, which are cached.
 Launcher
 --------
 
-A five-step form (model and checkpoint, initial conditions and run type, members and
-start dates, outputs) builds ``conf/main.yml`` from the selected Git branch: models and
+The Launcher has four views: **New experiment**, **Launch & stop**, **Delete** and
+**Activity**. New experiment is a five-step form (model and checkpoint, initial conditions and run type, members and
+start dates, outputs) that builds ``conf/main.yml`` from the selected Git branch: models and
 initial conditions with a job configuration for the platform, model cards and the
 AIUQ-st standard. Checkpoints are checked on the HPC and the support matrix is shown
 next to each choice.

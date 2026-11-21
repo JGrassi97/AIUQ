@@ -47,14 +47,54 @@ pressure_levels :
   values : [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50, 10]
   unit : hPa
 
+# Output-only fields {AIUQ-st code: AIFS name} (diagnostics of every checkpoint; soil temperature, an input
+# built from 'sot', is written per layer). The accumulations are totals over the 6 h model step ending at
+# valid_time (checkpoint metadata: period [0, 6]); with OUT_FREQ daily they are summed over the day.
+outputs:
+  139 : stl1
+  170 : stl2
+  164 : tcc
+  186 : lcc
+  187 : mcc
+  188 : hcc
+  228246 : 100u
+  228247 : 100v
+  228 : {name: tp, window: 6 h ending at valid_time}
+  143 : {name: cp, window: 6 h ending at valid_time}
+  144 : {name: sf, window: 6 h ending at valid_time}
+  205 : {name: ro, window: 6 h ending at valid_time}
+  169 : {name: ssrd, window: 6 h ending at valid_time}
+  175 : {name: strd, window: 6 h ending at valid_time}
+  260289 : snowc
+
 # Per-checkpoint input conventions (SAVE_ICS). Checkpoints not listed use 'default'.
 #   mask_over_sea: fields set to NaN at sea points (land-sea mask < 0.5), as the operational
 #                  AIFS ENS v2 pre-processing does (apply-mask filter of its inference.yaml).
 #   image: Singularity image of the anemoi environment (templates/*aifs*.sh, lib/functions.sh).
+#   outputs: what SIM can write (AIUQ-st short names), from Checkpoint.variable_categories() (prognostic and
+#            diagnostic fields) and the model cards on Hugging Face (ecmwf/aifs-single-1.1, aifs-ens-1.0,
+#            aifs-ens-2.0). Offered by the Launcher; other names are skipped by SIM with a warning.
+#   levels: pressure levels of the outputs (hPa).
 checkpoints:
   default:
     mask_over_sea: []
     image: image_anemoi.sif
+  aifs-single-mse-1.1.ckpt:
+    outputs: [z, t, u, v, w, q,
+              t2m, d2m, u10, v10, msl, sp, skt, tcw, swvl1, swvl2, stl1, stl2,
+              u100, v100, tcc, lcc, mcc, hcc, tp, cp, sf, ro, ssrd, strd]
+    levels: [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
+  aifs-ens-crps-1.0.ckpt:
+    outputs: [z, t, u, v, w, q,
+              t2m, d2m, u10, v10, msl, sp, skt, tcw, stl1, stl2,
+              u100, v100, tcc, lcc, mcc, hcc, tp, cp, sf, ro, ssrd, strd]
+    levels: [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50]
   aifs-ens-crps-2.0.ckpt:
     mask_over_sea: [sd, swvl1, swvl2]
     image: image_anemoi-2.sif
+    # q has no 10 hPa level.
+    outputs: [z, t, u, v, w, q,
+              t2m, d2m, u10, v10, msl, sp, skt, tcw, swvl1, swvl2, stl1, stl2, sd, fscov,
+              u100, v100, tcc, lcc, mcc, hcc, tp, cp, sf, ro, ssrd, strd,
+              swh, mwd, mwp, cdww, h1012, h1214, h1417, h1721, h2125, h2530]
+    levels: [1000, 925, 850, 700, 600, 500, 400, 300, 250, 200, 150, 100, 50, 10]

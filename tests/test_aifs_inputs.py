@@ -118,7 +118,8 @@ def test_unmapped_inputs_are_reported():
 
 def test_checkpoint_options_merge_defaults():
     card = model_card()
-    assert ics_aifs.checkpoint_options(card, "/x/aifs-ens-crps-1.0.ckpt") == {"mask_over_sea": [], "image": "image_anemoi.sif"}
+    v1 = ics_aifs.checkpoint_options(card, "/x/aifs-ens-crps-1.0.ckpt")
+    assert v1["mask_over_sea"] == [] and v1["image"] == "image_anemoi.sif"
     v2 = ics_aifs.checkpoint_options(card, "/x/aifs-ens-crps-2.0.ckpt")
     assert v2["mask_over_sea"] == ["sd", "swvl1", "swvl2"] and v2["image"] == "image_anemoi-2.sif"
 

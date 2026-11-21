@@ -31,7 +31,13 @@ ignore them (a leftover `_temp.nc` means POSTPROCESS did not run or failed).
 ## Conventions (check with `aiuq ncinfo` — never assume)
 
 - One data variable named like the folder (AIUQ-st short names, ECMWF parameter database:
-  `t z u v q w` on pressure levels; `t2m msl sp u10 v10 d2m tcw skt sst ci …` at the surface).
+  `t z u v q w` on pressure levels; `t2m msl sp u10 v10 d2m tcw skt …` at the surface; output-only fields of
+  `conf/AIUQ-st/v100/outputs.yml` such as `tp cp sf ro ssrd strd stl1 i10fg avg_tprate …`).
+- Periods (attribute `aiuq_period` / `cell_methods`, written since the output-variables update, Nov 2026):
+  AIFS `tp cp sf ro` (m) and `ssrd strd` (J m⁻²) are totals over the 6 h step ending at `valid_time`
+  (daily output = daily total); NeuralGCM `tp` is the total over each output step (de-accumulated from the
+  model's running total) and `avg_ie` the rate of its last 1 h step; Aurora 1.5 `avg_*` are mean rates
+  (kg m⁻² s⁻¹) or fluxes (W m⁻²) over the **last hour** of each step only (the model writes 1-hour totals).
 - **Dimension order and names differ between models — always select by name, never by position**
   (checked on real files, Nov 2026):
 
@@ -42,9 +48,10 @@ ignore them (a leftover `_temp.nc` means POSTPROCESS did not run or failed).
   | AIFS (cdo POSTPROCESS) | `(valid_time, level, lat, lon)` | float32 | `units: "unknown"`; `OUT_RES: original` keeps the N320 reduced Gaussian grid (no regular lat/lon) |
 
   Latitudes ascend −90…90 on the regular grids, longitudes run 0…360, `level` is in hPa.
-- Values carry **no meaningful `units` attribute**: units are the ECMWF/AIUQ-st ones
-  (`conf/AIUQ-st/v100/variables.yml`): K, m² s⁻² for `z` (geopotential, divide by 9.80665 for metres),
-  m s⁻¹, kg kg⁻¹, Pa.
+- Units are the ECMWF/AIUQ-st ones (`conf/AIUQ-st/v100/variables.yml` and `outputs.yml`): K, m² s⁻² for `z`
+  (geopotential, divide by 9.80665 for metres), m s⁻¹, kg kg⁻¹, Pa. Outputs written before the
+  output-variables update (Nov 2026) carry **no meaningful `units` attribute**; newer ones carry
+  `units` and `long_name` from the standard.
 - Time: `OUT_FREQ: original` = 6-hourly; `daily` = daily means. With `ICS: ecmwf-an` the valid times
   follow the analysis cycle chosen when PREPARE_ICS ran, so they can start the day **before** the
   DATELIST date and differ between experiments with the same date (a00e: 2026-11-16 18 UTC; a00c:

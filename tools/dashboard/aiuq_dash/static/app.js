@@ -14,6 +14,8 @@ const S = {
   gantt: { section: "all", failedOnly: false, mode: "lane" },
   preview: null, job: null,
   open: new Set(), skeletonFor: null, coast: null,
+  cache: new Map(),   // expid -> last detail seen: reopening an experiment paints at once, then refreshes
+  filter: "",         // text typed in the experiments panel
 };
 
 // ------------------------------------------------------------------ vocabulary
@@ -84,6 +86,51 @@ const shortJob = (name, expid) => (name || "").replace(new RegExp(`^${expid}_`),
 const pill = (s, n) => `<span class="pill" title="${esc(s)}"><i style="background:${stColor(s)}"></i>${esc(label(s))}${n != null ? ` <b>${n}</b>` : ""}</span>`;
 const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
 
+// Replace the content only when it changed: a refresh then keeps scroll positions, text selections and hover states.
+function setHTML(el, html) {
+  if (!el) return false;
+  if (el._html === html) return false;
+  el._html = html; el.innerHTML = html;
+  return true;
+}
+let toastTimer = null;
+function toast(msg, isError = false) {
+  const t = $("#toast");
+  t.textContent = msg; t.className = `toast in${isError ? " err" : ""}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { t.className = "toast"; }, isError ? 6000 : 2600);
+}
+function fadeMain() {
+  const m = $("#main");
+  m.classList.remove("fade"); void m.offsetWidth; m.classList.add("fade");
+}
+// state of an experiment as a whole: running / failed / done / stopped (not finished) / new (no workflow yet)
+function expState(e) {
+  const s = e.summary;
+  if (e.active) return "running";
+  if (s.failed) return "failed";
+  if (s.total && s.completed === s.total) return "done";
+  return s.total ? "stopped" : "new";
+}
+const STATE_COLOR = { running: "--st-running", failed: "--st-failed", done: "--st-completed", stopped: "--st-unknown", new: "--st-unknown" };
+const RING_ICON = {
+  done: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  failed: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v8M12 18v.5"/></svg>',
+  stopped: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 8v8M15 8v8"/></svg>',
+  new: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 8v8M15 8v8"/></svg>',
+};
+function ring(e, big = false) {
+  const st = expState(e), pct = Math.floor(e.summary.pct || 0);
+  if (st === "done") big = false;   // a finished experiment needs a tick, not a number
+  const inner = big ? `<b>${pct}%</b>` : st === "running" ? "<i></i>" : RING_ICON[st];
+  return `<span class="ring${big ? " big" : ""}" style="--p:${st === "done" ? 100 : pct};--c:var(${STATE_COLOR[st]})" aria-hidden="true">${inner}</span>`;
+}
+const stateBadge = (e) => {
+  const st = expState(e);
+  return st === "running" ? '<span class="badge active">running</span>' : st === "done" ? '<span class="badge done">completed</span>'
+    : st === "failed" ? `<span class="badge bad">${e.summary.failed} failed</span>` : `<span class="badge stopped">${st === "new" ? "not started" : "stopped"}</span>`;
+};
+
 async function api(path, opts) {
   const r = await fetch(path, opts);
   if (!r.ok) throw new Error(`${r.status} ${(await r.text()).slice(0, 300)}`);
@@ -120,20 +167,24 @@ function applyTheme(t) {
   $("#themeBtn").innerHTML = THEME_ICON[t];
   $("#themeBtn").title = `Theme: ${t} (click to change)`;
 }
-function redrawAll() { S.skeletonFor = null; if (S.preview) S.preview.drawn = false; render(); }
+function redrawAll() { S.skeletonFor = null; $("#main")._html = null; if (S.preview) S.preview.drawn = false; render(); }
 
 // ------------------------------------------------------------------ data loop
 async function load(force = false) {
   if (S.fetching) return;
   S.fetching = true;
+  const want = S.exp;
+  const slow = setTimeout(() => $("#progress").classList.add("on"), force ? 0 : 250);  // only show the bar when it is not instant
+  if (force) $("#refreshBtn").classList.add("spin");
   try {
     if (force) await api("/api/refresh", { method: "POST" }).catch(() => {});
     const ov = await api("/api/experiments");
     S.list = ov.experiments; S.meta = ov.meta;
     if (S.exp && !S.list.find((e) => e.expid === S.exp)) S.detail = null;
-    if (S.exp) {
-      try { S.detail = (await api(`/api/exp/${encodeURIComponent(S.exp)}`)).exp; S.detailError = null; }
-      catch (e) { S.detail = null; S.detailError = e.message; }
+    if (want) {
+      let d = null, err = null;
+      try { d = (await api(`/api/exp/${encodeURIComponent(want)}`)).exp; S.cache.set(want, d); } catch (e) { err = e.message; }
+      if (S.exp === want) { S.detail = d; S.detailError = err; }   // the user may have moved on while this was loading
     }
     S.lastFetch = Date.now() / 1000;
     render();
@@ -142,7 +193,21 @@ async function load(force = false) {
     f.className = "live down"; f.innerHTML = `<span class="dot"></span>Dashboard server unreachable`; f.title = e.message;
   } finally {
     S.fetching = false;
+    clearTimeout(slow);
+    $("#progress").classList.remove("on");
+    $("#refreshBtn").classList.remove("spin");
+    if (S.exp !== want) load();   // another experiment was opened meanwhile: fetch it now
   }
+}
+
+// Warm the cache for an experiment the pointer rests on (the server answers from memory in a few ms).
+let prefetchTimer = null;
+function prefetch(expid) {
+  clearTimeout(prefetchTimer);
+  if (!expid || expid === S.exp || S.cache.has(expid)) return;
+  prefetchTimer = setTimeout(async () => {
+    try { S.cache.set(expid, (await api(`/api/exp/${encodeURIComponent(expid)}`)).exp); } catch { /* ignore */ }
+  }, 90);
 }
 
 function schedule() {
@@ -153,19 +218,24 @@ function schedule() {
 function switchApp(app) {
   S.app = app;
   const url = new URL(location.href);
-  for (const k of ["app", "exp", "tab"]) url.searchParams.delete(k);
+  for (const k of ["app", "exp", "tab", "view"]) url.searchParams.delete(k);
   if (app !== "home") url.searchParams.set("app", app);
+  if (app === "launcher" && L.view !== "new") url.searchParams.set("view", L.view);
   if (app === "monitor" && S.exp) { url.searchParams.delete("app"); url.searchParams.set("exp", S.exp); }
   history.pushState({}, "", url);
   S.skeletonFor = null;
+  closeJob();
   render();
+  fadeMain();
   window.scrollTo({ top: 0 });
+  if (app !== "home") load();
 }
 
 function selectExp(expid, push = true) {
   S.app = "monitor";
   S.exp = expid || null;
-  S.detail = null; S.skeletonFor = null;
+  S.detail = (expid && S.cache.get(expid)) || null; S.detailError = null; S.skeletonFor = null;
+  closeJob();
   if (S.preview?.playing) S.preview.playing = false;
   S.preview = newPreview(); S.job = null; S.tab = null; S.tabFor = null; S.data = null;
   const url = new URL(location.href);
@@ -176,6 +246,7 @@ function selectExp(expid, push = true) {
   if (push) history.pushState({ exp: expid }, "", url);
   document.title = expid ? `${expid} · AIUQ Monitor` : "AIUQ Monitor";
   render();
+  fadeMain();
   window.scrollTo({ top: 0 });
   load();
 }
@@ -200,33 +271,71 @@ function tick() {
 }
 
 // ------------------------------------------------------------------ rendering
+function listEntry() { return S.list.find((e) => e.expid === S.exp); }
+function ensureTab() {
+  if (S.tab && S.tabFor === S.exp) return;
+  const e = S.detail || listEntry();
+  S.tab = defaultTab(e || { active: true });
+  if (e) S.tabFor = S.exp;
+}
+
 function render() {
   document.body.dataset.app = S.app;
   document.querySelectorAll(".appswitch button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.app === S.app)));
-  renderSelect();
+  if (S.app === "monitor" && S.exp) ensureTab();
   renderSidebar();
+  renderCrumb();
+  renderTabs();
   if (S.app === "home") { S.skeletonFor = null; document.title = "AIUQ"; renderHome(); tick(); return; }
   if (S.app === "launcher") { S.skeletonFor = null; document.title = "AIUQ Launcher"; renderLauncher(); tick(); return; }
   if (!S.exp) { S.skeletonFor = null; renderOverview(); }
-  else if (!S.detail) {
-    $("#main").innerHTML = `<div class="empty">${S.list.length ? `Loading ${esc(S.exp)}… ${esc(S.detailError || "")}` : "Waiting for the first data collection…"}</div>`;
-    S.skeletonFor = null;
-  } else renderExp(S.detail);
+  else if (!S.detail) { S.skeletonFor = null; renderExpLoading(); }
+  else renderExp(S.detail);
   tick();
 }
 
-function renderSelect() {
-  const sel = $("#expSelect");
-  sel.innerHTML = [`<option value="">All experiments</option>`].concat(
-    S.list.map((e) => `<option value="${e.expid}" ${e.expid === S.exp ? "selected" : ""}>${e.expid} — ${esc(MODEL_NAMES[e.conf.model] || e.conf.model || "")} · ${esc((ICS_INFO[e.conf.ics] || [e.conf.ics])[0] || "")}${e.active ? "  ●" : ""}</option>`)).join("");
+function renderCrumb() {
+  let html = "";
+  if (S.app === "launcher") html = `<span class="cr-dim">Create, launch and stop experiments</span>`;
+  else if (S.app === "monitor" && !S.exp) html = `<span class="cr-dim">All experiments</span>`;
+  else if (S.app === "monitor") {
+    const e = S.detail || listEntry();
+    html = `<b>${esc(S.exp)}</b>${e ? `<span class="cr-sep">·</span><span>${what(e.conf)}</span>${e.description ? `<span class="cr-sep">·</span><span class="cr-dim">${esc(e.description)}</span>` : ""}` : ""}`;
+  }
+  setHTML($("#crumb"), html);
 }
 
+// ---- sticky view tabs: the three views of an experiment, or the four of the Launcher
+const TAB_ICON = {
+  new: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>',
+  runs: '<svg viewBox="0 0 24 24"><path d="M7 5v14l11-7z"/></svg>',
+  delete: '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>',
+  activity: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+};
+const LN_TABS = [["new", "New experiment"], ["runs", "Launch & stop"], ["delete", "Delete"], ["activity", "Activity"]];
+function renderTabs() {
+  const nav = $("#viewtabs");
+  let html = "";
+  if (S.app === "monitor" && S.exp) {
+    const s = (S.detail || listEntry())?.summary || {};
+    const count = s.failed ? `<span class="count bad" title="${plural(s.failed, "failed job")}">${s.failed}</span>` : s.running ? `<span class="count run" title="${plural(s.running, "job")} running">${s.running}</span>` : "";
+    html = TABS.map(([k, t, sub, ico], i) => `<button role="tab" data-tab="${k}" aria-selected="${k === S.tab}" title="${t}: ${sub}  [${i + 1}]">${ico}${t}${k === "live" ? count : ""}</button>`).join("")
+      + `<span class="tab-tools"><button type="button" class="small ghost" data-act="collapse">Collapse all</button><button type="button" class="small ghost" data-act="expand">Expand all</button></span>`;
+  } else if (S.app === "launcher") {
+    const run = S.list.filter((e) => e.active).length;
+    html = LN_TABS.map(([k, t], i) => `<button role="tab" class="${k === "delete" ? "danger" : ""}" data-view="${k}" aria-selected="${k === L.view}" title="${t}  [${i + 1}]">${TAB_ICON[k]}${t}${k === "runs" && run ? `<span class="count run" title="${plural(run, "experiment")} running">${run}</span>` : ""}</button>`).join("");
+  }
+  nav.hidden = !html;
+  setHTML(nav, html);
+}
+
+// ---- experiments panel
+const what = (c) => `${esc(MODEL_NAMES[c.model] || c.model || "?")} · ${esc((ICS_INFO[c.ics] || [c.ics || "?"])[0])}`;
 function miniBar(counts, total) {
   if (!total) return "";
   return `<div class="mini-bar" aria-hidden="true">${STATUS_ORDER.filter((s) => counts[s]).map(
     (s) => `<span style="width:${(100 * counts[s]) / total}%;background:${stColor(s)}" title="${label(s)}: ${counts[s]}"></span>`).join("")}</div>`;
 }
-
 function statusLine(e) {
   const s = e.summary;
   const parts = [];
@@ -235,38 +344,95 @@ function statusLine(e) {
   if (!parts.length) parts.push(s.completed === s.total ? "all done" : `${s.total - s.completed} to go`);
   return parts.join(" · ");
 }
-const what = (c) => `${esc(MODEL_NAMES[c.model] || c.model || "?")} · ${esc((ICS_INFO[c.ics] || [c.ics || "?"])[0])}`;
+function expWhen(c) {
+  const nd = (c.dates || []).length;
+  return nd > 1 ? `${nd} dates from ${fmtDate(c.first_date)}` : fmtDate(c.first_date);
+}
+const GROUPS = [["running", "Running"], ["failed", "Needs attention"], ["stopped", "Not finished"], ["done", "Completed"]];
+function matchesFilter(e, text = S.filter) {
+  const q = text.trim().toLowerCase();
+  if (!q) return true;
+  const c = e.conf;
+  const hay = [e.expid, c.model, MODEL_NAMES[c.model], c.ics, (ICS_INFO[c.ics] || [])[0], e.description, c.checkpoint, c.branch,
+    c.first_date, fmtDate(c.first_date), expState(e)].filter(Boolean).join(" ").toLowerCase();
+  return q.split(/\s+/).every((w) => hay.includes(w));
+}
+function groupedExps(text = S.filter) {  // [[key, title, experiments]] in display order; newest ids first inside a group
+  const by = { running: [], failed: [], stopped: [], done: [] };
+  for (const e of S.list) if (matchesFilter(e, text)) { const st = expState(e); by[st === "new" ? "stopped" : st].push(e); }
+  for (const k of Object.keys(by)) by[k].sort((a, b) => (a.expid < b.expid ? 1 : -1));
+  return GROUPS.map(([k, t]) => [k, t, by[k]]).filter((g) => g[2].length);
+}
+const visibleExps = () => groupedExps().flatMap((g) => g[2]);
 
 function renderSidebar() {
-  $("#sidebar").innerHTML = `<div class="side-title">Experiments</div>` + (S.list.map((e) => `
-    <a class="exp-card ${e.expid === S.exp ? "sel" : ""}" href="?exp=${e.expid}" data-exp="${e.expid}">
-      <div class="row1"><span class="id">${e.expid}</span>
-        <span class="badge ${e.active ? "active" : "stopped"}">${e.active ? "running" : "stopped"}</span>
-        <span class="pct">${Math.floor(e.summary.pct)}%</span></div>
-      <div class="meta">${what(e.conf)}</div>
-      <div class="meta">${statusLine(e)}</div>
-      ${miniBar(e.counts, e.summary.total)}
-    </a>`).join("") || `<div class="empty">No experiments yet.</div>`);
+  const side = $("#sidebar");
+  if (!side.dataset.built) {
+    side.dataset.built = "1";
+    side.innerHTML = `<div class="side-top"><div class="side-search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input type="search" id="side-q" placeholder="Filter experiments" aria-label="Filter experiments" autocomplete="off" spellcheck="false"><kbd>/</kbd>
+      </div></div><div id="side-list"></div>`;
+    const q = $("#side-q");
+    q.addEventListener("input", () => { S.filter = q.value; renderSideList(); if (S.app === "monitor" && !S.exp) renderOverview(); });
+    q.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") { q.value = ""; S.filter = ""; renderSideList(); if (S.app === "monitor" && !S.exp) renderOverview(); q.blur(); }
+      if (e.key === "Enter") { const first = visibleExps()[0]; if (first) { selectExp(first.expid); q.blur(); } }
+    });
+    side.addEventListener("pointerover", (e) => prefetch(e.target.closest("a[data-exp]")?.dataset.exp));
+  }
+  renderSideList();
+}
+function renderSideList() {
+  const row = (e) => {
+    const st = expState(e), c = e.conf, nm = (c.members || []).length;
+    const meta = st === "done" ? `${expWhen(c)} · ${plural(nm, "member")}` : `${statusLine(e)} · ${expWhen(c)}`;
+    return `<a class="exp-row ${e.expid === S.exp ? "sel" : ""}" href="?exp=${e.expid}" data-exp="${e.expid}" title="${esc(e.description || "")}" ${e.expid === S.exp ? 'aria-current="page"' : ""}>
+      ${ring(e)}
+      <span class="exp-main"><span class="exp-name"><b>${e.expid}</b><span class="exp-model">${what(c)}</span></span><span class="exp-meta">${meta}</span></span>
+      ${st === "done" ? "" : `<span class="pct">${Math.floor(e.summary.pct)}%</span>`}</a>`;
+  };
+  const groups = groupedExps();
+  setHTML($("#side-list"), groups.map(([, t, es]) => `<h3 class="side-h">${t}<span>${es.length}</span></h3>${es.map(row).join("")}`).join("")
+    || `<div class="side-empty">${S.list.length ? "No experiment matches this filter." : S.meta ? "No experiments yet." : "Loading…"}</div>`);
+  if (S.exp && S.sideShown !== S.exp) {   // bring the selected experiment into view once (the panel scrolls sideways on phones)
+    const sel = document.querySelector("#side-list .exp-row.sel");
+    if (sel) { S.sideShown = S.exp; if (sel.offsetParent) sel.scrollIntoView({ block: "nearest", inline: "nearest" }); }
+  }
+}
+
+function expCard(e) {
+  const c = e.conf, s = e.summary, st = expState(e);
+  const nm = (c.members || []).length;
+  return `<a class="ov-card" style="--c:var(${STATE_COLOR[st]})" href="?exp=${e.expid}" data-exp="${e.expid}">
+    <div class="row1"><span class="id">${e.expid}</span>${stateBadge(e)}${ring(e, true)}</div>
+    <div class="what">${what(c)}</div>
+    <div class="desc">${esc(e.description || "")}</div>
+    ${st === "done" ? "" : `${miniBar(e.counts, s.total)}<div class="facts"><span><b>${s.completed}</b> of ${s.total} jobs</span><span>${statusLine(e)}</span></div>`}
+    <div class="facts"><span><b>${expWhen(c)}</b></span><span><b>${nm}</b> member${nm === 1 ? "" : "s"}</span>
+      <span>last activity <b>${fmtAgo(s.last_activity)}</b></span></div>
+  </a>`;
 }
 
 function renderOverview() {
-  const cards = S.list.map((e) => {
-    const c = e.conf, s = e.summary;
-    const nd = (c.dates || []).length, nm = (c.members || []).length;
-    return `<a class="ov-card" href="?exp=${e.expid}" data-exp="${e.expid}">
-      <div class="row1"><span class="id">${e.expid}</span><span class="badge ${e.active ? "active" : "stopped"}">${e.active ? "running" : "stopped"}</span></div>
-      <div class="what">${what(c)}</div>
-      <div class="desc">${esc(e.description || "")}</div>
-      <div class="prog"><span class="big">${s.pct.toFixed(s.pct < 100 ? 1 : 0)}%</span><span class="note">${s.completed} of ${s.total} jobs · ${statusLine(e)}</span></div>
-      ${miniBar(e.counts, s.total)}
-      <div class="facts"><span><b>${nm}</b> member${nm === 1 ? "" : "s"}</span><span><b>${nd}</b> start date${nd === 1 ? "" : "s"}</span>
-        <span>from <b>${fmtDate(c.first_date)}</b></span><span>branch <b class="mono">${esc(c.branch || "?")}</b></span>
-        <span>last activity <b>${fmtAgo(s.last_activity)}</b></span></div>
-    </a>`;
-  }).join("");
-  $("#main").innerHTML = `${errorBanner()}
-    <div class="page-head"><h2>Experiments</h2><span class="lede">${S.list.filter((e) => e.active).length} running · ${S.list.length} in total</span></div>
-    <div class="ov-grid">${cards}</div>`;
+  const main = $("#main");
+  main.removeAttribute("data-tab"); main.removeAttribute("data-view");
+  if (!S.meta) { setHTML(main, `<div class="page-head"><h2>Experiments</h2></div><div class="kpis">${'<div class="kpi skeleton"></div>'.repeat(4)}</div><div class="skeleton block"></div>`); return; }
+  const running = S.list.filter((e) => e.active);
+  const failed = S.list.reduce((a, e) => a + (e.summary.failed || 0), 0);
+  const jobs = S.list.reduce((a, e) => a + (e.summary.total || 0), 0);
+  const last = Math.max(0, ...S.list.map((e) => e.summary.last_activity || 0)) || null;
+  const groups = groupedExps();
+  setHTML(main, `${errorBanner()}
+    <div class="page-head"><h2>Experiments</h2><span class="lede">${S.filter.trim() ? `Filtered by “${esc(S.filter.trim())}”` : "Pick one to follow its jobs, its timing and its forecasts."}</span></div>
+    <div class="kpis">
+      <div class="kpi"><div class="lbl">Running now</div><div class="val">${running.length}</div><div class="sub">${running.length ? running.map((e) => e.expid).join(", ") : "nothing is running"}</div></div>
+      <div class="kpi"><div class="lbl">Experiments</div><div class="val">${S.list.length}</div><div class="sub">${jobs.toLocaleString()} jobs in total</div></div>
+      <div class="kpi ${failed ? "alert" : ""}"><div class="lbl">Failed jobs</div><div class="val">${failed}</div><div class="sub">${failed ? "see “Needs attention”" : "no problems"}</div></div>
+      <div class="kpi"><div class="lbl">Last activity</div><div class="val">${last ? fmtAgo(last).replace(" ago", "") : "—"}</div><div class="sub">${last ? `ago · ${fmtTime(last)}` : ""}</div></div>
+    </div>
+    ${groups.map(([, t, es]) => `<h3 class="sec-h">${t}<span>${es.length}</span></h3><div class="ov-grid">${es.map(expCard).join("")}</div>`).join("")
+      || `<div class="empty big">${S.list.length ? "No experiment matches this filter." : "No experiments yet. Create the first one in the Launcher."}</div>`}`);
 }
 
 // ---- homepage
@@ -275,45 +441,53 @@ const HOME_ICON = {
   launcher: '<svg viewBox="0 0 24 24"><path d="M5 19c1.5-4 4-7 7.5-9.5L16 6c2-1.5 3.5-2 5-2-0 1.5-.5 3-2 5l-3.5 3.5C13 16 10 18.5 6 20"/><path d="M9 15l-3-3 2.5-2.5H12M9 15l3 3 2.5-2.5V12"/><circle cx="16" cy="8" r="1.4"/></svg>',
   arrow: '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
 };
+const LOGO = '<svg class="eyebrow-logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#18344e"/><path d="M12 43 27 17h10l15 26H41l-9-17-9 17Z" fill="#5ce0cd"/><circle cx="32" cy="45" r="5" fill="#fff"/></svg>';
 function renderHome() {
+  const main = $("#main");
+  main.removeAttribute("data-tab"); main.removeAttribute("data-view");
+  const ready = !!S.meta;
   const running = S.list.filter((e) => e.active);
-  const last = Math.max(0, ...S.list.map((e) => e.summary.last_activity || 0)) || null;
+  const recent = [...S.list].sort((a, b) => (b.summary.last_activity || 0) - (a.summary.last_activity || 0));
+  const last = recent[0]?.summary.last_activity || null;
   const failed = S.list.reduce((a, e) => a + (e.summary.failed || 0), 0);
   const models = [...new Set(S.list.map((e) => MODEL_NAMES[e.conf.model] || e.conf.model).filter(Boolean))];
-  $("#main").innerHTML = `${errorBanner()}
-    <section class="home-hero">
-      <svg class="hero-logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#18344e"/><path d="M12 43 27 17h10l15 26H41l-9-17-9 17Z" fill="#5ce0cd"/><circle cx="32" cy="45" r="5" fill="#fff"/></svg>
-      <div>
-        <h1>AIUQ dashboard</h1>
-        <p>Run AI weather and climate models with Autosubmit, from the initial conditions to the ensemble forecasts.</p>
-        <p>Follow your experiments on felipe while they run, or set up and launch new ones on mafalda.</p>
+  const liveRow = (e) => `<a class="hl-row" href="?exp=${e.expid}" data-exp="${e.expid}">
+      <span class="ring" style="--p:${Math.floor(e.summary.pct)}"><b>${Math.floor(e.summary.pct)}%</b></span>
+      <span class="hl-main"><b>${e.expid} · ${what(e.conf)}</b><span>${e.active ? statusLine(e).replace(/<[^>]+>/g, "") : `finished ${fmtAgo(e.summary.last_activity)}`} · ${expWhen(e.conf)}</span></span></a>`;
+  const stat = (v, l, cls = "") => `<div class="hstat ${cls}"><b>${ready ? v : "–"}</b><span>${l}</span></div>`;
+  setHTML(main, `${errorBanner()}
+    <section class="hero2">
+      <div class="hero2-text">
+        <span class="eyebrow">${LOGO}AIUQ dashboard</span>
+        <h1>Run AI weather models and follow every job, live.</h1>
+        <p>Run AI weather and climate models with Autosubmit, from the initial conditions to the ensemble forecasts. Follow your experiments on felipe while they run, or set up and launch new ones on mafalda.</p>
+        <div class="hero2-stats">
+          ${stat(running.length, "running now")}${stat(S.list.length, "experiments")}${stat(models.length, models.length === 1 ? "model" : "models")}
+          ${failed ? stat(failed, "failed jobs", "bad") : ""}${stat(last ? fmtAgo(last).replace(" ago", "") : "—", "since the last activity")}
+        </div>
+        <div class="hero2-cta">
+          <a class="btn-big primary" href="?app=monitor" data-app-link="monitor">Open the Monitor ${HOME_ICON.arrow}</a>
+          <a class="btn-big onnavy" href="?app=launcher" data-app-link="launcher">New experiment…</a>
+        </div>
+      </div>
+      <div class="hero2-live">
+        ${!ready ? `<h3>Connecting…</h3><div class="hl-idle">Reading the experiments on mafalda.</div>`
+          : running.length ? `<h3><span class="dot"></span>Running now</h3>${running.slice(0, 4).map(liveRow).join("")}${running.length > 4 ? `<div class="hl-idle">and ${running.length - 4} more</div>` : ""}`
+          : `<h3>Nothing is running</h3>${recent.slice(0, 3).map(liveRow).join("") || `<div class="hl-idle">No experiments yet.</div>`}`}
       </div>
     </section>
     <div class="home-apps">
       <a class="home-app" href="?app=monitor" data-app-link="monitor">
-        <span class="ha-icon">${HOME_ICON.monitor}</span>
-        <h2>Autosubmit Monitor</h2>
+        <span class="ha-icon">${HOME_ICON.monitor}</span><h2>Autosubmit Monitor</h2><span class="ha-go">${HOME_ICON.arrow}</span>
         <p>Follow every experiment: live progress, timeline, HPC performance and maps of the outputs.</p>
-        <div class="ha-stats">
-          <span><b>${running.length}</b> running</span><span><b>${S.list.length}</b> experiments</span>
-          ${failed ? `<span class="bad"><b>${failed}</b> failed jobs</span>` : ""}
-          <span>last activity <b>${last ? fmtAgo(last) : "—"}</b></span>
-        </div>
-        <span class="ha-go">Open the monitor ${HOME_ICON.arrow}</span>
       </a>
       <a class="home-app" href="?app=launcher" data-app-link="launcher">
-        <span class="ha-icon">${HOME_ICON.launcher}</span>
-        <h2>AIUQ Launcher</h2>
+        <span class="ha-icon">${HOME_ICON.launcher}</span><h2>AIUQ Launcher</h2><span class="ha-go">${HOME_ICON.arrow}</span>
         <p>Create a new experiment in five guided steps, then launch, resume or stop its runs.</p>
-        <div class="ha-stats">
-          <span>start from scratch or from <b>${S.list.length}</b> existing experiments</span>
-          ${models.length ? `<span>models used so far: <b>${esc(models.join(", "))}</b></span>` : ""}
-        </div>
-        <span class="ha-go">Open the launcher ${HOME_ICON.arrow}</span>
       </a>
     </div>
-    ${running.length ? `<div class="home-running"><span class="note">Running now</span>${running.map((e) => `
-      <a class="hr-chip" href="?exp=${e.expid}" data-exp="${e.expid}"><span class="badge active">${e.expid}</span>${what(e.conf)}<span class="note">${Math.floor(e.summary.pct)}%</span></a>`).join("")}</div>` : ""}`;
+    ${recent.length ? `<h3 class="sec-h">Latest experiments<a href="?app=monitor" data-app-link="monitor">All ${S.list.length} experiments →</a></h3>
+      <div class="ov-grid">${recent.slice(0, 6).map(expCard).join("")}</div>` : ""}`);
 }
 
 function errorBanner(v) {
@@ -330,33 +504,63 @@ const TABS = [
   ["review", "Run review", "how the run went", '<svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 16v-5M12 16V8M16 16v-3"/></svg>'],
   ["data", "Data", "explore the forecasts", '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3.5 3 14.5 0 18M12 3c-3 3.5-3 14.5 0 18"/></svg>'],
 ];
-function defaultTab(v) { return new URLSearchParams(location.search).get("tab") || (v.active ? "live" : "review"); }
+function defaultTab(v) {
+  const t = new URLSearchParams(location.search).get("tab");
+  return TABS.some((x) => x[0] === t) ? t : v.active ? "live" : "review";
+}
 function setTab(t) {
-  S.tab = t;
+  if (!TABS.some((x) => x[0] === t)) return;
+  S.tab = t; S.tabFor = S.exp;
   const url = new URL(location.href);
   url.searchParams.set("tab", t);
   history.replaceState(history.state, "", url);
+  renderTabs();
+  if (!S.detail) return;
   $("#main").dataset.tab = t;
-  document.querySelectorAll(".tabbar button[data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
   if (S.preview) { S.preview.drawn = false; S.preview.psig = null; }
   renderExp(S.detail);
+  if (window.scrollY > 320) window.scrollTo({ top: 0 });   // a new view starts from its top, not from where the previous one was left
   requestAnimationFrame(() => document.querySelectorAll(`#main section.card[data-tab="${t}"] .js-plotly-plot`).forEach((p) => Plotly.Plots.resize(p)));
+}
+
+// identity of the experiment: id, state, what it is. Works with the full detail or with the short entry of the list.
+function expHead(e, v) {
+  const c = e?.conf || {};
+  const nm = (c.members || []).length, nd = (c.dates || []).length;
+  const badge = !e ? "" : v?.active ? `<span class="badge active" title="autosubmit run, pid ${v.pid}">running since ${fmtTime(v.active_since)}</span>` : stateBadge(e);
+  return `<div class="exp-head">
+    <div class="eh-top"><h2>${esc(S.exp)}</h2>${badge}
+      ${e ? `<span class="chip-fact"><b>${what(c)}</b></span><span class="chip-fact"><b>${nm}</b> member${nm === 1 ? "" : "s"}</span>
+        <span class="chip-fact">${nd > 1 ? `<b>${nd}</b> start dates from` : "start"} <b>${fmtDate(c.first_date)}</b></span>` : ""}</div>
+    <p class="eh-desc">${esc(e?.description || "")}</p>
+    <div class="eh-actions"><button type="button" class="small" data-act="to-launcher" title="Launch, resume, stop or reuse this experiment in the Launcher">Manage in Launcher →</button></div>
+  </div>`;
+}
+
+// shown while the first answer for an experiment is on its way: its identity (already known from the list) and placeholders
+function renderExpLoading() {
+  const main = $("#main"), e = listEntry();
+  main.removeAttribute("data-tab"); main.removeAttribute("data-view");
+  if (S.meta && !e) {
+    setHTML(main, `<div class="empty big">There is no experiment called <b>${esc(S.exp)}</b>.<br><br><a href="?app=monitor" data-app-link="monitor">See all experiments</a></div>`);
+    return;
+  }
+  setHTML(main, `${S.detailError ? `<div class="err-banner"><b>Could not load ${esc(S.exp)}</b><br>${esc(S.detailError)}</div>` : ""}${expHead(e)}
+    <div class="kpis">${'<div class="kpi skeleton"></div>'.repeat(6)}</div>
+    <div class="skeleton block" style="margin-bottom:16px"></div><div class="skeleton block"></div>`);
 }
 
 function renderExp(v) {
   if (S.skeletonFor !== v.expid) {
-    S.tab = S.tab && S.tabFor === v.expid ? S.tab : defaultTab(v);
-    S.tabFor = v.expid;
-    $("#main").dataset.tab = S.tab;
-    $("#main").innerHTML = `
+    ensureTab();
+    const main = $("#main");
+    main.removeAttribute("data-view");
+    main.dataset.tab = S.tab;
+    main._html = null;
+    main.innerHTML = `
       <div id="x-errors"></div>
-      <div class="page-head"><h2>${v.expid}</h2><span id="x-badge"></span><span class="lede" id="x-lede"></span></div>
+      <div id="x-head"></div>
       <div class="kpis" id="x-kpis"></div>
-      <div class="tabbar" role="tablist">
-        ${TABS.map(([k, t, sub, ico]) => `<button role="tab" data-tab="${k}" aria-selected="${k === S.tab}">${ico}<span><b>${t}</b><small>${sub}</small></span></button>`).join("")}
-        <span class="spacer"></span>
-        <button class="ghost" id="collapse-all">Collapse all</button><button class="ghost" id="expand-all">Expand all</button>
-      </div>
 
       <section class="card" data-tab="live" id="s-now"><div class="card-head"><h3>Right now</h3><span class="sub" id="now-sub"></span>
         ${info("Jobs currently running, with how long they have been running compared with the typical duration of their step; what is queued; and what finished or failed most recently.")}</div>
@@ -365,7 +569,7 @@ function renderExp(v) {
         <span class="sub">each square is one job · click one for details</span>
         ${info("Current Autosubmit status of every job, read from the experiment's job list (pkl). Rows are start dates, columns are job steps and ensemble members.")}</div>
         <div class="legend" id="x-legend"></div>
-        <div class="plot" id="p-grid"></div><div id="x-once"></div><div id="x-job"></div></section>
+        <div class="plot" id="p-grid"></div><div id="x-once"></div></section>
       <section class="card" data-tab="live" id="s-ics"><div class="card-head"><h3>Initial conditions</h3>
         <span class="sub">preparation and MARS downloads</span>
         ${info(`Parsed from the PREPARE_ICS output on ${v.remote.host}: requests sent to MARS, their state (queued, active, complete), size on tape and errors.`)}</div><div id="x-ics"></div></section>
@@ -384,7 +588,7 @@ function renderExp(v) {
           <select id="g-mode" aria-label="Rows"><option value="lane" selected>Group by step & member</option><option value="job">One row per job (last 300)</option></select>
           <label class="switch"><input type="checkbox" id="g-failed"><span class="track"></span>Failed only</label>
         </div></div>
-        <div class="plot" id="p-gantt"></div><div id="x-job2"></div></section>
+        <div class="plot" id="p-gantt"></div></section>
       <section class="card" data-tab="review" id="s-dur"><div class="card-head"><h3>How long jobs take</h3>
         <span class="sub">and how much is left</span>
         ${info("Durations come from completed attempts. Time left is an estimate: jobs left × typical (median) duration ÷ how many jobs of that step usually run at once, summed over steps. Failed jobs are not counted. Steps with no history borrow durations from similar experiments.")}</div>
@@ -409,17 +613,15 @@ function renderExp(v) {
     if (S.preview) { S.preview.drawn = false; S.preview.sig = null; S.preview.built = false; }
     S.data = null;
     setupCollapsibles();
-    $("#main .tabbar").addEventListener("click", (e) => { const b = e.target.closest("button[data-tab]"); if (b) setTab(b.dataset.tab); });
     $("#g-sec").addEventListener("change", (e) => { S.gantt.section = e.target.value; drawGantt(S.detail); });
     $("#g-failed").addEventListener("change", (e) => { S.gantt.failedOnly = e.target.checked; drawGantt(S.detail); });
     $("#g-mode").addEventListener("change", (e) => { S.gantt.mode = e.target.value; drawGantt(S.detail); });
   }
-  $("#x-errors").innerHTML = errorBanner(v);
-  $("#x-badge").innerHTML = `<span class="badge ${v.active ? "active" : "stopped"}" title="${v.active ? `autosubmit run, pid ${v.pid}` : "no autosubmit run process for this experiment"}">${v.active ? `running since ${fmtTime(v.active_since)}` : "stopped"}</span>`;
-  const c = v.conf;
-  $("#x-lede").innerHTML = `${esc(v.description || "")}${v.description ? " · " : ""}<b>${what(c)}</b> · ${plural((c.members || []).length, "member")} · ${plural((c.dates || []).length, "start date")}`;
+  setHTML($("#x-errors"), errorBanner(v));
+  setHTML($("#x-head"), expHead(v, v));
   renderKpis(v);
-  if (S.tab === "live") { renderNow(v); drawGrid(v); renderIcs(v); renderSim(v); renderFailed(v); renderJob(v); }
+  renderJob(v);
+  if (S.tab === "live") { renderNow(v); drawGrid(v); renderIcs(v); renderSim(v); renderFailed(v); }
   if (S.tab === "review") { renderSetup(v); drawGantt(v); drawDurations(v); renderHpc(v); }
   if (S.tab === "data") { renderOutputs(v); renderData(v); }
 }
@@ -447,25 +649,35 @@ function renderNow(v) {
   const since = (j) => { const t = Date.parse(j.submit); return isFinite(t) ? now - t / 1000 : null; };
   const unknown = Object.entries(v.section_counts).reduce((a, [, c]) => a + (c.UNKNOWN || 0), 0);
   if (!running.length && pend.length) $("#now-sub").textContent = `${plural(pend.length, "job")} waiting in the SLURM queue`;
-  const pendHtml = pend.length ? `<div class="chart-title" style="margin-top:10px">Waiting in the SLURM queue</div>${pend.map((j) => {
-      const reason = (j.reason || "").replace(/[()]/g, "");
-      return `<div class="now-job"><div class="nj-head"><a href="#" data-job="${esc(j.name)}"><b>${esc(shortJob(j.name, v.expid))}</b></a><span class="spacer"></span>
-        <span class="nj-time">queued for ${fmtDur(since(j))}</span></div>
-        <div class="note">${esc(REASON[reason] || reason || "pending")} · asks for ${esc(j.gres && j.gres !== "N/A" ? j.gres.replace("gres:", "").replace("gres/", "") : "no GPU")} · limit ${esc(j.limit)}</div></div>`;
-    }).join("")}` : "";
+  // jobs waiting for the same reason and asking for the same resources read as one line
+  const pgroups = new Map();
+  for (const j of pend) {
+    const reason = (j.reason || "").replace(/[()]/g, "");
+    const key = `${REASON[reason] || reason || "pending"} · asks for ${j.gres && j.gres !== "N/A" ? j.gres.replace("gres:", "").replace("gres/", "") : "no GPU"} · limit ${j.limit}`;
+    if (!pgroups.has(key)) pgroups.set(key, []);
+    pgroups.get(key).push(j);
+  }
+  const pendNames = new Set(pend.map((j) => j.name));
+  const pendHtml = [...pgroups.entries()].map(([why, js]) => {
+    const waits = js.map(since).filter((x) => x != null);
+    return `<div class="queue-box"><div class="q-top"><b>${plural(js.length, "job")} waiting in the SLURM queue</b>
+        ${waits.length ? `<span class="nj-time note">for ${fmtDur(Math.max(...waits))}${js.length > 1 && Math.max(...waits) - Math.min(...waits) > 60 ? ` (the latest for ${fmtDur(Math.min(...waits))})` : ""}</span>` : ""}</div>
+      <div class="note">${esc(why)}</div>
+      <div class="queue-jobs">${js.map((j) => `<a href="#" data-job="${esc(j.name)}">${esc(shortJob(j.name, v.expid))}</a>`).join("")}</div></div>`;
+  }).join("");
   const unkHtml = unknown ? `<div class="finding f-warn" style="margin-top:10px">${ICONS.warn}<div>Autosubmit reports <b>${plural(unknown, "job")}</b> as <i>Unknown</i>: it could not read their state on the HPC.${pend.length ? " SLURM still has them in the queue, so they are probably fine." : " Check the Autosubmit log if this lasts."}</div></div>` : "";
-  $("#x-now").innerHTML = `
+  setHTML($("#x-now"), `
     <div class="now-grid">
       <div>${running.length ? running.map(bar).join("") : `<div class="empty">${v.active ? "No job is running right now." : "The run is stopped: no job is running."}</div>`}
         ${pendHtml}${unkHtml}
-        ${queued.length ? `<div class="note" style="margin-top:8px">${plural(queued.length, "job")} submitted and waiting: ${queued.slice(0, 8).map((q) => `<a href="#" data-job="${esc(q.name)}">${esc(shortJob(q.name, v.expid))}</a>`).join(", ")}${queued.length > 8 ? "…" : ""}</div>` : ""}
+        ${(() => { const q = queued.filter((x) => !pendNames.has(x.name)); return q.length ? `<div class="note" style="margin-top:8px">${plural(q.length, "job")} submitted and waiting: ${q.slice(0, 8).map((x) => `<a href="#" data-job="${esc(x.name)}">${esc(shortJob(x.name, v.expid))}</a>`).join(", ")}${q.length > 8 ? "…" : ""}</div>` : ""; })()}
       </div>
       <div><div class="chart-title">Latest finished</div>
         ${done.length ? `<ul class="recent">${done.map((a) => `<li><i style="background:${stColor(a.result === "FAILED" ? "FAILED" : "COMPLETED")}"></i>
-          <a href="#" data-job="${esc(a.job)}">${esc(secName(a.section))} <span class="note mono">${esc(shortJob(a.job, v.expid))}</span></a>
+          <a class="grow" href="#" data-job="${esc(a.job)}">${esc(secName(a.section))} <span class="note mono">${esc(shortJob(a.job, v.expid))}</span></a>
           <span class="note">${fmtAgo(a.end)}</span></li>`).join("")}</ul>` : `<div class="empty">Nothing has finished yet.</div>`}
       </div>
-    </div>`;
+    </div>`);
 }
 
 function renderKpis(v) {
@@ -480,15 +692,16 @@ function renderKpis(v) {
     if (!v.active) { etaSub = `if restarted: ${etaVal} · ${etaSub}`; etaVal = "Stopped"; }
     if (!eta.partial && eta.total < 1 && s.failed && left <= s.failed) { etaVal = v.active ? "Blocked" : "Stopped"; etaSub = `${plural(s.failed, "failed job")} need${s.failed === 1 ? "s" : ""} a rerun`; }
   }
-  $("#x-kpis").innerHTML = `
+  setHTML($("#x-kpis"), `
     <div class="kpi"><div class="lbl">Progress</div><div class="val">${s.pct.toFixed(s.pct < 100 ? 1 : 0)}%</div>
       <div class="sub">${s.completed} of ${s.total} jobs done</div><div class="bar"><span style="width:${s.pct}%"></span></div></div>
     <div class="kpi"><div class="lbl">Running now</div><div class="val">${s.running}</div><div class="sub">${(() => { const q = Math.max(s.queued, (v.slurm.jobs || []).filter((j) => j.state === "PENDING").length); return q ? `${q} in the queue · ` : ""; })()}${s.waiting} waiting</div></div>
-    <div class="kpi ${s.failed ? "alert" : ""}"><div class="lbl">Failed</div><div class="val">${s.failed}</div><div class="sub">${s.failed ? '<a href="#s-fail" data-gotab="live">see what went wrong</a>' : "no problems"}</div></div>
+    ${s.failed ? `<a class="kpi alert" href="#s-fail" data-gotab="live"><div class="lbl">Failed</div><div class="val">${s.failed}</div><div class="sub">see what went wrong →</div></a>`
+      : `<div class="kpi"><div class="lbl">Failed</div><div class="val">0</div><div class="sub">no problems</div></div>`}
     <div class="kpi"><div class="lbl">${v.active ? "Running for" : "Ran for"}</div><div class="val">${fmtDur(s.elapsed)}</div><div class="sub">started ${fmtTime(s.run_start)}${s.runs > 1 ? ` · ${s.runs} runs` : ""}</div></div>
     <div class="kpi"><div class="lbl">Time left ${info("Estimate. See “How long jobs take” for how it is computed.")}</div>
       <div class="val">${etaVal}</div><div class="sub">${etaSub}</div></div>
-    <div class="kpi"><div class="lbl">Last activity</div><div class="val">${fmtAgo(s.last_activity).replace(" ago", "")}</div><div class="sub">${s.last_activity ? `ago · ${fmtTime(s.last_activity)}` : ""}</div></div>`;
+    <div class="kpi"><div class="lbl">Last activity</div><div class="val">${fmtAgo(s.last_activity).replace(" ago", "")}</div><div class="sub">${s.last_activity ? `ago · ${fmtTime(s.last_activity)}` : ""}</div></div>`);
 }
 
 // ---- setup card
@@ -767,7 +980,7 @@ function lastErrorLine(lines) {
 function renderFailed(v) {
   const el = $("#x-fail");
   $("#f-note").textContent = v.failed.length ? plural(v.failed.length, "failed job") : "";
-  if (!v.failed.length) { el.innerHTML = `<div class="empty">No failed jobs. 🎉</div>`; return; }
+  if (!v.failed.length) { setHTML(el, `<div class="all-good">${ICONS.ok}No failed jobs.</div>`); return; }
   // group identical errors so ten members failing the same way read as one problem
   const groups = new Map();
   for (const f of v.failed) {
@@ -775,7 +988,7 @@ function renderFailed(v) {
     if (!groups.has(msg)) groups.set(msg, []);
     groups.get(msg).push(f);
   }
-  el.innerHTML = [...groups.entries()].slice(0, 30).map(([msg, fs], gi) => {
+  if (setHTML(el, [...groups.entries()].slice(0, 30).map(([msg, fs], gi) => {
     const f = fs[0], e = f.err;
     const names = fs.map((x) => `<a href="#" data-job="${esc(x.name)}">${esc(shortJob(x.name, v.expid))}</a>`);
     return `<div class="problem">
@@ -785,8 +998,7 @@ function renderFailed(v) {
       <div class="note" style="margin-top:6px">${names.slice(0, 12).join(", ")}${names.length > 12 ? ` and ${names.length - 12} more` : ""}</div>
       ${e?.lines?.length ? detailsBlock(`fail:${gi}:${f.name}`, `Full ${e.traceback ? "traceback" : "error log"}`, `<div class="note">${esc(e.file || "")}</div><pre class="log">${esc(e.lines.join("\n"))}</pre>`) : ""}
     </div>`;
-  }).join("");
-  bindDetails(el);
+  }).join(""))) bindDetails(el);
 }
 
 // ---- <details> with state preserved across refreshes
@@ -830,21 +1042,22 @@ function setupCollapsibles() {
     });
     if (saved.has(sec.id)) toggleSection(sec, true);
   });
-  $("#collapse-all").onclick = () => { document.querySelectorAll("#main section.card").forEach((s) => toggleSection(s, true)); saveCollapsed(); };
-  $("#expand-all").onclick = () => { document.querySelectorAll("#main section.card").forEach((s) => toggleSection(s, false)); saveCollapsed(); };
+}
+function collapseAll(collapse) {
+  document.querySelectorAll("#main section.card[data-tab]").forEach((s) => toggleSection(s, collapse));
+  saveCollapsed();
 }
 
-// ---- job detail panel
+// ---- job details: a drawer on the right, so the page behind keeps its place
 function openJob(name) {
   S.job = name;
-  const host = S.tab === "review" ? "#s-gantt" : "#s-grid";
-  if (S.tab !== "review" && S.tab !== "live") setTab("live");
   renderJob(S.detail);
-  const sec = $(host);
-  if (sec?.classList.contains("collapsed")) { toggleSection(sec, false); saveCollapsed(); }
-  $(jobBox())?.scrollIntoView({ behavior: "smooth", block: "center" });
 }
-const jobBox = () => (S.tab === "review" ? "#x-job2" : "#x-job");
+function closeJob() {
+  S.job = null;
+  const d = $("#job-drawer");
+  d.classList.remove("open"); d.setAttribute("aria-hidden", "true");
+}
 
 function findJob(v, name) {
   const g = v.grid;
@@ -859,13 +1072,10 @@ function findJob(v, name) {
 }
 
 function renderJob(v) {
-  const other = $(S.tab === "review" ? "#x-job" : "#x-job2");
-  if (other) other.innerHTML = "";
-  const el = $(jobBox());
-  if (!el) return;
-  if (!S.job || !v) { el.innerHTML = ""; return; }
+  const el = $("#job-drawer");
+  if (!S.job || !v) { if (el.classList.contains("open")) closeJob(); return; }
   const j = findJob(v, S.job);
-  if (!j) { el.innerHTML = ""; S.job = null; return; }
+  if (!j) { closeJob(); return; }
   const at = v.attempts.filter((a) => a.job === S.job).sort((a, b) => (a.start || 0) - (b.start || 0));
   const med = v.dur_stats[j.col.section]?.median;
   const now = Date.now() / 1000;
@@ -877,20 +1087,24 @@ function renderJob(v) {
   const facts = [
     ["step", esc(secName(j.col.section))], ["start date", j.date ? fmtDate(j.date) : null],
     ["member", j.col.member], ["chunk", j.col.chunk], ["attempts", at.length], ["retries", j.fail || 0],
-    ["last run took", lastDur != null ? fmtDur(lastDur) : null],
+    [last && !last.end ? "running for" : "last run took", lastDur != null ? fmtDur(lastDur) : null],
     ["typical for this step", med != null ? fmtDur(med) : null],
   ].filter((f) => f[1] != null && f[1] !== "");
   let logs = "";
-  if (fail?.err?.lines?.length) logs += `<div class="note">${esc(fail.err.file || "")} · ${fail.err.traceback ? "traceback" : "last error lines"}</div><pre class="log">${esc(fail.err.lines.join("\n"))}</pre>`;
-  if (run?.tail) logs += ["out", "err"].filter((k) => run.tail[k]?.lines?.length).map((k) => `<div class="note">${esc(run.tail[k].file)} · updated ${fmtAgo(run.tail[k].mtime)}</div><pre class="log">${esc(run.tail[k].lines.join("\n"))}</pre>`).join("");
-  if (ics?.mars?.events?.length) logs += `<div class="note">MARS messages</div><pre class="log">${esc(ics.mars.events.join("\n"))}</pre>`;
-  el.innerHTML = `<div class="job-panel">
-      <div class="job-head"><span class="title">${esc(secName(j.col.section))}${j.col.member ? ` · member ${esc(j.col.member)}` : ""}${j.date ? ` · ${fmtDate(j.date)}` : ""}</span> ${pill(j.status)}
-        <span class="note mono">${esc(S.job)}</span><span class="spacer"></span><button class="ghost" id="job-close" aria-label="Close job details">Close ✕</button></div>
+  if (fail?.err?.lines?.length) logs += `<div class="chart-title" style="margin-top:14px">${fail.err.traceback ? "Traceback" : "Last error lines"}</div><div class="note">${esc(fail.err.file || "")}</div><pre class="log">${esc(fail.err.lines.join("\n"))}</pre>`;
+  if (run?.tail) logs += ["out", "err"].filter((k) => run.tail[k]?.lines?.length).map((k) => `<div class="chart-title" style="margin-top:14px">Latest ${k === "out" ? "output" : "error output"}</div><div class="note">${esc(run.tail[k].file)}</div><pre class="log">${esc(run.tail[k].lines.join("\n"))}</pre>`).join("");
+  if (ics?.mars?.events?.length) logs += `<div class="chart-title" style="margin-top:14px">MARS messages</div><pre class="log">${esc(ics.mars.events.join("\n"))}</pre>`;
+  const fresh = setHTML(el, `
+    <div class="jd-head"><div style="flex:1;min-width:0"><div class="title">${esc(secName(j.col.section))}${j.col.member ? ` · member ${esc(j.col.member)}` : ""}${j.date ? ` · ${fmtDate(j.date)}` : ""}</div>
+        <span class="note mono">${esc(S.job)}</span></div>
+      ${pill(j.status)}<button type="button" class="small ghost" id="job-close" title="Close  Esc" aria-label="Close job details">Close ✕</button></div>
+    <div class="jd-body">
       <dl class="facts">${facts.map(([k, x]) => `<div><dt>${k}</dt><dd>${x}</dd></div>`).join("")}</dl>
-      ${at.length ? `<div class="plot" id="p-job"></div>` : `<div class="empty">This job has not started yet.</div>`}
-      ${logs}</div>`;
-  $("#job-close").onclick = () => { S.job = null; renderJob(S.detail); };
+      ${at.length ? `<div class="chart-title">Attempts</div><div class="plot" id="p-job"></div>${med ? `<div class="note">Dotted line = typical duration for this step (${fmtDur(med)}).</div>` : ""}`
+        : `<div class="empty">This job has not started yet.</div>`}
+      ${logs}</div>`);
+  if (fresh) $("#job-close").onclick = closeJob;
+  el.classList.add("open"); el.setAttribute("aria-hidden", "false");
   if (!at.length) return;
   const rows = at.map((a, i) => `Attempt ${(a.n ?? i) + 1}`);
   const traces = RESULT_ORDER.map((res) => {
@@ -909,7 +1123,6 @@ function renderJob(v) {
     margin: { l: 80, r: 16, t: 6, b: 36 }, showlegend: false, shapes,
     xaxis: { type: "date", gridcolor: css("--grid") },
     yaxis: { type: "category", categoryorder: "array", categoryarray: rows, autorange: "reversed", gridcolor: "rgba(0,0,0,0)" } }), { ...PCFG, displayModeBar: false });
-  if (med) $("#p-job").insertAdjacentHTML("afterend", `<div class="note">Dotted line = typical duration for this step (${fmtDur(med)}).</div>`);
 }
 
 // ------------------------------------------------------------------ wiring
@@ -921,9 +1134,16 @@ document.addEventListener("click", (e) => {
   const g = e.target.closest("a[data-gotab]");
   if (g) { e.preventDefault(); setTab(g.dataset.gotab); requestAnimationFrame(() => $(g.getAttribute("href"))?.scrollIntoView({ behavior: "smooth" })); return; }
   const j = e.target.closest("a[data-job]");
-  if (j) { e.preventDefault(); openJob(j.dataset.job); }
+  if (j) { e.preventDefault(); openJob(j.dataset.job); return; }
+  if (e.target.closest('[data-act="to-launcher"]')) { L.view = "runs"; L.q = S.exp || ""; switchApp("launcher"); }
 });
-$("#expSelect").addEventListener("change", (e) => selectExp(e.target.value));
+$("#viewtabs").addEventListener("click", (e) => {
+  const b = e.target.closest("button");
+  if (!b) return;
+  if (b.dataset.tab) setTab(b.dataset.tab);
+  else if (b.dataset.view) setLauncherView(b.dataset.view);
+  else if (b.dataset.act) collapseAll(b.dataset.act === "collapse");
+});
 $("#refreshBtn").addEventListener("click", () => load(true));
 $("#refreshSel").addEventListener("change", (e) => {
   S.refreshSec = +e.target.value;
@@ -934,13 +1154,19 @@ $("#themeBtn").addEventListener("click", () => {
   const t = THEMES[(THEMES.indexOf(currentTheme()) + 1) % THEMES.length];
   applyTheme(t); redrawAll();
 });
+$("#helpBtn").addEventListener("click", () => $("#help").showModal());
+$("#helpClose").addEventListener("click", () => $("#help").close());
+$("#help").addEventListener("click", (e) => { if (e.target === e.currentTarget) e.currentTarget.close(); });  // click on the backdrop
 window.addEventListener("popstate", () => {
   const q = new URLSearchParams(location.search);
   S.app = appFromUrl();
-  if (S.app === "monitor") selectExp(q.get("exp"), false); else { S.skeletonFor = null; render(); }
+  if (S.app === "launcher") L.view = launcherViewFromUrl();
+  if (S.app === "monitor") selectExp(q.get("exp"), false); else { S.skeletonFor = null; closeJob(); render(); fadeMain(); }
 });
+// come back to a tab that was in the background: refresh at once instead of waiting for the next tick
+document.addEventListener("visibilitychange", () => { if (!document.hidden && S.refreshSec && S.lastFetch && Date.now() / 1000 - S.lastFetch > S.refreshSec) load(); });
 
-// ---- collapsible experiments sidebar (remembered per browser; "[" toggles it)
+// ---- experiments panel: hidden / shown (remembered per browser; "[" toggles it)
 function setSidebar(hidden) {
   document.documentElement.classList.toggle("side-collapsed", hidden);
   const b = $("#sideBtn");
@@ -953,13 +1179,38 @@ function setSidebar(hidden) {
     if (S.preview && S.app === "monitor" && S.tab === "data") { S.preview.drawn = false; drawMap(); }
   });
 }
-$("#sideBtn").addEventListener("click", () => setSidebar(!document.documentElement.classList.contains("side-collapsed")));
+const sideHidden = () => document.documentElement.classList.contains("side-collapsed");
+$("#sideBtn").addEventListener("click", () => setSidebar(!sideHidden()));
+
+// ---- keyboard
+function stepExp(dir) {  // next / previous experiment in the order of the panel
+  const es = visibleExps();
+  if (!es.length) return;
+  const i = es.findIndex((e) => e.expid === S.exp);
+  const n = i < 0 ? (dir > 0 ? 0 : es.length - 1) : Math.max(0, Math.min(es.length - 1, i + dir));
+  if (es[n].expid !== S.exp) selectExp(es[n].expid);
+}
 document.addEventListener("keydown", (e) => {
-  if (e.key === "[" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.target.closest?.("input, textarea, select, [contenteditable]")) {
-    setSidebar(!document.documentElement.classList.contains("side-collapsed"));
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "Escape" && S.job && !document.querySelector("dialog[open]")) { closeJob(); return; }
+  if (e.target.closest?.("input, textarea, select, [contenteditable]") || document.querySelector("dialog[open]")) return;
+  const k = e.key;
+  if (k === "[") setSidebar(!sideHidden());
+  else if (k === "?") $("#help").showModal();
+  else if (k === "r" || k === "R") load(true);
+  else if (k === "/") {
+    e.preventDefault();
+    if (S.app !== "monitor") switchApp("monitor");
+    if (sideHidden()) setSidebar(false);
+    $("#side-q")?.focus();
+  } else if ((k === "j" || k === "k" || k === "J" || k === "K") && S.app === "monitor") stepExp(k.toLowerCase() === "j" ? 1 : -1);
+  else if (k >= "1" && k <= "4") {
+    const i = +k - 1;
+    if (S.app === "monitor" && S.exp && TABS[i]) setTab(TABS[i][0]);
+    else if (S.app === "launcher" && LN_TABS[i]) setLauncherView(LN_TABS[i][0]);
   }
 });
-setSidebar(document.documentElement.classList.contains("side-collapsed"));
+setSidebar(sideHidden());
 document.querySelector(".appswitch").addEventListener("click", (e) => { const b = e.target.closest("button[data-app]"); if (b && b.dataset.app !== S.app) switchApp(b.dataset.app); });
 matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (currentTheme() === "auto") redrawAll(); });
 try { const r = localStorage.getItem("aiuq-refresh"); if (r !== null) { S.refreshSec = +r; $("#refreshSel").value = r; } } catch { /* ignore */ }

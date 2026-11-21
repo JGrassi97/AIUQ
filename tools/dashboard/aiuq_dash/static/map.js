@@ -3,22 +3,68 @@
 "use strict";
 
 const VAR_INFO = {
+  // AIUQ-st short names (conf/AIUQ-st/v100: variables.yml and outputs.yml)
   t: { name: "Temperature", tr: "k2c", cmap: "Temperature" },
-  "2t": { name: "2 m temperature", tr: "k2c", cmap: "Temperature" },
-  t2m: { name: "2 m temperature", tr: "k2c", cmap: "Temperature" },
-  sst: { name: "Sea surface temperature", tr: "k2c", cmap: "Temperature" },
   z: { name: "Geopotential", tr: "z2dam", cmap: "Viridis" },
   u: { name: "Zonal wind", cmap: "Blue–Red", sym: true },
   v: { name: "Meridional wind", cmap: "Blue–Red", sym: true },
-  "10u": { name: "10 m zonal wind", cmap: "Blue–Red", sym: true },
-  "10v": { name: "10 m meridional wind", cmap: "Blue–Red", sym: true },
   w: { name: "Vertical velocity", cmap: "Blue–Red", sym: true },
   q: { name: "Specific humidity", tr: "kg2g", cmap: "Rain" },
   r: { name: "Relative humidity", cmap: "Rain" },
+  clwc: { name: "Cloud liquid water", tr: "kg2g", cmap: "Ocean" },
+  ciwc: { name: "Cloud ice water", tr: "kg2g", cmap: "Ocean" },
+  t2m: { name: "2 m temperature", tr: "k2c", cmap: "Temperature" },
+  d2m: { name: "2 m dew point", tr: "k2c", cmap: "Temperature" },
+  skt: { name: "Skin temperature", tr: "k2c", cmap: "Temperature" },
+  sst: { name: "Sea surface temperature", tr: "k2c", cmap: "Temperature" },
+  stl1: { name: "Soil temperature (layer 1)", tr: "k2c", cmap: "Temperature" },
+  stl2: { name: "Soil temperature (layer 2)", tr: "k2c", cmap: "Temperature" },
+  sot: { name: "Soil temperature", tr: "k2c", cmap: "Temperature" },
+  u10: { name: "10 m zonal wind", cmap: "Blue–Red", sym: true },
+  v10: { name: "10 m meridional wind", cmap: "Blue–Red", sym: true },
+  u100: { name: "100 m zonal wind", cmap: "Blue–Red", sym: true },
+  v100: { name: "100 m meridional wind", cmap: "Blue–Red", sym: true },
+  i10fg: { name: "10 m wind gust", cmap: "Turbo" },
   msl: { name: "Sea-level pressure", tr: "pa2hpa", cmap: "Viridis" },
   sp: { name: "Surface pressure", tr: "pa2hpa", cmap: "Viridis" },
-  tp: { name: "Precipitation", tr: "m2mm", cmap: "Rain" },
+  tcw: { name: "Total column water", cmap: "Rain" },
   tcwv: { name: "Water vapour", cmap: "Rain" },
+  tcc: { name: "Total cloud cover", tr: "frac2pct", cmap: "Greys", rev: true },
+  lcc: { name: "Low cloud cover", tr: "frac2pct", cmap: "Greys", rev: true },
+  mcc: { name: "Medium cloud cover", tr: "frac2pct", cmap: "Greys", rev: true },
+  hcc: { name: "High cloud cover", tr: "frac2pct", cmap: "Greys", rev: true },
+  blh: { name: "Boundary layer height", cmap: "Viridis" },
+  tp: { name: "Precipitation", tr: "m2mm", cmap: "Rain" },
+  cp: { name: "Convective precipitation", tr: "m2mm", cmap: "Rain" },
+  sf: { name: "Snowfall (water equivalent)", tr: "m2mm", cmap: "Ocean" },
+  ro: { name: "Runoff", tr: "m2mm", cmap: "Rain" },
+  avg_tprate: { name: "Precipitation rate", tr: "rate2mmh", cmap: "Rain" },
+  avg_tsrwe: { name: "Snowfall rate (water equivalent)", tr: "rate2mmh", cmap: "Ocean" },
+  avg_ie: { name: "Evaporation rate (negative upwards)", tr: "rate2mmh", cmap: "Blue–Red", sym: true },
+  ssrd: { name: "Surface solar radiation (downwards)", cmap: "Sunset" },
+  strd: { name: "Surface thermal radiation (downwards)", cmap: "Plasma" },
+  avg_sdswrf: { name: "Surface solar radiation flux (downwards)", cmap: "Sunset" },
+  avg_sduvrf: { name: "Surface UV radiation flux (downwards)", cmap: "Plasma" },
+  avg_tnlwrf: { name: "Top net thermal radiation flux", cmap: "Viridis" },
+  swvl1: { name: "Soil moisture (layer 1)", cmap: "Rain" },
+  swvl2: { name: "Soil moisture (layer 2)", cmap: "Rain" },
+  sd: { name: "Snow depth (water equivalent)", tr: "m2mm", cmap: "Ocean" },
+  fscov: { name: "Snow cover", tr: "frac2pct", cmap: "Ocean" },
+  ci: { name: "Sea-ice cover", tr: "frac2pct", cmap: "Ocean" },
+  swh: { name: "Significant wave height", cmap: "Ocean" },
+  mwp: { name: "Mean wave period", cmap: "Viridis" },
+  mwd: { name: "Mean wave direction", cmap: "Spectral" },
+  cdww: { name: "Wave drag coefficient", cmap: "Viridis" },
+  h1012: { name: "Wave height, periods 10-12 s", cmap: "Ocean" },
+  h1214: { name: "Wave height, periods 12-14 s", cmap: "Ocean" },
+  h1417: { name: "Wave height, periods 14-17 s", cmap: "Ocean" },
+  h1721: { name: "Wave height, periods 17-21 s", cmap: "Ocean" },
+  h2125: { name: "Wave height, periods 21-25 s", cmap: "Ocean" },
+  h2530: { name: "Wave height, periods 25-30 s", cmap: "Ocean" },
+  // model names found in older outputs
+  "2t": { name: "2 m temperature", tr: "k2c", cmap: "Temperature" },
+  "10u": { name: "10 m zonal wind", cmap: "Blue–Red", sym: true },
+  "10v": { name: "10 m meridional wind", cmap: "Blue–Red", sym: true },
 };
 const varName = (v) => VAR_INFO[v]?.name || v;
 
@@ -30,6 +76,8 @@ const TRANSFORMS = {
   pa2hpa: { label: "hPa (from Pa)", f: (x) => x / 100, units: () => "hPa" },
   m2mm: { label: "mm (from m)", f: (x) => x * 1000, units: () => "mm" },
   kg2g: { label: "g/kg (from kg/kg)", f: (x) => x * 1000, units: () => "g/kg" },
+  frac2pct: { label: "% (from 0-1)", f: (x) => x * 100, units: () => "%" },
+  rate2mmh: { label: "mm/h (from kg m⁻² s⁻¹)", f: (x) => x * 3600, units: () => "mm/h" },
 };
 
 const CMAPS = {
@@ -81,7 +129,7 @@ function vstyle(v) {  // v is a variable, or "var:spread" / "var:anom" for the e
   const [base, mode] = String(v).split(":");
   const d = VAR_INFO[base] || {};
   const st = S.preview.st;
-  const def = mode === "spread" ? { cmap: "Sunset", sym: false } : mode === "anom" ? { cmap: "Blue–Red", sym: true } : { cmap: d.cmap || "Ocean", sym: !!d.sym };
+  const def = mode === "spread" ? { cmap: "Sunset", sym: false } : mode === "anom" ? { cmap: "Blue–Red", sym: true } : { cmap: d.cmap || "Ocean", sym: !!d.sym, rev: !!d.rev };
   st.vars[v] = Object.assign({ rev: false, zmin: "", zmax: "", tr: d.tr || "none", ...def }, st.vars[v] || {});
   return st.vars[v];
 }

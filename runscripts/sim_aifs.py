@@ -25,7 +25,7 @@ from anemoi.inference.runners.simple import SimpleRunner
 from AIUQst_lib.functions import parse_arguments, read_config, normalize_out_vars
 from AIUQst_lib.pressure_levels import check_pressure_levels
 from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
-from AIUQst_lib.variables import name_mapper_for_model, output_translator
+from AIUQst_lib.variables import output_attrs, resample_daily, resolve_outputs
 
 from postprocess_aifs import build_dataset_for_state
 from AIUQst_lib.streaming import StepBuffer
@@ -82,9 +82,15 @@ def main() -> None:
     model_card = read_model_card(_HPCROOTDIR, _MODEL_NAME)
     standard_dict = read_std_version(_HPCROOTDIR, _STD_VERSION)
    
-    out_vars = normalize_out_vars(_OUT_VARS)
-    translate = output_translator(model_card['variables'], standard_dict['variables'])
-    output_vars = [translate.get(item, item) for item in out_vars]
+    # Requested outputs (AIUQ-st names) -> AIFS names; names this checkpoint cannot write are skipped.
+    selected, unknown = resolve_outputs(normalize_out_vars(_OUT_VARS), model_card, standard_dict, _MODEL_CHECKPOINT)
+    for name in unknown:
+        print(f"WARNING: '{name}' is not an output of {os.path.basename(_MODEL_CHECKPOINT)} (model card); skipped.")
+    out_vars = [name for name, _ in selected]
+    specs = dict(selected)
+    output_vars = [spec["model"] for _, spec in selected]
+    if not output_vars:
+        raise ValueError(f"None of the requested output variables {_OUT_VARS} is written by {os.path.basename(_MODEL_CHECKPOINT)}.")
 
     
     desired_levels = None                    # 'original': keep every model level
@@ -193,11 +199,16 @@ def main() -> None:
             if "sim_time" in dataset.variables:
                 dataset = dataset.drop_vars("sim_time")
 
-            # # Format output frequency
+            spec = specs[var_name]
+            if spec["scale"] != 1.0:
+                dataset[var] = dataset[var] * spec["scale"]
+
+            # # Format output frequency (accumulations: daily totals)
             if _OUT_FREQ == "daily":
-                dataset = dataset.resample(valid_time="1D").mean()
+                dataset = resample_daily(dataset, var, spec["accumulated"])
 
             predictions_datarray = dataset[var].rename(var_name)
+            predictions_datarray.attrs.update(output_attrs(spec, _OUT_FREQ == "daily"))
             OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
             os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
             OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/out-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var_name}_temp.nc"
