@@ -33,17 +33,35 @@ AUDIT = settings.STATE_DIR / "launcher.log"
 AS_BIN = os.path.join(os.path.dirname(settings.AS_PYTHON), "autosubmit")
 
 MODEL_NAMES = {"aifs": "AIFS", "ms-aurora": "Aurora", "neuralgcm": "NeuralGCM", "ace": "ACE"}
-# Support matrix from the README (ok / wip / no); checkpoints not listed are "unknown".
-SUPPORT = {
-    "aifs-single-mse-1.1.ckpt": {"era5": "ok", "eerie": "wip", "ec-earth3": "wip"},
-    "aifs-ens-crps-1.0.ckpt": {"era5": "ok", "eerie": "ok", "ec-earth3": "wip"},
-    "aifs-ens-crps-2.0.ckpt": {"era5": "wip", "eerie": "no", "ec-earth3": "no"},
-    "aurora-0.25-pretrained.ckpt": {"era5": "ok", "eerie": "wip", "ec-earth3": "wip"},
-    "aurora-0.25-finetuned.ckpt": {"era5": "wip", "eerie": "wip", "ec-earth3": "wip"},
-    "aurora-0.25-v1.5.ckpt": {"era5": "wip", "eerie": "wip", "ec-earth3": "wip"},
-    "aurora-0.25-v1.5-ensemble.ckpt": {"era5": "ok", "eerie": "wip", "ec-earth3": "wip"},
-}
-NEURALGCM_OK = {"era5": "ok", "eerie": "ok", "ec-earth3": "wip"}
+# Support status per checkpoint and IC source (ok / wip / no), read from docs/support-matrix.yml of the chosen
+# branch (the file behind the README table), so the Launcher never disagrees with the documentation.
+MATRIX_ICS = {"ERA5": "era5", "EERIE (AMIP)": "eerie", "ECMWF analysis": "ecmwf-an", "EC-Earth3 (CMIP6)": "ec-earth3"}
+MATRIX_STATUS = {"available": "ok", "wip": "wip", "not_implemented": "no"}
+
+
+def parse_support_matrix(matrix):
+    """{checkpoint file: {ics: 'ok' | 'wip' | 'no'}} from the content of docs/support-matrix.yml."""
+    label = {ck["id"]: ck["label"] for m in matrix.get("models") or [] for ck in m.get("checkpoints") or []}
+    out = {}
+    for ics_label, per_ckpt in (matrix.get("status") or {}).items():
+        ics = MATRIX_ICS.get(ics_label)
+        if not ics:
+            continue
+        for ckpt_id, status in (per_ckpt or {}).items():
+            if ckpt_id in label and status in MATRIX_STATUS:
+                out.setdefault(label[ckpt_id], {})[ics] = MATRIX_STATUS[status]
+    return out
+
+
+def support_matrix(branch):
+    """Support table of a branch; empty (every combination 'unknown') when the branch has no matrix."""
+    try:
+        return parse_support_matrix(repo_yaml(branch, "docs/support-matrix.yml"))
+    except (RuntimeError, yaml.YAMLError, KeyError, TypeError, AttributeError):
+        log.warning("no usable docs/support-matrix.yml on %s", branch, exc_info=True)
+        return {}
+
+
 AMIP_MODELS = {"neuralgcm"}
 FORCINGS = ["ESA-CCI-v3.0", "AIMIP"]
 RESOLUTIONS = ["original", "0.25", "0.5", "1", "1.5", "2"]
@@ -168,6 +186,7 @@ def options(branch):
     plat_ics = repo_ls(branch, f"conf/jobs/{PLATFORM}/ics")
     store_by_ics = output_store_defaults(branch, plat_ics)
     ckpts = checkpoints_on_hpc()
+    support = support_matrix(branch)
     models = []
     for card in repo_ls(branch, "conf/cards/models"):
         c = repo_yaml(branch, f"conf/cards/models/{card}")
@@ -178,14 +197,14 @@ def options(branch):
         levels = (c.get("pressure_levels") or {}).get("values") or []
         on_hpc = ckpts.get(name)
         ck_blocks = {k: v for k, v in (c.get("checkpoints") or {}).items() if k != "default" and isinstance(v, dict)}
-        model_ck = sorted(set(on_hpc or []) | {k for k in SUPPORT if _ckpt_model(k) == name}
+        model_ck = sorted(set(on_hpc or []) | {k for k in support if _ckpt_model(k) == name and k.endswith((".pkl", ".ckpt"))}
                           | {k for k, v in ck_blocks.items() if v.get("outputs")})
         checkpoints = []
         for k in model_ck:
             listed = (ck_blocks.get(k) or {}).get("outputs")
             checkpoints.append({
                 "name": k, "present": on_hpc is not None and k in on_hpc, "ensemble": is_ensemble(k),
-                "support": SUPPORT.get(k) or (NEURALGCM_OK if name == "neuralgcm" else {}),
+                "support": support.get(k) or {},
                 # What this checkpoint writes (model card), or None: the model-wide list applies.
                 "variables": [v for v in listed if v in known] if listed else None,
                 "levels": (ck_blocks.get(k) or {}).get("levels") or None,
@@ -283,7 +302,9 @@ def validate(cfg):
     elif ck:
         sup = ck["support"].get(ics)
         if sup == "wip":
-            warnings.append(f"{ck['name']} with {ics.upper()} is marked as work in progress in the README.")
+            warnings.append(f"{ck['name']} with {ics.upper()} is marked as work in progress in the support matrix.")
+        elif sup == "no":
+            warnings.append(f"{ck['name']} with {ics.upper()} is marked as not implemented in the support matrix.")
         elif sup is None:
             warnings.append(f"No support information for {ck['name']} with {ics.upper()}.")
     run_type = cfg.get("run_type") or "hindcast"

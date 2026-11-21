@@ -26,6 +26,7 @@ on GitHub at the time of `create`/`refresh`.
 | `ecmwf-an`: no cycle found / 404 for a past date | data.ecmwf.int keeps ~4 days; the Google archive has 0.25° files only from Feb 2024 | Use a date ≥ 2024-02, or ERA5 for older dates. |
 | `ecmwf-an` started from an older analysis than expected | the newest cycle needs both T-6h and T published | Expected behaviour; the chosen cycle is in the `analysis_time` attribute of the ICs. |
 | EERIE PREPARE_ICS waits a long time | MARS queue (dashboard shows MARS request states) | Wait; tape retrievals can take hours. |
+| EERIE PREPARE_ICS fails with `USER_QUEUED_LIMIT_EXCEEDED` | ECMWF accepts 5 queued MARS requests per user, and each experiment sends several | Run EERIE experiments one at a time; set the failed `PREPARE_ICS` back to WAITING and run again. |
 | `has no access to services/mars` | the user's ECMWF key has no operational MARS rights | Don't propose MARS `class=od` retrievals; use `ecmwf-an` (Open Data) or ERA5. |
 | ERA5 date before 1940 | not available | Pick a later date. |
 

@@ -62,23 +62,24 @@ Number of SIM jobs = dates × members × num_chunks (each needs one GPU). Above 
 | | `deterministic_0_7_deg.pkl`, `deterministic_1_4_deg.pkl`, `deterministic_2_8_deg.pkl` | deterministic | | |
 | `aifs` | `aifs-ens-crps-1.0.ckpt` | ensemble | N320, 13 levels (50–1000 hPa) | hindcast |
 | | `aifs-single-mse-1.1.ckpt` | deterministic | | |
-| | `aifs-ens-crps-2.0.ckpt` | ensemble | N320, 14 levels (10–1000 hPa), wave fields (`swh mwd mwp cdww h1012…h2530`) in output; needs `image_anemoi-2.sif`; branch `models/aifs-ens-2`, not yet verified; no EERIE | hindcast |
+| | `aifs-ens-crps-2.0.ckpt` | ensemble | N320, 14 levels (10–1000 hPa), wave fields (`swh mwd mwp cdww h1012…h2530`) in output; needs `image_anemoi-2.sif`; not with EERIE or EC-Earth3 (no wave fields) | hindcast |
 | `ms-aurora` | `aurora-0.25-v1.5-ensemble.ckpt` | ensemble | 0.25°, 13 levels (50–1000 hPa) | hindcast |
 | | `aurora-0.25-pretrained.ckpt`, `aurora-0.25-finetuned.ckpt`, `aurora-0.25-v1.5.ckpt` | deterministic | | |
 
-Support status per IC lives in `docs/support-matrix.yml` (rendered in the README). In 1.0: everything is
-✅ with ERA5 and `ecmwf-an`; with EERIE, NeuralGCM and AIFS-ens are ✅, AIFS-single and Aurora are ⚠️ (work
-in progress). The Launcher's internal badge table is older (it calls some ✅ combinations "wip" and
-has no `ecmwf-an` column, so it warns "No support information" for `ecmwf-an` — expected, ignore).
+Support status per IC lives in `docs/support-matrix.yml` (rendered in the README); the Launcher reads the same
+file from the experiment's branch, so `aiuq options` and `aiuq preview` agree with it. Since the tests of
+2026-11-21 every implemented combination is ✅ except the NeuralGCM **deterministic** checkpoints from EC-Earth3
+(⚠️: the run completes but the outputs have unphysical values at isolated tropical-ocean points). AIFS ENS 2.0
+needs wave fields and is ❌ with EERIE and EC-Earth3.
 
 ## Initial conditions
 
 | `ics` | Source | Notes |
 |---|---|---|
 | `era5` | ARCO ERA5 on Google Cloud | No credentials. 1940 onwards. |
-| `eerie` | MARS via ECMWF Web API | Needs `~/.ecmwfapirc` on the HPC (a key without MARS access still reads the public EERIE data). PREPARE_ICS can sit in the MARS queue for a long time. |
+| `eerie` | MARS via ECMWF Web API | Needs `~/.ecmwfapirc` on the HPC (a key without MARS access still reads the public EERIE data). ECMWF accepts 5 queued requests per user: start EERIE experiments one at a time, or `PREPARE_ICS` fails with `USER_QUEUED_LIMIT_EXCEEDED`. PREPARE_ICS can sit in the MARS queue for a long time. |
 | `ecmwf-an` | ECMWF Open Data, IFS HRES step 0 | No credentials. `dates: [today]` → newest analysis cycle T with T-6h and T published (searched back 24 h). Past dates (0.25° archive from Feb 2024, Google mirror) use that day's 18 UTC. Output valid times follow the cycle picked when PREPARE_ICS ran and can start the **previous day** (e.g. DATELIST 20261117 → files `out-2026-11-16-…`). `slt lsm sdor slor orog` from the static file, `clwc ciwc` from climatology; 1–7 hPa extrapolated (NeuralGCM only uses them). |
-| `ec-earth3` | EC-Earth3 CMIP6 via ESGF OPeNDAP | Branch `ics/ec-earth3`, work in progress. No credentials. A climate-model state at 00/06 UTC of the date, not observed weather. ≤ 2014 `historical`, later the card's scenario (`ssp585`); override with `MODEL.ICS_EXPERIMENT`/`ICS_MEMBER` in main.yml (the Launcher does not set them). No wave fields: not for AIFS ENS v2. |
+| `ec-earth3` | EC-Earth3 CMIP6 via ESGF OPeNDAP | No credentials. Not for NeuralGCM deterministic checkpoints (see above). A climate-model state at 00/06 UTC of the date, not observed weather. ≤ 2014 `historical`, later the card's scenario (`ssp585`); override with `MODEL.ICS_EXPERIMENT`/`ICS_MEMBER` in main.yml (the Launcher does not set them). No wave fields: not for AIFS ENS v2. |
 
 ## The generated `conf/main.yml`
 

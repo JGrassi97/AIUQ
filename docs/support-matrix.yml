@@ -98,15 +98,24 @@ models:
         size: "-"
 
 # Status IC x checkpoint_id
-#   available       = the job chain (PREPARE_ICS, SAVE_ICS for AIFS, SIM, POSTPROCESS for AIFS) ran with
-#                     this IC source and checkpoint, and the outputs passed a plausibility check
-#                     (no NaN, physical ranges). Release 1.0.0 tests: FELIPE (L40S), 2026-11-17,
-#                     2-day forecasts from 2010-01-01 (ERA5) and the 2026-11-16 06Z analysis.
-#                     EERIE: statuses from 0.x, not re-tested for 1.0.0 (MARS queue).
-#   wip             = integration present but not verified for this combination.
-#                     aifs_ens_2_0 (AIFS ENS v2, AIUQ-st v100): integration on branch models/aifs-ens-2,
-#                     not yet run on FELIPE. EERIE has no ocean-wave fields, which this checkpoint needs.
-#   not_implemented = no integration.
+#   available       = the job chain (PREPARE_ICS, SAVE_ICS for AIFS, SIM, POSTPROCESS for AIFS, ARCHIVE) ran with
+#                     this IC source and checkpoint, and the outputs passed a plausibility check: no NaN,
+#                     temperature and geopotential height at 850 and 500 hPa within physical ranges at every
+#                     grid point, global means stable over the run, members of ensemble checkpoints different.
+#                     Tests on FELIPE (L40S):
+#                       2026-11-17 (release 1.0.0): 2-day forecasts from 2010-01-01 (ERA5) and the 2026-11-16 06Z
+#                         analysis; EERIE statuses of NeuralGCM and AIFS ENS 1.0 are from 0.x.
+#                       2026-11-21 (commit d1880c0): 2-day forecasts, 2 members for ensemble checkpoints, of every
+#                         combination that was "wip": AIFS ENS 2.0 from ERA5 (2020-01-15) and from the ECMWF
+#                         analysis (2026-11-21); AIFS single 1.1 and the four Aurora checkpoints from EERIE
+#                         (2010-01-01); every checkpoint from EC-Earth3 (ssp585, r4i1p1f1, 2050-07-01).
+#   wip             = integration present but not verified, or verified and not passing.
+#                     NeuralGCM deterministic checkpoints from EC-Earth3: the job chain completes, but the outputs
+#                     have unphysical values at isolated points over the tropical oceans from the first output
+#                     time (2026-11-21: temperature at 850 hPa up to 3199 K with deterministic_1_4, 380 K with
+#                     deterministic_2_8; a few points of geopotential height with deterministic_0_7). The same
+#                     checkpoints are clean from ERA5, and the stochastic checkpoints are clean from EC-Earth3.
+#   not_implemented = no integration. AIFS ENS 2.0 needs ocean-wave fields, which EERIE and EC-Earth3 do not have.
 status:
   ERA5:
     ngcm_stoc_1_4: "available"
@@ -117,7 +126,7 @@ status:
     ngcm_det_2_8: "available"
     aifs_single_1_1: "available"
     aifs_ens_1_0: "available"
-    aifs_ens_2_0: "wip"
+    aifs_ens_2_0: "available"
     aurora_0_25_pretrained: "available"
     aurora_0_25_finetuned: "available"
     aurora_0_25_v1_5: "available"
@@ -132,13 +141,13 @@ status:
     ngcm_det_0_7: "available"
     ngcm_det_1_4: "available"
     ngcm_det_2_8: "available"
-    aifs_single_1_1: "wip"
+    aifs_single_1_1: "available"
     aifs_ens_1_0: "available"
     aifs_ens_2_0: "not_implemented"
-    aurora_0_25_pretrained: "wip"
-    aurora_0_25_finetuned: "wip"
-    aurora_0_25_v1_5: "wip"
-    aurora_0_25_v1_5_ensemble: "wip"
+    aurora_0_25_pretrained: "available"
+    aurora_0_25_finetuned: "available"
+    aurora_0_25_v1_5: "available"
+    aurora_0_25_v1_5_ensemble: "available"
     ace2_era5: "not_implemented"
 
   # Latest IFS analysis from ECMWF Open Data (ICS: ecmwf-an).
@@ -151,27 +160,27 @@ status:
     ngcm_det_2_8: "available"
     aifs_single_1_1: "available"
     aifs_ens_1_0: "available"
-    aifs_ens_2_0: "wip"
+    aifs_ens_2_0: "available"
     aurora_0_25_pretrained: "available"
     aurora_0_25_finetuned: "available"
     aurora_0_25_v1_5: "available"
     aurora_0_25_v1_5_ensemble: "available"
     ace2_era5: "not_implemented"
 
-  # EC-Earth3 CMIP6 state from ESGF (ICS: ec-earth3, branch ics/ec-earth3). PREPARE_ICS tested on
-  # synthetic data and live ESGF reads; no model run yet. No ocean-wave fields, which AIFS ENS 2.0 needs.
+  # EC-Earth3 CMIP6 state from ESGF (ICS: ec-earth3). No ocean-wave fields, which AIFS ENS 2.0 needs.
+  # NeuralGCM deterministic checkpoints: see "wip" above.
   EC-Earth3 (CMIP6):
-    ngcm_stoc_1_4: "wip"
-    ngcm_stoc_2_8_precip: "wip"
-    ngcm_stoc_2_8_evap: "wip"
+    ngcm_stoc_1_4: "available"
+    ngcm_stoc_2_8_precip: "available"
+    ngcm_stoc_2_8_evap: "available"
     ngcm_det_0_7: "wip"
     ngcm_det_1_4: "wip"
     ngcm_det_2_8: "wip"
-    aifs_single_1_1: "wip"
-    aifs_ens_1_0: "wip"
+    aifs_single_1_1: "available"
+    aifs_ens_1_0: "available"
     aifs_ens_2_0: "not_implemented"
-    aurora_0_25_pretrained: "wip"
-    aurora_0_25_finetuned: "wip"
-    aurora_0_25_v1_5: "wip"
-    aurora_0_25_v1_5_ensemble: "wip"
+    aurora_0_25_pretrained: "available"
+    aurora_0_25_finetuned: "available"
+    aurora_0_25_v1_5: "available"
+    aurora_0_25_v1_5_ensemble: "available"
     ace2_era5: "not_implemented"

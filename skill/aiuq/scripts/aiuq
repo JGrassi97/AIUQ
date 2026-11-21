@@ -86,7 +86,8 @@ out_of() { echo "$(root_of "$1")/outputs"; }
 dash() {
   local b64=""
   if [[ -n "${4:-}" ]]; then b64="$(base64 < "$4" | tr -d '\n')"; fi
-  on_as "AIUQ_TAIL=${AIUQ_TAIL:-25} AIUQ_WAIT=${AIUQ_WAIT:-2400} python3 - $(q "$1") $(q "$2") $(q "$3") $(q "$b64")" < "$CLIENT"
+  # AIUQ_DASH_SOCK: socket of another dashboard on the Autosubmit host (default ~/.aiuq-dashboard/dash.sock)
+  on_as "${AIUQ_DASH_SOCK:+AIUQ_DASH_SOCK=$(q "$AIUQ_DASH_SOCK") }AIUQ_TAIL=${AIUQ_TAIL:-25} AIUQ_WAIT=${AIUQ_WAIT:-2400} python3 - $(q "$1") $(q "$2") $(q "$3") $(q "$b64")" < "$CLIENT"
 }
 
 usage() {
@@ -125,7 +126,7 @@ Changes state (need --yes, only after the user confirmed)
   sh-as    '<cmd>' / sh-hpc '<cmd>'   raw shell on a host (read-only use is fine; writes need user consent)
 
 Settings ($CONFIG, or the environment): AIUQ_AS_HOST AIUQ_HPC_HOST AIUQ_HPC_BASE (required)
-  AIUQ_HPC_USER AIUQ_AS_BIN AIUQ_GPU_PARTITIONS AIUQ_SRUN_PARTITION AIUQ_FETCH_MAX_GB AIUQ_TAIL AIUQ_WAIT
+  AIUQ_HPC_USER AIUQ_AS_BIN AIUQ_DASH_SOCK AIUQ_GPU_PARTITIONS AIUQ_SRUN_PARTITION AIUQ_FETCH_MAX_GB AIUQ_TAIL AIUQ_WAIT
 EOF
 }
 
