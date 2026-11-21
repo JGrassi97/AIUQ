@@ -3,7 +3,7 @@
 Each cycle:
   1. local reads (no ssh): experiment list, conf/*.yml, ``autosubmit run`` processes,
      job_data DB, local STAT files, and pickles whose mtime changed;
-  2. exactly one ssh call to the HPC host (``felipe_probe.py``) covering every
+  2. exactly one ssh call to the HPC host (``hpc_probe.py``) covering every
      experiment that is due, plus squeue and nvidia-smi. Fetches are incremental
      (only STAT / log files newer than the previous cycle);
   3. derived views (grid, Gantt, durations, ETA, ...) are rebuilt and swapped in
@@ -130,6 +130,9 @@ class Collector:
             c = self.caches[e]
             hpc = c.jd.get("hpc") or {}
             host = hpc.get("HPCHOST")
+            if not settings.REMOTE_HOST:
+                c.remote_error = settings.not_set("AIUQ_REMOTE_HOST")
+                continue
             if host and host != settings.REMOTE_HOST:
                 c.remote_error = f"jobs run on {host}; only {settings.REMOTE_HOST} is probed"
                 continue
@@ -138,7 +141,10 @@ class Collector:
             if marker and marker.get("status") == "done" and marker.get("dir"):
                 root, c.archive = marker["dir"], marker
             else:
-                root, c.archive = hpc.get("HPCROOTDIR") or f"{settings.REMOTE_BASE}/{e}", None
+                root, c.archive = hpc.get("HPCROOTDIR") or (f"{settings.REMOTE_BASE}/{e}" if settings.REMOTE_BASE else None), None
+            if not root:  # nothing has run yet and the site settings do not say where experiments live
+                c.remote_error = settings.not_set("AIUQ_REMOTE_BASE")
+                continue
             if root != c.remote_root:  # moved to the output store: read everything again from there now
                 c.remote_root, c.remote_t, c.outputs_t, c.outputs_dir = root, None, None, None
             busy = e in active or any(j["status"] in BUSY for j in c.jobs)
@@ -157,7 +163,7 @@ class Collector:
             }
         try:
             t0 = time.time()
-            res = remote.run_helper("felipe_probe.py", req)
+            res = remote.run_helper("hpc_probe.py", req)
             self.meta.update(remote_ok=True, remote_last_ok=time.time(), remote_elapsed=round(time.time() - t0, 2))
             self.slurm, self.gpu = res.get("slurm"), res.get("gpu")
             self._record_history()

@@ -240,7 +240,10 @@ autosubmit expid \
   --git_branch main
 ```
 
-Use `--HPC FELIPE` on FELIPE. The platform names are defined in [`conf/platforms.yml`](conf/platforms.yml).
+Use `--HPC FELIPE` on FELIPE. The platform names are defined in [`conf/platforms.yml`](conf/platforms.yml). Nothing in the
+repository is tied to a user: your HPC user, support folder and output store come from the experiment's `main.yml`
+below. To run on another machine, see
+[Running AIUQ at a new site](https://aiuq.readthedocs.io/en/latest/configuration.html#running-aiuq-at-a-new-site).
 
 #### Run the experiment
 
@@ -273,12 +276,12 @@ EXPERIMENT:
   FORCING_VERSION: ESA-CCI-v3.0   # ESA-CCI-v3.0/AIMIP
 
 PATHS:
-  SUPPORT_FOLDER: /gpfs/scratch/ehpc536/AIUQ
+  SUPPORT_FOLDER: /path/to/AIUQ                     # the AIUQ support folder on the HPC
   SIF_FOLDER: "%PATHS.SUPPORT_FOLDER%/sif"
 
 PLATFORM:
   NAME: MARENOSTRUM5  # FELIPE / MARENOSTRUM5
-  USER_CODE: #write your HPC user here
+  USER_CODE: your_hpc_user                          # your user on the HPC
 ```
 
 Then run `autosubmit create <EXPID>` and `autosubmit run <EXPID>`.
@@ -307,7 +310,7 @@ Autosubmit can reuse an expid after `autosubmit delete`, so each experiment gets
 The folder has the layout of the experiment folder on the HPC, so the Monitor, Compare, Weather and AIUQ-store read it
 directly. The job writes `~/autosubmit/<expid>/OUTPUT_STORE.json` on the Autosubmit host, which the Monitor and the
 `aiuq` skill follow. The HPC folder (`<HPCROOTDIR>`, initial conditions included) is removed only after a second
-rsync pass finds nothing left to copy. The default store is `/data/users/jgrassi/AIUQ-outputs` (`conf/general.yml`);
+rsync pass finds nothing left to copy. The default store is `/data/users/<PLATFORM.USER_CODE>/AIUQ-outputs` (`conf/general.yml`);
 choose another folder per experiment in `main.yml` or in the Launcher's "Output store" field:
 
 ```

@@ -23,8 +23,8 @@ from . import local, remote, settings
 log = logging.getLogger("aiuq_dash.launcher")
 
 GIT_REPO = os.environ.get("AIUQ_GIT_REPO", "https://github.com/JGrassi97/AIUQ.git")
-PLATFORM = os.environ.get("AIUQ_LAUNCH_PLATFORM", "FELIPE")
-SUPPORT_FOLDER = os.environ.get("AIUQ_SUPPORT_FOLDER", f"/work/users/{settings.REMOTE_USER}/AIUQ")
+PLATFORM = settings.LAUNCH_PLATFORM
+SUPPORT_FOLDER = settings.SUPPORT_FOLDER
 # OUTPUT_STORE.DIR (a folder on this host) is written into main.yml only when the form sets it; otherwise the
 # branch's default applies: conf/jobs/<platform>/ics/<ics>/<ics>.yml, else conf/general.yml.
 STORE_RE = re.compile(r"^/[A-Za-z0-9_./-]+$")
@@ -116,7 +116,11 @@ _opts_cache = {}
 
 
 def _store_dir(conf):
-    return ((conf or {}).get("OUTPUT_STORE") or {}).get("DIR")
+    """OUTPUT_STORE.DIR of a config file, with the placeholders the Launcher itself fills in main.yml resolved."""
+    d = ((conf or {}).get("OUTPUT_STORE") or {}).get("DIR")
+    if isinstance(d, str):
+        d = d.replace("%PLATFORM.USER_CODE%", settings.REMOTE_USER).replace("%PLATFORM.NAME%", PLATFORM)
+    return d
 
 
 def output_store_defaults(branch, ics_list):
@@ -138,6 +142,9 @@ def output_store_defaults(branch, ics_list):
 
 def options(branch):
     """Everything the form needs for one branch: models, checkpoints, ICS, variables, levels."""
+    problem = settings.not_set("AIUQ_LAUNCH_PLATFORM", "AIUQ_SUPPORT_FOLDER", "AIUQ_REMOTE_HOST")
+    if problem:
+        raise ValueError(f"The Launcher is not configured: {problem}.")
     if branch not in branches():
         raise ValueError(f"unknown branch {branch!r}")
     hit = _opts_cache.get(branch)
@@ -231,7 +238,7 @@ def checkpoints_on_hpc():
     if time.time() - _ck_cache["t"] < 600:
         return _ck_cache["data"]
     try:
-        r = remote.run_helper("felipe_probe.py", {"user": settings.REMOTE_USER, "exps": {}, "ls": f"{SUPPORT_FOLDER}/models"}, timeout=60)
+        r = remote.run_helper("hpc_probe.py", {"user": settings.REMOTE_USER, "exps": {}, "ls": f"{SUPPORT_FOLDER}/models"}, timeout=60)
         _ck_cache.update(t=time.time(), data=r.get("ls") or {})
     except remote.RemoteError:
         log.warning("could not list checkpoints", exc_info=True)
@@ -606,8 +613,7 @@ def stop(expid, cancel=False):
 
 # ---------------------------------------------------------------------------- delete
 # Remote folders may only be removed below these roots, at <root>/<project>/<user>/<expid>.
-DELETE_ROOTS = [r for r in os.environ.get("AIUQ_REMOTE_DELETE_ROOTS",
-                                          f"/work/users/{settings.REMOTE_USER}/autosubmit_scratch").split(":") if r]
+DELETE_ROOTS = settings.REMOTE_DELETE_ROOTS
 LEFTOVERS = settings.STATE_DIR / "pending_remote_deletes.json"
 _left_lock = threading.Lock()
 
@@ -616,9 +622,14 @@ def _remote_path(expid):
     """The experiment's HPCROOTDIR, read from its job history (gone after `autosubmit delete`)."""
     hpc = (local.read_job_data(expid).get("hpc") or {})
     host = hpc.get("HPCHOST")
+    if not settings.REMOTE_HOST:
+        raise RuntimeError(settings.not_set("AIUQ_REMOTE_HOST"))
     if host and host != settings.REMOTE_HOST:
         return None, f"its jobs ran on {host}; only {settings.REMOTE_HOST} folders are handled here"
-    return (hpc.get("HPCROOTDIR") or f"{settings.REMOTE_BASE}/{expid}"), None
+    root = hpc.get("HPCROOTDIR") or (f"{settings.REMOTE_BASE}/{expid}" if settings.REMOTE_BASE else None)
+    if not root:  # never guess: without the folder the experiment cannot be checked, so it is not deleted
+        raise RuntimeError(f"the HPC folder of {expid} is unknown: {settings.not_set('AIUQ_REMOTE_BASE')}")
+    return root, None
 
 
 def _local_size(path):
@@ -635,7 +646,7 @@ def _local_size(path):
 
 def _slurm_jobs(expid):
     try:
-        r = remote.run_helper("felipe_probe.py", {"user": settings.REMOTE_USER, "slurm": True, "exps": {}}, timeout=60)
+        r = remote.run_helper("hpc_probe.py", {"user": settings.REMOTE_USER, "slurm": True, "exps": {}}, timeout=60)
     except remote.RemoteError as exc:
         raise RuntimeError(f"cannot read the SLURM queue: {exc}") from exc
     return [j for j in (r.get("slurm") or {}).get("jobs", []) if j.get("name", "").startswith(expid + "_")]
@@ -701,7 +712,9 @@ def _delete_store(t, expid, path):
 
 
 def _inspect_remote(expid, path):
-    return remote.run_helper("felipe_delete.py", {"mode": "inspect", "expid": expid, "path": path, "roots": DELETE_ROOTS}, timeout=180)
+    if not DELETE_ROOTS:
+        return {"ok": False, "error": settings.not_set("AIUQ_REMOTE_DELETE_ROOTS")}
+    return remote.run_helper("hpc_delete.py", {"mode": "inspect", "expid": expid, "path": path, "roots": DELETE_ROOTS}, timeout=180)
 
 
 def delete_plan(expid):
@@ -710,7 +723,12 @@ def delete_plan(expid):
         raise ValueError("unknown experiment")
     lpath = settings.AS_ROOT / expid
     files, size = _local_size(lpath)
-    rpath, rerr = _remote_path(expid)
+    blockers = []
+    try:
+        rpath, rerr = _remote_path(expid)
+    except RuntimeError as exc:
+        rpath, rerr = None, str(exc)
+        blockers.append(f"Nothing will be deleted: {exc}.")
     remote_info = {"ok": False, "error": rerr}
     if rpath:
         try:
@@ -720,7 +738,6 @@ def delete_plan(expid):
     spath = _store_path(expid)
     store_info = _inspect_store(expid, spath) if spath else {"ok": True, "exists": False}
     jobs = _slurm_jobs(expid)
-    blockers = []
     if expid in local.running_autosubmit():
         blockers.append("autosubmit run is active for this experiment: stop it first.")
     if jobs:
@@ -761,7 +778,7 @@ def _set_leftover(expid, path, add, kind="hpc"):
 def _delete_remote(t, expid, path):
     t.step(f"Deleting {path} on {settings.REMOTE_HOST}")
     _set_leftover(expid, path, True)  # recorded first, so a failure can be retried
-    r = remote.run_helper("felipe_delete.py", {"mode": "delete", "expid": expid, "path": path, "roots": DELETE_ROOTS}, timeout=3600)
+    r = remote.run_helper("hpc_delete.py", {"mode": "delete", "expid": expid, "path": path, "roots": DELETE_ROOTS}, timeout=3600)
     if not r.get("ok"):
         for e in r.get("errors", []):
             t.say(e)

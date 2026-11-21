@@ -165,7 +165,7 @@ removes ``<HPCROOTDIR>`` from the HPC (initial conditions included).
      - Default
      - Purpose
    * - ``DIR``
-     - ``/data/users/jgrassi/AIUQ-outputs``
+     - ``/data/users/<PLATFORM.USER_CODE>/AIUQ-outputs``
      - Store folder on the Autosubmit host. Set it per experiment in ``main.yml``
        or in the Launcher.
    * - ``DELETE_SOURCE``
@@ -195,3 +195,45 @@ HPC platform
 The repository includes ``MARENOSTRUM5`` and ``FELIPE`` job directories. Set
 ``PLATFORM.USER_CODE`` to your HPC user and review ``conf/platforms.yml`` for
 site-specific resources and access settings.
+
+Running AIUQ at a new site
+--------------------------
+
+Nothing in the repository is tied to a person. Everything that belongs to you or to
+your machine is set in one of three places:
+
+.. list-table:: Where site settings live
+   :header-rows: 1
+   :widths: 30 70
+
+   * - Place
+     - What it holds
+   * - The experiment's ``conf/main.yml``
+     - ``PLATFORM.USER_CODE`` (your HPC user), ``PLATFORM.NAME``,
+       ``PATHS.SUPPORT_FOLDER`` and, where the platform archives its outputs,
+       ``OUTPUT_STORE.DIR``. The platforms and the default output store take the user
+       from ``PLATFORM.USER_CODE``.
+   * - ``conf/platforms.yml``
+     - The machines: host, scheduler, queue or partition, scratch folder and project
+       of each platform. ``FELIPE`` and MareNostrum 5 are examples that work as they are
+       for users of those machines; the MareNostrum 5 ``PROJECT`` is the allocation the
+       framework was developed on, replace it with yours.
+   * - ``conf/jobs/<PLATFORM.NAME>/``
+     - One file per model and per initial-condition source: which platform each job
+       runs on, its resources, wall-clock limits and dependencies.
+
+To add a machine:
+
+1. Fork the repository, so that Autosubmit can clone your configuration.
+2. Add the platforms of your machine to ``conf/platforms.yml`` (a login platform of
+   type ``ps`` for the light jobs and a Slurm platform for the GPU jobs). Keep
+   ``USER: "%PLATFORM.USER_CODE%"`` so that no user name is committed.
+3. Copy ``conf/jobs/FELIPE`` to ``conf/jobs/<NAME>``, point the jobs to your platforms
+   and adjust partitions, memory and wall-clock limits. Remove the ``ARCHIVE`` job if
+   you do not want an output store.
+4. Prepare the support folder on the HPC (:doc:`quickstart`).
+5. Create the experiment with ``--HPC <your platform>`` and ``--git_repo <your fork>``,
+   and set ``PLATFORM.NAME: <NAME>`` in ``main.yml``.
+
+The :doc:`dashboard` and the agent skill (``skill/``) read their own site settings
+from files in your home folder; neither has a built-in host or user.

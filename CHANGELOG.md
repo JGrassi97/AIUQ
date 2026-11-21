@@ -41,10 +41,29 @@ All notable changes to AIUQ are listed here. Versions follow [semantic versionin
   (`checkpoints` block of `conf/cards/models/aifs_card.yml`: fields masked over sea, image).
 - **Output store**: on FELIPE a final `ARCHIVE` job (Autosubmit host, `templates/archive.sh`) moves the experiment
   folder from the HPC scratch to `<OUTPUT_STORE.DIR>/<expid>_<time>/` (unique even when Autosubmit reuses an expid;
-  default `/data/users/jgrassi/AIUQ-outputs`, configurable per experiment in `main.yml` or in the Launcher): outputs,
+  default `/data/users/<PLATFORM.USER_CODE>/AIUQ-outputs`, configurable per experiment in `main.yml` or in the Launcher): outputs,
   checkpoints, all job logs, the code that ran, the Autosubmit configuration and an `archive.json` record (git commit
   included). The HPC folder is removed only after verification, and `~/autosubmit/<expid>/OUTPUT_STORE.json` points
   to the store. The Monitor, the Launcher (new "Output store" field), Compare, Weather and the `aiuq` skill follow it.
+
+### Changed
+- **No personal or site values in the repository.** The FELIPE platforms take the HPC user and the scratch folder
+  from `PLATFORM.USER_CODE` of the experiment's `main.yml` (as MareNostrum 5 already did), and the default output
+  store is `/data/users/<PLATFORM.USER_CODE>/AIUQ-outputs`. Experiments whose `main.yml` sets `USER_CODE` (every
+  experiment created by the Launcher) resolve to the same folders as before.
+- **Dashboard**: the settings that describe an installation have no default any more and must be set in
+  `~/.config/aiuq-dashboard.env`: `AIUQ_REMOTE_HOST`, `AIUQ_REMOTE_BASE`, `AIUQ_LAUNCH_PLATFORM`,
+  `AIUQ_SUPPORT_FOLDER`, `AIUQ_REMOTE_DELETE_ROOTS` (`AIUQ_REMOTE_USER` defaults to the local user). `install.sh`
+  lists the ones still empty, and the dashboard names a missing setting instead of guessing; a Launcher delete is
+  refused while the HPC folder cannot be determined. **When updating an existing installation, add these settings
+  before restarting the service.** The HPC helpers are now `helpers/hpc_probe.py`, `hpc_preview.py`, `hpc_delete.py`.
+- **Agent skill**: `aiuq` reads the two hosts and the experiments folder from `~/.aiuq/config`
+  (`skill/aiuq/config.example`) and has no built-in host; `aiuq site` prints the settings and the user's site notes
+  (`~/.aiuq/site.md`, template `skill/aiuq/site.example.md`), which hold what is specific to an installation. New
+  optional settings `AIUQ_AS_BIN`, `AIUQ_GPU_PARTITIONS`, `AIUQ_SRUN_PARTITION`.
+- Documentation: "Running AIUQ at a new site" (`docs/source/configuration.rst`) says where every site setting
+  lives and how to add a machine. `tests/test_no_site_paths.py` fails when a personal path or a built-in host
+  comes back.
 
 ### Fixed
 - **Out of memory in the SIM post-processing with fine output grids**: NeuralGCM and Aurora regridded every model

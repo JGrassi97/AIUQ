@@ -1,0 +1,23 @@
+# Settings of the `aiuq` command: copy to ~/.aiuq/config and fill in.
+# One AIUQ_NAME=value per line (comments on their own lines). A variable set in the environment wins.
+
+# ssh aliases (~/.ssh/config, key-based login) of the machine where Autosubmit and the AIUQ dashboard run,
+# and of the HPC where the jobs run.
+AIUQ_AS_HOST=
+AIUQ_HPC_HOST=
+
+# Where experiments live on the HPC: <SCRATCH_DIR>/<PROJECT>/<USER> of your platform in conf/platforms.yml.
+# An experiment is <AIUQ_HPC_BASE>/<expid>.
+AIUQ_HPC_BASE=
+
+# Optional
+# HPC user, when it is not the User of the ssh alias:
+#AIUQ_HPC_USER=
+# Folder of `autosubmit` on the Autosubmit host (default $HOME/miniconda3/bin, expanded there):
+#AIUQ_AS_BIN=
+# Slurm partitions listed by `aiuq queue` (comma-separated; default: all) and used by `aiuq py --srun`
+# (default: the cluster default):
+#AIUQ_GPU_PARTITIONS=
+#AIUQ_SRUN_PARTITION=
+# `aiuq fetch` refuses more than this many GB without --yes (default 5):
+#AIUQ_FETCH_MAX_GB=

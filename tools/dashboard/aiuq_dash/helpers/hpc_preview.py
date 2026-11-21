@@ -1,4 +1,4 @@
-"""Read-only preview of one 2-D slice of an AIUQ NetCDF output, run on felipe.
+"""Read-only preview of one 2-D slice of an AIUQ NetCDF output, run on the HPC.
 
 Sent through ssh stdin (``python3 - <b64 json>``). Reads a single time step and a
 single level, subsamples to at most ~360 x 181 points and prints JSON.

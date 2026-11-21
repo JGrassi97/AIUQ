@@ -131,7 +131,33 @@ On the Autosubmit host, from a copy of ``tools/dashboard`` (for example ``rsync`
 
 ``install.sh`` creates the conda environment ``aiuq-dash`` (Python, FastAPI, Uvicorn,
 PyYAML), downloads the front-end libraries, installs the systemd unit, enables linger
-and restarts the service. Settings go in ``~/.config/aiuq-dashboard.env``.
+and restarts the service.
+
+Settings go in ``~/.config/aiuq-dashboard.env``, created from
+``deploy/aiuq-dashboard.env`` at the first install. The settings that describe your
+site have no default; ``install.sh`` lists those still empty, and the dashboard names
+the missing one instead of guessing. Restart the service after editing the file.
+
+.. list-table:: Site settings
+   :header-rows: 1
+   :widths: 32 68
+
+   * - Setting
+     - Meaning
+   * - ``AIUQ_REMOTE_HOST``
+     - HPC login node where jobs run (the ``HOST`` of the platform in
+       ``conf/platforms.yml``), reached by key-based ssh.
+   * - ``AIUQ_REMOTE_USER``
+     - Your user on the HPC. Default: your user on the Autosubmit host. The Launcher
+       writes it to ``PLATFORM.USER_CODE``.
+   * - ``AIUQ_REMOTE_BASE``
+     - Where experiments live on the HPC: ``<SCRATCH_DIR>/<PROJECT>/<USER>`` of the platform.
+   * - ``AIUQ_LAUNCH_PLATFORM``
+     - Launcher: the platform new experiments use (``autosubmit expid -H``).
+   * - ``AIUQ_SUPPORT_FOLDER``
+     - Launcher: the AIUQ support folder on the HPC (``PATHS.SUPPORT_FOLDER``).
+   * - ``AIUQ_REMOTE_DELETE_ROOTS``
+     - Launcher: HPC folders may only be deleted below these roots (``:``-separated).
 
 Limits
 ------

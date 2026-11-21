@@ -15,9 +15,10 @@ MODEL:
 # logs, code) to <DIR>/<expid>_<time>/ on the Autosubmit host and records that folder in
 # <Autosubmit experiment>/OUTPUT_STORE.json, which the dashboards follow.
 # Override any key in the experiment's conf/main.yml, e.g. OUTPUT_STORE: {DIR: /data/users/me/other-store}.
+# The default folder belongs to the HPC user of the experiment (PLATFORM.USER_CODE in main.yml).
 OUTPUT_STORE:
   ENABLED: true
-  DIR: /data/users/jgrassi/AIUQ-outputs
+  DIR: "/data/users/%PLATFORM.USER_CODE%/AIUQ-outputs"
   # Remove the whole experiment folder from the HPC (<HPCROOTDIR>) once the copy is verified.
   DELETE_SOURCE: true
 

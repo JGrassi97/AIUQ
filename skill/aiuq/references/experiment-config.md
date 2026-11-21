@@ -3,7 +3,7 @@
 ## Launcher JSON (input of `aiuq preview` / `aiuq create`)
 
 The dashboard Launcher validates this JSON, turns it into `<expid>/conf/main.yml` and runs
-`autosubmit expid -min -H FELIPE -d <description> -repo https://github.com/JGrassi97/AIUQ.git -b <branch> -conf conf/bootstrap/`
+`autosubmit expid -min -H <AIUQ_LAUNCH_PLATFORM> -d <description> -repo https://github.com/JGrassi97/AIUQ.git -b <branch> -conf conf/bootstrap/`
 followed by `autosubmit create <expid> -np`. Always run `aiuq preview` first; fix every `error:` line.
 
 ```json
@@ -32,7 +32,7 @@ followed by `autosubmit create <expid> -np`. Always run `aiuq preview` first; fi
 | `branch` | A branch that exists on GitHub (`git ls-remote`); the experiment clones it. Default `main`. |
 | `description` | Required, one line, < 200 chars. Shows up in `aiuq list`. |
 | `model` | `neuralgcm`, `aifs`, `ms-aurora` (ACE is not implemented). |
-| `checkpoint` | Must exist in `<support>/models/<model>/` on felipe (`aiuq options` shows ON HPC / MISSING). |
+| `checkpoint` | Must exist in `<support>/models/<model>/` on the HPC (`aiuq options` shows ON HPC / MISSING). |
 | `ics` | `era5`, `eerie`, `ecmwf-an`, `ec-earth3` (see below). |
 | `run_type` | `hindcast` (all models) or `amip` (NeuralGCM only). |
 | `forcing` | AMIP only: `ESA-CCI-v3.0` or `AIMIP`. Keep the default for hindcasts (ignored). |
@@ -54,7 +54,7 @@ Number of SIM jobs = dates × members × num_chunks (each needs one GPU). Above 
 - **Deterministic checkpoints** (`deterministic_*`, `aifs-single-*`, Aurora except `v1.5-ensemble`)
   give identical members: use `members: 1` (IC perturbations are not implemented yet).
 
-## Models and checkpoints (support folder on felipe: `/work/users/<user>/AIUQ/models/<model>/`)
+## Models and checkpoints (on the HPC: `<support folder>/models/<model>/`)
 
 | Model | Checkpoints | Kind | Native grid / levels | Modes |
 |---|---|---|---|---|
@@ -70,14 +70,13 @@ Support status per IC lives in `docs/support-matrix.yml` (rendered in the README
 ✅ with ERA5 and `ecmwf-an`; with EERIE, NeuralGCM and AIFS-ens are ✅, AIFS-single and Aurora are ⚠️ (work
 in progress). The Launcher's internal badge table is older (it calls some ✅ combinations "wip" and
 has no `ecmwf-an` column, so it warns "No support information" for `ecmwf-an` — expected, ignore).
-On felipe there is also a stray `stochasti_evap_2_8_deg.pkl` (typo copy); use `stochastic_evap_2_8_deg.pkl`.
 
 ## Initial conditions
 
 | `ics` | Source | Notes |
 |---|---|---|
 | `era5` | ARCO ERA5 on Google Cloud | No credentials. 1940 onwards. |
-| `eerie` | MARS via ECMWF Web API | Needs `~/.ecmwfapirc` on felipe (public EERIE data works; the user's key has **no** access to operational MARS `class=od`). PREPARE_ICS can sit in the MARS queue for a long time. |
+| `eerie` | MARS via ECMWF Web API | Needs `~/.ecmwfapirc` on the HPC (a key without MARS access still reads the public EERIE data). PREPARE_ICS can sit in the MARS queue for a long time. |
 | `ecmwf-an` | ECMWF Open Data, IFS HRES step 0 | No credentials. `dates: [today]` → newest analysis cycle T with T-6h and T published (searched back 24 h). Past dates (0.25° archive from Feb 2024, Google mirror) use that day's 18 UTC. Output valid times follow the cycle picked when PREPARE_ICS ran and can start the **previous day** (e.g. DATELIST 20261117 → files `out-2026-11-16-…`). `slt lsm sdor slor orog` from the static file, `clwc ciwc` from climatology; 1–7 hPa extrapolated (NeuralGCM only uses them). |
 | `ec-earth3` | EC-Earth3 CMIP6 via ESGF OPeNDAP | Branch `ics/ec-earth3`, work in progress. No credentials. A climate-model state at 00/06 UTC of the date, not observed weather. ≤ 2014 `historical`, later the card's scenario (`ssp585`); override with `MODEL.ICS_EXPERIMENT`/`ICS_MEMBER` in main.yml (the Launcher does not set them). No wave fields: not for AIFS ENS v2. |
 
@@ -98,16 +97,17 @@ EXPERIMENT:
   OUT_RES: "1"
   OUT_LEVS: [1000, 850, 500]
   FORCING_VERSION: ESA-CCI-v3.0
-PATHS:     {SUPPORT_FOLDER: /work/users/<user>/AIUQ, SIF_FOLDER: "%PATHS.SUPPORT_FOLDER%/sif"}
-PLATFORM:  {NAME: FELIPE, USER_CODE: <user>}
+PATHS:     {SUPPORT_FOLDER: <support folder>, SIF_FOLDER: "%PATHS.SUPPORT_FOLDER%/sif"}
+PLATFORM:  {NAME: <PLATFORM>, USER_CODE: <HPC user>}
 ```
 
 Autosubmit merges it with `conf/platforms.yml`, `conf/general.yml`,
-`conf/jobs/FELIPE/models/<model>/<model>.yml` and `conf/jobs/FELIPE/ics/<ics>/<ics>.yml` (see
+`conf/jobs/<PLATFORM>/models/<model>/<model>.yml` and `conf/jobs/<PLATFORM>/ics/<ics>/<ics>.yml` (see
 `conf/bootstrap/include.yml`). Job resources come from those job files, not from `main.yml`.
-MareNostrum 5 job files exist in the repo, but this setup (Launcher, paths) targets FELIPE only.
+The support folder, the platform and the user are the Launcher's settings on the Autosubmit host (`aiuq options`
+prints them); the repository has job files for the platforms `FELIPE` and `MARENOSTRUM5`.
 
-## Resources and timings on felipe (measured Nov 2026, L40S)
+## Resources and timings (platform `FELIPE`, 2 × L40S, measured Nov 2026)
 
 | Job | Resources | Typical time |
 |---|---|---|
@@ -118,6 +118,6 @@ MareNostrum 5 job files exist in the repo, but this setup (Launcher, paths) targ
 | AIFS POSTPROCESS | CPU (cdo), 8 GB | seconds per member |
 | Aurora SIM | 1 GPU, 48 GB | 1.5-ens, 30 d, 19 vars × 13 levels at 0.25°: ~6 min |
 
-SIM wall-clock limit is 1 h; Slurm partitions: `gpu` (2 days), `fat_felipe` (12 h), `felipe` (CPU work).
-With 2 GPUs, wall time ≈ SIM jobs × SIM time / 2 **plus queue waits** (other users; can be hours to a day).
+Other machines differ: the limits are in `conf/jobs/<PLATFORM>/` and the site notes. On `FELIPE` the SIM wall-clock
+limit is 1 h and the Slurm partitions are `gpu` (2 days), `fat_felipe` (12 h) and `felipe` (CPU work). With 2 GPUs, wall time ≈ SIM jobs × SIM time / 2 **plus queue waits** (other users; can be hours to a day).
 The `preview` estimate comes from finished experiments with the same model and excludes queue waits.

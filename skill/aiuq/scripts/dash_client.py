@@ -1,6 +1,6 @@
-"""Client for the AIUQ dashboard API. Runs ON the Autosubmit host (mafalda), streamed over ssh stdin.
+"""Client for the AIUQ dashboard API. Runs ON the Autosubmit host, streamed over ssh stdin.
 
-    ssh mafalda python3 - METHOD PATH MODE [BODY_B64] < dash_client.py
+    ssh <autosubmit-host> python3 - METHOD PATH MODE [BODY_B64] < dash_client.py
 
 Talks HTTP over the dashboard's private Unix socket (~/.aiuq-dashboard/dash.sock) and prints a
 compact, agent-friendly text summary (MODE) or the raw JSON (MODE=raw). Standard library only.
@@ -40,7 +40,7 @@ def call(method, path, body=None):
         raw = r.read().decode("utf-8", "replace")
     except (OSError, socket.error) as exc:
         print("dashboard unreachable on %s: %s" % (SOCK, exc), file=sys.stderr)
-        print("hint: on mafalda run `systemctl --user status aiuq-dashboard`; or use the raw autosubmit "
+        print("hint: on the Autosubmit host run `systemctl --user status aiuq-dashboard`; or use the raw autosubmit "
               "commands (references/autosubmit-cli.md)", file=sys.stderr)
         sys.exit(3)
     try:

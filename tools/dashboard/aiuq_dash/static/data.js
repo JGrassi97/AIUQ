@@ -4,7 +4,7 @@
 
 const BANDS = { "Northern mid-latitudes": [30, 60], Tropics: [-15, 15], "Southern mid-latitudes": [-60, -30], Arctic: [60, 90], Antarctic: [-90, -60] };
 const HC_AREAS = ["Global", "Europe", "North Atlantic", "Mediterranean", "Italy", "Northern Hemisphere", "Tropics", "Southern Hemisphere"];
-const SEC_PER_FILE = 0.011;  // measured on felipe: ~12 s for 1080 files
+const SEC_PER_FILE = 0.011;  // measured: ~12 s for 1080 files
 
 function dataState() {
   if (!S.data) S.data = {

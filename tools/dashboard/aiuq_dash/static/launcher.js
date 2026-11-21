@@ -82,7 +82,7 @@ function renderLauncher() {
     main.removeAttribute("data-tab");
     main._html = null;
     main.innerHTML = `
-      <div class="page-head"><h2>AIUQ Launcher</h2><span class="lede">Create AIUQ experiments on mafalda and start or stop their runs. Every action asks for confirmation and is logged.</span></div>
+      <div class="page-head"><h2>AIUQ Launcher</h2><span class="lede">Create AIUQ experiments and start or stop their runs. Every action asks for confirmation and is logged.</span></div>
       <div id="ln-banner" data-view="new"></div>
       <div class="ln-grid" data-view="new">
         <div id="ln-form">${'<div class="skeleton block" style="margin-bottom:16px"></div>'.repeat(3)}</div>
@@ -91,7 +91,7 @@ function renderLauncher() {
       <section class="card" id="ln-exps" data-view="runs"><div class="card-head"><h3>Experiments</h3><span class="sub">launch, resume, stop or reuse an existing experiment</span></div>
         <div class="ln-toolbar">${filterBox("ln-q1")}<span class="note" id="ln-count1"></span></div><div id="ln-exp-list"></div></section>
       <section class="card danger-zone" id="ln-delete" data-view="delete"><div class="card-head"><h3>Delete experiments</h3>
-        <span class="sub">removes the experiment from Autosubmit on mafalda and its working folder on the HPC · cannot be undone</span></div>
+        <span class="sub">removes the experiment from Autosubmit and its working folder on the HPC · cannot be undone</span></div>
         <div class="ln-toolbar">${filterBox("ln-q2")}<span class="note" id="ln-count2"></span></div><div id="ln-del-list"></div></section>
       <section class="card" id="ln-tasks" data-view="activity"><div class="card-head"><h3>Recent actions</h3><span class="sub">this dashboard session · full history in ~/.local/share/aiuq-dashboard/launcher.log</span></div><div id="ln-task-list"></div></section>
       <dialog id="ln-dialog"></dialog>`;
@@ -368,7 +368,7 @@ function onSideClick(e) {
     confirmDialog({
       title: "Create this experiment?",
       body: `<p>${esc(model().label)} · ${esc(L.cfg.checkpoint)} · ${esc(L.cfg.ics.toUpperCase())} · <b>${L.preview.summary.sims} simulations</b>.</p>
-        <p class="note">This runs <span class="mono">autosubmit expid</span>, writes <span class="mono">conf/main.yml</span> and runs <span class="mono">autosubmit create</span> on mafalda. Nothing is submitted to the HPC yet.</p>`,
+        <p class="note">This runs <span class="mono">autosubmit expid</span>, writes <span class="mono">conf/main.yml</span> and runs <span class="mono">autosubmit create</span> on this host. Nothing is submitted to the HPC yet.</p>`,
       ok: "Create", onOk: async () => startTask(await lapi("/api/launcher/create", L.cfg)),
     });
   }
@@ -405,7 +405,7 @@ function onExpClick(e) {
     confirmDialog({
       title: `Launch ${x}?`,
       body: `<p>${what(ex.conf)} · ${left} of ${ex.summary.total} jobs still to do${ex.summary.failed ? ` · <b>${ex.summary.failed} failed</b> (Autosubmit will retry them only if you reset them)` : ""}.</p>
-        <p class="note">Runs <span class="mono">autosubmit run ${x}</span> in its own systemd user unit on mafalda; output goes to <span class="mono">~/autosubmit/${x}_run.out</span>. Jobs will be submitted to the HPC.</p>`,
+        <p class="note">Runs <span class="mono">autosubmit run ${x}</span> in its own systemd user unit on this host; output goes to <span class="mono">~/autosubmit/${x}_run.out</span>. Jobs will be submitted to the HPC.</p>`,
       ok: "Launch", onOk: async () => startTask(await lapi(`/api/launcher/run/${x}`)),
     });
   }
@@ -509,7 +509,7 @@ async function onDeleteClick(e) {
     return;
   }
   const d = $("#ln-dialog");
-  d.innerHTML = `<div><h3>Delete ${esc(x)}?</h3><div class="series-empty"><div class="spinner"></div>Checking what would be deleted on mafalda and on the HPC…</div>
+  d.innerHTML = `<div><h3>Delete ${esc(x)}?</h3><div class="series-empty"><div class="spinner"></div>Checking what would be deleted on this host and on the HPC…</div>
     <div class="dlg-actions"><button type="button" id="dl-cancel">Cancel</button></div></div>`;
   d.showModal();
   $("#dl-cancel").onclick = () => d.close();
@@ -534,10 +534,10 @@ async function onDeleteClick(e) {
     <p>${esc(MODEL_NAMES[p.model] || p.model || "")} · ${esc((p.ics || "").toUpperCase())}${p.description ? ` · ${esc(p.description)}` : ""}</p>
     ${p.blockers.length ? p.blockers.map((m) => `<div class="finding f-warn">${ICONS.warn}<div>${esc(m)}</div></div>`).join("") : ""}
     <div class="del-plan">
-      <div><div class="chart-title">On mafalda — <span class="mono">autosubmit delete -f ${esc(x)}</span></div>
+      <div><div class="chart-title">On this host — <span class="mono">autosubmit delete -f ${esc(x)}</span></div>
         <ul><li><span class="mono">${esc(p.local.path)}</span> · ${fmtBytes(p.local.bytes)} in ${p.local.files.toLocaleString()} files</li>${p.local.extra.map((t) => `<li>${esc(t)}</li>`).join("")}</ul></div>
       <div><div class="chart-title">On the HPC — working folder</div><ul>${remoteHtml}</ul></div>
-      ${s.path ? `<div><div class="chart-title">On mafalda — output store (archived experiment)</div><ul>${storeHtml}</ul></div>` : ""}
+      ${s.path ? `<div><div class="chart-title">On this host — output store (archived experiment)</div><ul>${storeHtml}</ul></div>` : ""}
     </div>
     <p class="note">Deletion runs in this order: Autosubmit first, then the HPC folder, then the output-store folder of an archived experiment. If a folder cannot be removed, it is listed as a leftover you can retry. If other tools (e.g. AIUQ-store) catalogue these outputs, re-sync them afterwards.</p>
     ${p.blockers.length ? "" : `<label class="ln-field" style="margin-top:10px"><span>Type <span class="mono">${esc(x)}</span> to confirm</span>

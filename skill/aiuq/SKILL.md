@@ -1,6 +1,6 @@
 ---
 name: aiuq
-description: Operate the AIUQ framework (AI weather/climate models NeuralGCM, AIFS and Microsoft Aurora run through Autosubmit) from the laptop over ssh — check what is running, create and launch experiments, follow their progress, debug failed jobs, stop runs, and inspect, analyse or download model outputs. Use whenever the user mentions AIUQ, an AIUQ experiment id (4 characters such as a00e), launching/running a forecast, hindcast, AMIP or ensemble simulation with NeuralGCM/AIFS/Aurora, Autosubmit experiments, the hosts mafalda or felipe, the AIUQ dashboard/Launcher, or the results/outputs of these simulations.
+description: Operate the AIUQ framework (AI weather/climate models NeuralGCM, AIFS and Microsoft Aurora run through Autosubmit) from the laptop over ssh — check what is running, create and launch experiments, follow their progress, debug failed jobs, stop runs, and inspect, analyse or download model outputs. Use whenever the user mentions AIUQ, an AIUQ experiment id (4 characters such as a00e), launching/running a forecast, hindcast, AMIP or ensemble simulation with NeuralGCM/AIFS/Aurora, Autosubmit experiments, the Autosubmit host or the HPC where they run, the AIUQ dashboard/Launcher, or the results/outputs of these simulations.
 ---
 
 # AIUQ operator
@@ -9,28 +9,34 @@ AIUQ runs AI weather models (NeuralGCM, AIFS, MS Aurora) from initial conditions
 ECMWF analysis `ecmwf-an`) as Autosubmit workflows. You work from the user's laptop and reach two
 machines over key-based ssh:
 
-| Host (ssh alias) | Role | What lives there |
-|---|---|---|
-| `mafalda` | Autosubmit host | `autosubmit` 4.1 (`~/miniconda3/bin`), experiments in `~/autosubmit/<expid>/` (`conf/main.yml`, `pkl/`, `tmp/LOG_<expid>/`), run output `~/autosubmit/<expid>_run.out`, **AIUQ dashboard** (Monitor + Launcher) on the private socket `~/.aiuq-dashboard/dash.sock`, **output stores** with finished experiments in `<store>/<expid>_<time>/`: default `/data/users/<user>/AIUQ-outputs`, chosen per experiment (`OUTPUT_STORE.DIR`); the ECMWF-analysis forecasts a00c…a010 are in `/data/users/<user>/AIUQ-forecast` (felipe mounts `/data` read-only at the same path) |
-| `felipe` | HPC (Slurm, 2× L40S GPUs shared with other users) | experiment root `/work/users/<user>/autosubmit_scratch/test/<user>/<expid>/` (`LOG_<expid>/`, `outputs/`, `ics/`), support folder `/work/users/<user>/AIUQ/` (checkpoints, `.sif` images, static, climatology) |
+| Role | What lives there |
+|---|---|
+| **Autosubmit host** | `autosubmit` 4.1, experiments in `~/autosubmit/<expid>/` (`conf/main.yml`, `pkl/`, `tmp/LOG_<expid>/`), run output `~/autosubmit/<expid>_run.out`, **AIUQ dashboard** (Monitor + Launcher) on the private socket `~/.aiuq-dashboard/dash.sock`, **output stores** with finished experiments in `<store>/<expid>_<time>/` (`OUTPUT_STORE.DIR`, chosen per experiment), where the platform has an `ARCHIVE` job |
+| **HPC** (Slurm, GPUs) | experiment root `<SCRATCH_DIR>/<PROJECT>/<USER>/<expid>/` (`LOG_<expid>/`, `outputs/`, `ics/`), support folder (checkpoints, `.sif` images, static, climatology) |
 
-The workflow per experiment: `SYNCHRONIZE` (mafalda → felipe rsync of `lib/ runscripts/ conf/`) →
+**Start with `aiuq site`.** Which machines these are, their paths, limits and habits belong to the
+installation, not to this skill: `aiuq site` prints the settings in use (`~/.aiuq/config`) and the
+user's site notes (`~/.aiuq/site.md`). Read them once per conversation before acting, and prefer
+what they say over the generic text here. If `aiuq` answers "not configured", help the user fill in the
+config from `config.example` (and the notes from `site.example.md`) instead of guessing hosts or paths.
+
+The workflow per experiment: `SYNCHRONIZE` (Autosubmit host → HPC rsync of `lib/ runscripts/ conf/`) →
 `PREPARE_ICS` (download initial conditions) → [AIFS: `WARMUP_REGRID*`, `SAVE_ICS`] → `SIM` (GPU, one per
-start date × member × chunk) → [AIFS: `POSTPROCESS` (cdo regrid), `CLEAN`] → `ARCHIVE` (mafalda: moves
-the experiment folder to `<store>/<expid>_<time>/`, records it in `~/autosubmit/<expid>/OUTPUT_STORE.json` and removes
-`<root>` from felipe; experiments created before 2026-11-19 lack it). `aiuq logs/log/outputs/ncinfo/py/fetch` follow the record. Job names are
+start date × member × chunk) → [AIFS: `POSTPROCESS` (cdo regrid), `CLEAN`] → `ARCHIVE` (Autosubmit host, on
+platforms that define it: moves the experiment folder to `<store>/<expid>_<time>/`, records it in
+`~/autosubmit/<expid>/OUTPUT_STORE.json` and removes `<root>` from the HPC; older experiments lack it). `aiuq logs/log/outputs/ncinfo/py/fetch` follow the record. Job names are
 `<expid>_<SDATE>_<member>_<chunk>_<SECTION>`, `<expid>_<SDATE>_<SECTION>` or `<expid>_<SECTION>`.
 
 ## The tool: `scripts/aiuq`
 
 Always go through `scripts/aiuq` (paths in this file are relative to this skill's folder; call the
 script and pass `scripts/analysis/*.py` by absolute path). It multiplexes all
-ssh traffic over one ControlMaster connection per host — **mafalda blocks the laptop for 15+ minutes
-after ~8 quick new ssh connections**, so never loop raw `ssh mafalda ...` calls; batch work into one
+ssh traffic over one ControlMaster connection per host — **some hosts block the laptop for a long time
+after a burst of new ssh connections**, so never loop raw `ssh <host> ...` calls; batch work into one
 command or use `aiuq sh-as '<cmd1>; <cmd2>'`.
 
 ```
-aiuq health | list | status <expid> | failed <expid> | conf <expid> | runlog <expid> [N]
+aiuq site | health | list | status <expid> | failed <expid> | conf <expid> | runlog <expid> [N]
 aiuq logs <expid> | log <expid> <job> [out|err|both] [N] | queue
 aiuq outputs <expid> | ncinfo <expid> <rel.nc> | py [--srun] <expid> <script.py> [args] | fetch <expid> <rel|glob> [dest]
 aiuq options [branch] | template <expid> | preview <cfg.json> | tasks | task <id> | delete-plan <expid> | api '<GET /api/...>'
@@ -56,13 +62,14 @@ the raw Autosubmit commands in [references/autosubmit-cli.md](references/autosub
    `autosubmit run` in the foreground of an ssh session (it dies with the session) — `aiuq run` starts
    it in its own `systemd --user` unit.
 4. **Experiments use the code on GitHub**, not the laptop checkout: `autosubmit expid` clones
-   `https://github.com/JGrassi97/AIUQ.git` at the chosen branch. Local changes reach an experiment
+   the Launcher's repository (`aiuq api /api/launcher/branches` names it; upstream is
+   `https://github.com/JGrassi97/AIUQ.git`) at the chosen branch. Local changes reach an experiment
    only after the user commits and pushes them (ask; never push yourself unless told to).
-5. **The GPUs are shared and scarce** (2 L40S, other users queue too; the `gpu` queue can wait a day).
+5. **The GPUs are shared and scarce** (the site notes say how many, and how long the queue can be).
    Size experiments sensibly, and warn when a request implies hundreds of GPU jobs. Heavy analysis goes
    to a Slurm CPU job (`aiuq py --srun`), not the login node. Do not install persistent services on
-   felipe.
-6. **Move results, not raw data.** Outputs are ~1 GB per variable × member at 0.25°. Reduce on felipe
+   the HPC.
+6. **Move results, not raw data.** Outputs are ~1 GB per variable × member at 0.25°. Reduce on the HPC
    with `aiuq py` and bring back small CSV/NetCDF; `fetch` refuses more than 5 GB without `--yes`.
 7. Never print or copy credentials (`~/.ecmwfapirc`, tokens).
 
@@ -98,7 +105,7 @@ FAILED). `UNKNOWN` for submitted jobs in the pickle is normal while Autosubmit u
 ### Something failed
 `aiuq failed <expid>` (traceback excerpt per FAILED job) → `aiuq log <expid> <job> err 200` for more →
 diagnose with [references/troubleshooting.md](references/troubleshooting.md) and the code in the repo
-(`runscripts/`, `templates/`, `lib/functions.sh`, `conf/jobs/FELIPE/`). Then propose the fix:
+(`runscripts/`, `templates/`, `lib/functions.sh`, `conf/jobs/<PLATFORM>/`). Then propose the fix:
 - transient (queue, network, node): set the failed jobs back to WAITING and run again;
 - config: new experiment from `template` (preferred) or edit `main.yml` + `autosubmit create`;
 - code: user pushes the fix, then `autosubmit refresh` + re-sync + rerun.
@@ -108,13 +115,13 @@ Exact commands: [references/autosubmit-cli.md](references/autosubmit-cli.md). Al
 - `aiuq outputs <expid>` lists `outputs/<var>/<member>/out-<start>-<end>-<member>-<var>.nc` (first line: the folder —
   the output store once `ARCHIVE` has run, else `<root>/outputs`; `ncinfo`, `py` and `fetch` use the same folder).
 - `aiuq ncinfo <expid> <var>/<member>/<file>` for dimensions, coordinates, times.
-- Analyse on felipe: `aiuq py <expid> scripts/analysis/ensemble_box.py t --level 850 --box 6 10 44 47 --daily`
+- Analyse on the HPC: `aiuq py <expid> scripts/analysis/ensemble_box.py t --level 850 --box 6 10 44 47 --daily`
   (CSV of ensemble mean/spread/min/max per time; a point with `LON0=LON1, LAT0=LAT1`), or write your
-  own script (xarray/numpy/netCDF4 are available in felipe's `python3`; `AIUQ_OUTPUTS` points to the
+  own script (it runs with the HPC's `python3`, which needs xarray/numpy/netCDF4; `AIUQ_OUTPUTS` points to the
   outputs folder).
 - Quick numbers via the dashboard API: `aiuq api '/api/series?exp=<id>&var=t&start=<YYYY-MM-DD>&lat=45.07&lon=7.69&level=850'`.
 - Plots: make them locally from the small CSV/NetCDF you computed, or point the user to the dashboard
-  Data tab (`ssh -N -L 8765:/home/<user>/.aiuq-dashboard/dash.sock mafalda`, then http://localhost:8765/?exp=<id>&tab=data).
+  Data tab (`ssh -N -L 8765:/home/<user>/.aiuq-dashboard/dash.sock <autosubmit-host>`, then http://localhost:8765/?exp=<id>&tab=data).
 Conventions and per-model quirks (dimension names, units, valid times) are in
 [references/outputs-and-analysis.md](references/outputs-and-analysis.md) — read it before analysing.
 

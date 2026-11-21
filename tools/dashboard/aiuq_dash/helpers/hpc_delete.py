@@ -8,7 +8,7 @@ file is the only remote code that does, and it refuses unless every check passes
   * no component of the path is a symbolic link (realpath == path);
   * it is a directory owned by the user running this script.
 
-Request: {"mode": "inspect" | "delete", "expid": "a00g", "path": "/work/...", "roots": ["/work/users/u/autosubmit_scratch"]}
+Request: {"mode": "inspect" | "delete", "expid": "a00g", "path": "/scratch/...", "roots": ["/scratch/<user>/autosubmit_scratch"]}
 """
 import base64
 import json

@@ -43,6 +43,8 @@ _BOOT = ("import sys;d=sys.stdin.buffer.read();i=d.index(%r);"
 
 
 def run_helper(script_name, payload, timeout=None):
+    if not settings.REMOTE_HOST:
+        raise RemoteError(f"no HPC host: {settings.not_set('AIUQ_REMOTE_HOST')}")
     script = (settings.HELPERS / script_name).read_bytes()
     arg = base64.b64encode(json.dumps(payload).encode())
     cmd = ssh_base() + [settings.REMOTE_PYTHON, "-c", shlex.quote(_BOOT)]  # ssh hands this to the remote shell

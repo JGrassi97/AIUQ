@@ -37,7 +37,13 @@ echo ">> installing systemd user unit"
 mkdir -p "$UNIT_DIR" "$HOME/.config"
 sed -e "s#@APP_DIR@#$APP_DIR#g" -e "s#@ENV_PYTHON@#$ENV_PYTHON#g" \
   "$APP_DIR/deploy/aiuq-dashboard.service" > "$UNIT_DIR/aiuq-dashboard.service"
-[ -f "$HOME/.config/aiuq-dashboard.env" ] || cp "$APP_DIR/deploy/aiuq-dashboard.env" "$HOME/.config/aiuq-dashboard.env"
+ENV_FILE="$HOME/.config/aiuq-dashboard.env"
+[ -f "$ENV_FILE" ] || cp "$APP_DIR/deploy/aiuq-dashboard.env" "$ENV_FILE"
+# Site settings have no defaults: name the ones still to fill in (the dashboard starts anyway and says so too).
+MISSING=""
+for k in AIUQ_REMOTE_HOST AIUQ_REMOTE_BASE AIUQ_LAUNCH_PLATFORM AIUQ_SUPPORT_FOLDER AIUQ_REMOTE_DELETE_ROOTS; do
+  grep -Eq "^[[:space:]]*$k=[^[:space:]#]" "$ENV_FILE" || MISSING="$MISSING $k"
+done
 
 if [ -z "${SKIP_LINGER:-}" ] && [ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null)" != "yes" ]; then
   echo ">> enabling linger so the user service survives logout"
@@ -49,5 +55,8 @@ systemctl --user enable aiuq-dashboard.service
 systemctl --user restart aiuq-dashboard.service
 sleep 3
 systemctl --user --no-pager status aiuq-dashboard.service | head -12
+if [ -n "$MISSING" ]; then
+  echo ">> TO DO: set$MISSING in $ENV_FILE, then: systemctl --user restart aiuq-dashboard"
+fi
 echo ">> done. Health: curl -s --unix-socket ~/.aiuq-dashboard/dash.sock http://localhost/api/health"
 echo ">> From your laptop: ssh -N -L 8765:$HOME/.aiuq-dashboard/dash.sock $(hostname -s)  then open http://localhost:8765"
