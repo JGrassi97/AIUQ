@@ -1,27 +1,26 @@
 # Outputs and analysis
 
-## Layout on felipe
+## Layout on the HPC
 
 ```
 <root>/outputs/<var>/<member>/out-<first valid day>-<last valid day>-<member>-<var>.nc
 <root>/outputs/checkpoints/          # NeuralGCM AMIP restarts, not model output
-<root> = /work/users/<user>/autosubmit_scratch/test/<user>/<expid>
+<root> = <SCRATCH_DIR>/<PROJECT>/<USER>/<expid>      # of the platform; `aiuq site` prints the base folder
 ```
 
-Once every simulation has finished, the `ARCHIVE` job (runs on mafalda) moves the whole experiment to the output
-store (`OUTPUT_STORE.DIR` in `main.yml`, default from `conf/general.yml`: `/data/users/<user>/AIUQ-outputs`), in a
+Once every simulation has finished, the `ARCHIVE` job (runs on the Autosubmit host) moves the whole experiment to the output
+store (`OUTPUT_STORE.DIR` in `main.yml`, default from `conf/general.yml`: `/data/users/<PLATFORM.USER_CODE>/AIUQ-outputs`), in a
 folder of its own because Autosubmit can reuse an expid:
 
 ```
 <store>/<expid>_<YYYYmmddTHHMMSS>/outputs/...   # same layout as above, checkpoints included
 <store>/<expid>_<YYYYmmddTHHMMSS>/LOG_<expid>/  # all job logs
 <store>/<expid>_<YYYYmmddTHHMMSS>/archive.json  # source, time, files, bytes, git commit
-~/autosubmit/<expid>/OUTPUT_STORE.json          # on mafalda: the folder (status "done")
+~/autosubmit/<expid>/OUTPUT_STORE.json          # on the Autosubmit host: the folder (status "done")
 ```
 
-Then `<root>` is removed from felipe. felipe mounts `/data` read-only at the same path, so `aiuq` commands and
-analysis on felipe read the store directly. The ECMWF-analysis forecasts a00c…a010 are in
-`/data/users/<user>/AIUQ-forecast`.
+Then `<root>` is removed from the HPC. `aiuq` commands and analysis read the store from the HPC, so the HPC must
+see the store at the same path (e.g. a read-only mount). The site notes list the stores in use.
 
 One file per variable × member × chunk (× start date: the start date shows up only as the first day
 in the name). Example: `t/7/out-2026-11-16-2026-12-02-7-t.nc`.
@@ -64,12 +63,12 @@ ignore them (a leftover `_temp.nc` means POSTPROCESS did not run or failed).
 
 ## Analysing
 
-Work next to the data. `aiuq py <expid> my_script.py args` streams a local script to felipe's
+Work next to the data. `aiuq py <expid> my_script.py args` streams a local script to the HPC's
 `python3` (xarray, numpy, netCDF4 available), cwd = experiment root, env `AIUQ_OUTPUTS` = outputs dir.
 Print small results (CSV/JSON) and save them locally from the command output, or write a small
-NetCDF on felipe under the experiment root's `analysis/` folder and `aiuq fetch` it.
+NetCDF on the HPC under the experiment root's `analysis/` folder and `aiuq fetch` it.
 For anything that reads many GB (all members × long runs × full globe), use
-`aiuq py --srun <expid> …` (Slurm CPU job on partition `felipe`, 4 CPUs, 16 GB, 60 min; override with
+`aiuq py --srun <expid> …` (Slurm CPU job, 4 CPUs, 16 GB, 60 min, on the partition `AIUQ_SRUN_PARTITION` of the config; override with
 `AIUQ_SRUN_PARTITION/CPUS/MEM/TIME`).
 
 Ready-made: `scripts/analysis/ensemble_box.py VAR [--level HPA] [--box LON0 LON1 LAT0 LAT1] [--start YYYY-MM-DD] [--daily] [--members]`
@@ -90,7 +89,7 @@ mean, spread = ens850.mean("member"), ens850.std("member")
 Comparisons across experiments: only gridpoint-wise when grids match (same `OUT_RES`); otherwise compare
 area means or regrid explicitly and say so.
 
-## Dashboard analysis API (read-only, computed on felipe, cached)
+## Dashboard analysis API (read-only, computed on the HPC, cached)
 
 `aiuq api '<path>'` prints compact JSON. `start` is the first date in the output file name (`YYYY-MM-DD`),
 `level` in hPa, boxes as `lon0,lon1,lat0,lat1` (0–360 longitudes).
@@ -115,8 +114,7 @@ user agreed (`--yes`). Prefer reduced products. The laptop's rsync is openrsync:
 
 ## Other tools of the user (if present)
 
-- **AIUQ-store** (`~/Documents/AIUQ-store`, deployed on felipe at `/work/users/<user>/code/AIUQ-store`):
+- **AIUQ-store** (its own repository, deployed on the HPC):
   catalogue of all outputs as one database, with a Jupyter kernel `aiuq-store`.
-- **AIUQ Compare** (`AIUQ/compare/`, gitignored): multi-experiment comparison dashboard on the native
-  grid, opened with `compare/deploy/open.sh`.
+- **AIUQ Compare** (its own repository): multi-experiment comparison dashboard on the native grid.
 Mention them when the user wants cross-experiment work; don't modify or deploy them unless asked.

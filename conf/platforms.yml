@@ -1,3 +1,6 @@
+# Platforms known to AIUQ. Nothing here is personal: the HPC user comes from the experiment's conf/main.yml
+# (PLATFORM.USER_CODE). To run on another machine, add its platforms here and its job files under
+# conf/jobs/<PLATFORM.NAME>/ (see "Running AIUQ at a new site" in the documentation).
 PLATFORMS:
 
   MARENOSTRUM5ACC:
@@ -71,15 +74,16 @@ PLATFORMS:
 
 
   ###############################################################
-  #####                   POLITO MACHINE                    #####
+  #####          FELIPE (Politecnico di Torino)             #####
   ###############################################################
+  # Experiment folders: <SCRATCH_DIR>/<PROJECT>/<USER>/<expid>
   FELIPE:
     TYPE: ps
     HOST: felipe.polito.it
-    USER: jgrassi
+    USER: "%PLATFORM.USER_CODE%"
     PROJECT: test
     ADD_PROJECT_TO_HOST: false
-    SCRATCH_DIR: /work/users/jgrassi/autosubmit_scratch
+    SCRATCH_DIR: "/work/users/%PLATFORM.USER_CODE%/autosubmit_scratch"
     QUEUE: serial
     TOTAL_JOBS: 1
     MAX_WALLCLOCK: "02:00"
@@ -88,10 +92,10 @@ PLATFORMS:
     TYPE: SLURM
     HOST: felipe.polito.it
     PROJECT: test
-    USER: jgrassi
+    USER: "%PLATFORM.USER_CODE%"
     # GPU jobs on felipe are only accepted in the 'gpu' (2 days) or 'fat_felipe' (12 h) partitions.
     PARTITION: gpu
-    SCRATCH_DIR: /work/users/jgrassi/autosubmit_scratch
+    SCRATCH_DIR: "/work/users/%PLATFORM.USER_CODE%/autosubmit_scratch"
     ADD_PROJECT_TO_HOST: False
     PROCESSORS_PER_NODE: 168
     MAX_PROCESSORS: 168
@@ -101,8 +105,8 @@ PLATFORMS:
     TYPE: SLURM
     HOST: felipe.polito.it
     PROJECT: test
-    USER: jgrassi
-    SCRATCH_DIR: /work/users/jgrassi/autosubmit_scratch
+    USER: "%PLATFORM.USER_CODE%"
+    SCRATCH_DIR: "/work/users/%PLATFORM.USER_CODE%/autosubmit_scratch"
     ADD_PROJECT_TO_HOST: False
     PROCESSORS_PER_NODE: 168
     MAX_PROCESSORS: 168
@@ -112,8 +116,8 @@ PLATFORMS:
     TYPE: SLURM
     HOST: felipe.polito.it
     PROJECT: test
-    USER: jgrassi
-    SCRATCH_DIR: /work/users/jgrassi/autosubmit_scratch
+    USER: "%PLATFORM.USER_CODE%"
+    SCRATCH_DIR: "/work/users/%PLATFORM.USER_CODE%/autosubmit_scratch"
     ADD_PROJECT_TO_HOST: False
     PROCESSORS_PER_NODE: 168
     MAX_PROCESSORS: 168

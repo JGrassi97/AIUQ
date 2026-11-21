@@ -1,6 +1,6 @@
 """Read Autosubmit job_list pickles and print them as JSON.
 
-Runs with the Autosubmit Python interpreter (conda ``base`` on mafalda), because
+Runs with the Autosubmit Python interpreter (``AIUQ_AS_PYTHON``), because
 unpickling needs the ``autosubmit`` package. It only reads the pickle files and
 never writes anything.
 

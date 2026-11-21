@@ -258,13 +258,13 @@ function tick() {
   const now = Date.now() / 1000;
   const age = m.last_cycle ? now - m.last_cycle : null;
   let cls = "live", text;
-  if (m.remote_ok === false) { cls += " down"; text = `${m.remote_host.split(".")[0]} unreachable · showing data from ${fmtAgo(m.remote_last_ok)}`; }
+  if (m.remote_ok === false) { cls += " down"; text = m.remote_host ? `${m.remote_host.split(".")[0]} unreachable · showing data from ${fmtAgo(m.remote_last_ok)}` : "HPC host not configured"; }
   else if (age == null) { text = "Starting up…"; }
   else if (age > 2.5 * m.refresh) { cls += " stale"; text = `Data delayed · ${fmtDur(age)} old`; }
   else text = `Live · updated ${fmtDur(age)} ago`;
   f.className = cls;
   f.innerHTML = `<span class="dot"></span>${esc(text)}`;
-  f.title = `Collected at ${fmtTime(m.last_cycle, false)} · ${m.remote_host} answered in ${m.remote_elapsed ?? "?"} s\n` +
+  f.title = `Collected at ${fmtTime(m.last_cycle, false)} · ${m.remote_host || "the HPC"} answered in ${m.remote_elapsed ?? "?"} s\n` +
     `Page updated at ${fmtTime(S.lastFetch, false)}${S.refreshSec ? `, next in ${Math.round(Math.max(0, S.refreshSec - (now - S.lastFetch)))} s` : ", auto-refresh off"}`;
   const bar = $("#refresh-bar");
   bar.style.width = S.refreshSec && S.lastFetch ? `${Math.min(100, (100 * (now - S.lastFetch)) / S.refreshSec)}%` : "0";
@@ -460,7 +460,7 @@ function renderHome() {
       <div class="hero2-text">
         <span class="eyebrow">${LOGO}AIUQ dashboard</span>
         <h1>Run AI weather models and follow every job, live.</h1>
-        <p>Run AI weather and climate models with Autosubmit, from the initial conditions to the ensemble forecasts. Follow your experiments on felipe while they run, or set up and launch new ones on mafalda.</p>
+        <p>Run AI weather and climate models with Autosubmit, from the initial conditions to the ensemble forecasts. Follow your experiments on the HPC while they run, or set up and launch new ones from here.</p>
         <div class="hero2-stats">
           ${stat(running.length, "running now")}${stat(S.list.length, "experiments")}${stat(models.length, models.length === 1 ? "model" : "models")}
           ${failed ? stat(failed, "failed jobs", "bad") : ""}${stat(last ? fmtAgo(last).replace(" ago", "") : "—", "since the last activity")}
@@ -471,7 +471,7 @@ function renderHome() {
         </div>
       </div>
       <div class="hero2-live">
-        ${!ready ? `<h3>Connecting…</h3><div class="hl-idle">Reading the experiments on mafalda.</div>`
+        ${!ready ? `<h3>Connecting…</h3><div class="hl-idle">Reading the experiments.</div>`
           : running.length ? `<h3><span class="dot"></span>Running now</h3>${running.slice(0, 4).map(liveRow).join("")}${running.length > 4 ? `<div class="hl-idle">and ${running.length - 4} more</div>` : ""}`
           : `<h3>Nothing is running</h3>${recent.slice(0, 3).map(liveRow).join("") || `<div class="hl-idle">No experiments yet.</div>`}`}
       </div>

@@ -1,4 +1,4 @@
-"""Read-only access to Autosubmit data on the local machine (mafalda)."""
+"""Read-only access to Autosubmit data on the local machine (the Autosubmit host)."""
 import json
 import os
 import re
@@ -208,7 +208,7 @@ def read_job_data(expid):
 
 
 def local_stats(expid):
-    """STAT files of jobs that run on mafalda itself (e.g. SYNCHRONIZE)."""
+    """STAT files of jobs that run on the Autosubmit host itself (e.g. SYNCHRONIZE)."""
     logdir = settings.AS_ROOT / expid / "tmp" / f"LOG_{expid}"
     out = []
     if not logdir.is_dir():

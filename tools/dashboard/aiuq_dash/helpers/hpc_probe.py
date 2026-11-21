@@ -1,16 +1,16 @@
-"""Read-only probe executed on the HPC login node (felipe) once per refresh cycle.
+"""Read-only probe executed on the HPC login node once per refresh cycle.
 
 The dashboard sends this file through ssh stdin (``python3 - <b64 json>``), so
-nothing is installed on felipe. It uses only the standard library and is kept
+nothing is installed on the HPC. It uses only the standard library and is kept
 compatible with older Python 3 versions.
 
 Request (base64 JSON in argv[1]):
-  {"user": "jgrassi", "slurm": true, "gpu": true,
+  {"user": "<hpc user>", "slurm": true, "gpu": true,
    "exps": {"<expid>": {"root": "<HPCROOTDIR>", "stat_since": 0, "mars_since": 0,
                         "outputs": true, "failed": [job, ...], "running": [job, ...]}}}
 
 "root" is the HPC working folder or, once the ARCHIVE job is done, the experiment's output-store folder
-(same layout; felipe reads /data at the same path).
+(same layout; the HPC must be able to read the store at the same path).
 
 Response (JSON on stdout): see ``main``.
 """

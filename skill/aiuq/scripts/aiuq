@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # aiuq — drive AIUQ experiments from the laptop.
 #
-#   laptop ──ssh──> Autosubmit host (mafalda: autosubmit + AIUQ dashboard API on a private socket)
-#          └─ssh──> HPC (felipe: Slurm, GPUs, experiment folders, outputs)
+#   laptop ──ssh──> Autosubmit host (autosubmit + AIUQ dashboard API on a private socket)
+#          └─ssh──> HPC (Slurm, GPUs, experiment folders, outputs)
 #
-# All ssh traffic goes through one ControlMaster connection per host (mafalda blocks bursts of
-# new connections). Read-only commands run freely; commands that change state need --yes, which
-# the agent may only pass after the user has confirmed that exact action.
+# The two hosts and the paths of your installation come from ~/.aiuq/config (see
+# ../config.example); there are no built-in hosts. All ssh traffic goes through one ControlMaster
+# connection per host (some sites block bursts of new connections). Read-only commands run freely;
+# commands that change state need --yes, which the agent may only pass after the user has confirmed
+# that exact action.
 #
 # Run `aiuq help` for the command list. Compatible with macOS bash 3.2.
 set -euo pipefail
@@ -14,19 +16,48 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLIENT="$HERE/dash_client.py"
 
-AS_HOST="${AIUQ_AS_HOST:-mafalda}"        # Autosubmit host (ssh alias)
-HPC_HOST="${AIUQ_HPC_HOST:-felipe}"       # HPC host (ssh alias)
-HPC_USER="${AIUQ_HPC_USER:-$(ssh -G "$HPC_HOST" 2>/dev/null | awk '/^user /{print $2; exit}')}"
-HPC_BASE="${AIUQ_HPC_BASE:-/work/users/$HPC_USER/autosubmit_scratch/test/$HPC_USER}"   # <SCRATCH>/<PROJECT>/<USER>
-AS_PATH='$HOME/miniconda3/bin'            # where `autosubmit` lives on the Autosubmit host (expanded remotely)
+die() { echo "aiuq: $*" >&2; exit 1; }
+
+# Site settings: AIUQ_* lines of the config file; a variable already set in the environment wins.
+CONFIG="${AIUQ_CONFIG:-$HOME/.aiuq/config}"
+SITE_NOTES="${AIUQ_SITE_NOTES:-$(dirname "$CONFIG")/site.md}"
+if [[ -f "$CONFIG" ]]; then
+  while IFS= read -r _line || [[ -n "$_line" ]]; do
+    [[ "$_line" =~ ^[[:space:]]*(AIUQ_[A-Z_]+)=(.*)$ ]] || continue
+    _k="${BASH_REMATCH[1]}"; _v="${BASH_REMATCH[2]}"
+    _v="${_v%"${_v##*[![:space:]]}"}"                       # trailing blanks
+    if [[ "$_v" == \"*\" || "$_v" == \'*\' ]]; then _v="${_v:1:${#_v}-2}"; fi
+    [[ -n "${!_k+x}" ]] || export "$_k=$_v"
+  done < "$CONFIG"
+fi
+unset _line _k _v
+
+AS_HOST="${AIUQ_AS_HOST:-}"               # Autosubmit host (ssh alias)
+HPC_HOST="${AIUQ_HPC_HOST:-}"             # HPC host (ssh alias)
+HPC_BASE="${AIUQ_HPC_BASE:-}"             # experiments on the HPC: <SCRATCH_DIR>/<PROJECT>/<USER> of the platform
+HPC_BASE="${HPC_BASE%/}"
+AS_PATH="${AIUQ_AS_BIN:-\$HOME/miniconda3/bin}"   # folder of `autosubmit` on the Autosubmit host (expanded remotely)
+GPU_PARTITIONS="${AIUQ_GPU_PARTITIONS:-}"  # Slurm partitions listed by `queue` (empty: all)
+SRUN_PARTITION="${AIUQ_SRUN_PARTITION:-}"  # partition of `py --srun` (empty: the cluster default)
 FETCH_MAX_GB="${AIUQ_FETCH_MAX_GB:-5}"
+
+need_site() {
+  local miss=""
+  [[ -n "$AS_HOST" ]]  || miss="$miss AIUQ_AS_HOST"
+  [[ -n "$HPC_HOST" ]] || miss="$miss AIUQ_HPC_HOST"
+  [[ -n "$HPC_BASE" ]] || miss="$miss AIUQ_HPC_BASE"
+  [[ -z "$miss" ]] || die "not configured:$miss. Copy $(cd "$HERE/.." && pwd)/config.example to $CONFIG and fill it in."
+  [[ "$HPC_BASE" == /* ]] || die "AIUQ_HPC_BASE must be an absolute path, got '$HPC_BASE'"
+  [[ "$GPU_PARTITIONS$SRUN_PARTITION" =~ ^[A-Za-z0-9_,.-]*$ ]] || die "AIUQ_GPU_PARTITIONS / AIUQ_SRUN_PARTITION: partition names only (comma-separated)"
+}
+HPC_USER="${AIUQ_HPC_USER:-}"
+if [[ -z "$HPC_USER" && -n "$HPC_HOST" ]]; then HPC_USER="$(ssh -G "$HPC_HOST" 2>/dev/null | awk '/^user /{print $2; exit}')"; fi
 CM_DIR="${AIUQ_SSH_CM_DIR:-$HOME/.ssh/cm}"   # keep short: macOS limits socket paths to 104 bytes
 
 mkdir -p "$CM_DIR" && chmod 700 "$CM_DIR"
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=20 -o ServerAliveInterval=30 -o ServerAliveCountMax=4
           -o ControlMaster=auto -o "ControlPath=$CM_DIR/aiuq-%C" -o ControlPersist=20m)
 
-die() { echo "aiuq: $*" >&2; exit 1; }
 on_as()  { ssh "${SSH_OPTS[@]}" "$AS_HOST" "$@"; }
 on_hpc() { ssh "${SSH_OPTS[@]}" "$HPC_HOST" "$@"; }
 q() { printf '%q' "$1"; }                  # quote one word for the remote shell
@@ -36,7 +67,7 @@ need_job()   { [[ "${1:-}" =~ ^[A-Za-z0-9_-]+$ ]] || die "bad job name '${1:-}'"
 need_rel()   { [[ "${1:-}" =~ ^[A-Za-z0-9_.*/?-]+$ && "$1" != *..* && "$1" != /* ]] || die "bad relative path '${1:-}' (letters, digits, _ . - / and the globs * ?)"; }
 need_yes()   { [[ "${YES:-0}" == 1 ]] || die "'$1' changes state: re-run with --yes once the user has confirmed it"; }
 # Experiment folder: <store>/<expid>_<time> once the ARCHIVE job is done (recorded on the Autosubmit host in
-# ~/autosubmit/<expid>/OUTPUT_STORE.json; felipe reads /data at the same path), otherwise the HPC scratch folder.
+# ~/autosubmit/<expid>/OUTPUT_STORE.json; the HPC must see the store at the same path), otherwise the HPC scratch folder.
 root_of() {
   local d
   d=$(on_as "cat ~/autosubmit/$1/OUTPUT_STORE.json 2>/dev/null" | python3 -c '
@@ -55,14 +86,16 @@ out_of() { echo "$(root_of "$1")/outputs"; }
 dash() {
   local b64=""
   if [[ -n "${4:-}" ]]; then b64="$(base64 < "$4" | tr -d '\n')"; fi
-  on_as "AIUQ_TAIL=${AIUQ_TAIL:-25} AIUQ_WAIT=${AIUQ_WAIT:-2400} python3 - $(q "$1") $(q "$2") $(q "$3") $(q "$b64")" < "$CLIENT"
+  # AIUQ_DASH_SOCK: socket of another dashboard on the Autosubmit host (default ~/.aiuq-dashboard/dash.sock)
+  on_as "${AIUQ_DASH_SOCK:+AIUQ_DASH_SOCK=$(q "$AIUQ_DASH_SOCK") }AIUQ_TAIL=${AIUQ_TAIL:-25} AIUQ_WAIT=${AIUQ_WAIT:-2400} python3 - $(q "$1") $(q "$2") $(q "$3") $(q "$b64")" < "$CLIENT"
 }
 
 usage() {
   cat <<EOF
-aiuq — AIUQ experiments from the laptop  (Autosubmit host: $AS_HOST · HPC: $HPC_HOST, user $HPC_USER)
+aiuq — AIUQ experiments from the laptop  (Autosubmit host: ${AS_HOST:-not set} · HPC: ${HPC_HOST:-not set}, user ${HPC_USER:-?})
 
 Read-only
+  site                           the settings in use and the site notes ($SITE_NOTES)
   health                         ssh to both hosts, dashboard freshness
   list                           all experiments: state, model, ICS, progress
   status   <expid>               progress, ETA, running/queued jobs, SLURM, failures, outputs
@@ -92,7 +125,8 @@ Changes state (need --yes, only after the user confirmed)
   as       <autosubmit args> --yes    any autosubmit command (setstatus, refresh, create, recovery ...)
   sh-as    '<cmd>' / sh-hpc '<cmd>'   raw shell on a host (read-only use is fine; writes need user consent)
 
-Env: AIUQ_AS_HOST AIUQ_HPC_HOST AIUQ_HPC_USER AIUQ_HPC_BASE AIUQ_FETCH_MAX_GB AIUQ_TAIL AIUQ_WAIT
+Settings ($CONFIG, or the environment): AIUQ_AS_HOST AIUQ_HPC_HOST AIUQ_HPC_BASE (required)
+  AIUQ_HPC_USER AIUQ_AS_BIN AIUQ_DASH_SOCK AIUQ_GPU_PARTITIONS AIUQ_SRUN_PARTITION AIUQ_FETCH_MAX_GB AIUQ_TAIL AIUQ_WAIT
 EOF
 }
 
@@ -109,11 +143,23 @@ set -- "${ARGS[@]+"${ARGS[@]}"}"
 cmd="${1:-help}"; shift || true
 
 case "$cmd" in
-  help|-h|--help) usage ;;
+  help|-h|--help) usage; exit 0 ;;
+  site)
+    echo "config: $CONFIG$([[ -f "$CONFIG" ]] || echo "  (missing: copy $(cd "$HERE/.." && pwd)/config.example)")"
+    echo "  Autosubmit host  AIUQ_AS_HOST=${AS_HOST:-<not set>}   autosubmit in AIUQ_AS_BIN=$AS_PATH"
+    echo "  HPC              AIUQ_HPC_HOST=${HPC_HOST:-<not set>}   user ${HPC_USER:-<from ssh>}"
+    echo "  experiments      AIUQ_HPC_BASE=${HPC_BASE:-<not set>}/<expid>"
+    echo "  Slurm            AIUQ_GPU_PARTITIONS=${GPU_PARTITIONS:-<all>}   AIUQ_SRUN_PARTITION=${SRUN_PARTITION:-<cluster default>}"
+    if [[ -f "$SITE_NOTES" ]]; then echo; echo "== site notes ($SITE_NOTES)"; cat "$SITE_NOTES"
+    else echo; echo "no site notes ($SITE_NOTES): see $(cd "$HERE/.." && pwd)/site.example.md"; fi
+    exit 0 ;;
+esac
+need_site
 
+case "$cmd" in
   health)
     echo "== $AS_HOST"
-    on_as 'echo "host $(hostname) · autosubmit $($HOME/miniconda3/bin/autosubmit -v 2>&1 | tail -1) · dashboard unit: $(systemctl --user is-active aiuq-dashboard 2>/dev/null)"'
+    on_as "echo \"host \$(hostname) · autosubmit \$($AS_PATH/autosubmit -v 2>&1 | tail -1) · dashboard unit: \$(systemctl --user is-active aiuq-dashboard 2>/dev/null)\""
     dash GET /api/health health || true
     echo "== $HPC_HOST"
     on_hpc 'echo "host $(hostname) · my SLURM jobs: $(squeue -h -u $USER | wc -l)"' ;;
@@ -128,7 +174,7 @@ case "$cmd" in
 
   runlog)
     need_expid "${1:-}"; n="${2:-60}"; [[ "$n" =~ ^[0-9]+$ ]] || die "N must be a number"
-    # strip colours; collapse the harmless 'sacct ... accounting storage is disabled' noise (felipe has no sacct)
+    # strip colours; collapse the harmless 'sacct ... accounting storage is disabled' noise (sites without sacct)
     on_as "tail -n $((n * 4)) ~/autosubmit/${1}_run.out | sed 's/\x1b\[[0-9;]*m//g' | grep -v -e 'Slurm accounting storage is disabled' -e '^\[eCode=6006\]' | tail -n $n" ;;
 
   logs)
@@ -155,7 +201,7 @@ case "$cmd" in
 
   queue)
     on_hpc 'echo "== my jobs"; squeue -u $USER -o "%.10i %.10P %.42j %.9T %.10M %.10l %R"
-            echo; echo "== GPU partitions (all users)"; squeue -h -p gpu,fat_felipe,felipe -o "%u %P %T %b" | sort | uniq -c
+            echo; echo "== GPU partitions (all users)"; squeue -h '"${GPU_PARTITIONS:+-p $GPU_PARTITIONS}"' -o "%u %P %T %b" | sort | uniq -c
             echo; echo "== partitions"; sinfo -o "%.12P %.6a %.12l %.4D %.8t %G"
             echo; echo "== GPUs"; nvidia-smi --query-gpu=index,name,utilization.gpu,memory.used,memory.total --format=csv,noheader 2>/dev/null || echo "nvidia-smi unavailable"' ;;
 
@@ -184,7 +230,7 @@ PY
     root="$(root_of "$e")"; od="$(out_of "$e")"; rargs=""
     for a in "$@"; do rargs+=" $(q "$a")"; done
     runner="python3 -"
-    [[ $srun == 1 ]] && runner="srun -p ${AIUQ_SRUN_PARTITION:-felipe} -c ${AIUQ_SRUN_CPUS:-4} --mem=${AIUQ_SRUN_MEM:-16G} -t ${AIUQ_SRUN_TIME:-60} python3 -"
+    [[ $srun == 1 ]] && runner="srun ${SRUN_PARTITION:+-p $SRUN_PARTITION} -c ${AIUQ_SRUN_CPUS:-4} --mem=${AIUQ_SRUN_MEM:-16G} -t ${AIUQ_SRUN_TIME:-60} python3 -"
     on_hpc "cd $(q "$root") && AIUQ_EXP_ROOT=$(q "$root") AIUQ_OUTPUTS=$(q "$od") $runner$rargs" < "$script" ;;
 
   fetch)

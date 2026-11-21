@@ -16,12 +16,35 @@ AS_ROOT = Path(_env("AIUQ_AS_ROOT", str(HOME / "autosubmit")))
 # Python interpreter that can import ``autosubmit`` (needed to unpickle job lists).
 AS_PYTHON = _env("AIUQ_AS_PYTHON", str(HOME / "miniconda3" / "bin" / "python"))
 
-# HPC host where jobs run. Must match the HPCHOST in the experiment config.
-REMOTE_HOST = _env("AIUQ_REMOTE_HOST", "felipe.polito.it")
-REMOTE_USER = _env("AIUQ_REMOTE_USER", USER)
+# --- Site settings: no defaults, they describe your HPC (deploy/aiuq-dashboard.env lists them all).
+# HPC host where jobs run. Must match the HOST of the platform in conf/platforms.yml.
+REMOTE_HOST = _env("AIUQ_REMOTE_HOST", "").strip()
+REMOTE_USER = _env("AIUQ_REMOTE_USER", "").strip() or USER
 REMOTE_PYTHON = _env("AIUQ_REMOTE_PYTHON", "python3")
-# Fallback when an experiment has no HPCROOTDIR recorded yet.
-REMOTE_BASE = _env("AIUQ_REMOTE_BASE", f"/work/users/{REMOTE_USER}/autosubmit_scratch/test/{REMOTE_USER}")
+# Where experiments live on the HPC, <SCRATCH_DIR>/<PROJECT>/<USER> of the platform: used for an experiment
+# that has no HPCROOTDIR recorded yet.
+REMOTE_BASE = _env("AIUQ_REMOTE_BASE", "").strip().rstrip("/")
+# Launcher: platform of conf/platforms.yml that new experiments use, and the AIUQ support folder on the HPC
+# (checkpoints, images, static files).
+LAUNCH_PLATFORM = _env("AIUQ_LAUNCH_PLATFORM", "").strip()
+SUPPORT_FOLDER = _env("AIUQ_SUPPORT_FOLDER", "").strip().rstrip("/")
+# Launcher: HPC folders may only be deleted below these roots (<root>/<project>/<user>/<expid>), ":"-separated.
+REMOTE_DELETE_ROOTS = [r for r in _env("AIUQ_REMOTE_DELETE_ROOTS", "").split(":") if r.strip()]
+ENV_FILE = "~/.config/aiuq-dashboard.env"
+
+
+def missing(*names):
+    """Site settings among ``names`` that are not set, as their environment variable names."""
+    values = {"AIUQ_REMOTE_HOST": REMOTE_HOST, "AIUQ_REMOTE_BASE": REMOTE_BASE,
+              "AIUQ_LAUNCH_PLATFORM": LAUNCH_PLATFORM, "AIUQ_SUPPORT_FOLDER": SUPPORT_FOLDER,
+              "AIUQ_REMOTE_DELETE_ROOTS": REMOTE_DELETE_ROOTS}
+    return [n for n in (names or values) if not values[n]]
+
+
+def not_set(*names):
+    """One sentence naming the unset settings among ``names``, or None when they are all set."""
+    miss = missing(*names)
+    return f"{', '.join(miss)} not set in {ENV_FILE} (restart the dashboard after editing it)" if miss else None
 SSH_CONTROL_DIR = Path(_env("AIUQ_SSH_CONTROL_DIR", str(HOME / ".ssh" / "aiuq-dash")))
 
 # Refresh cadence (seconds).

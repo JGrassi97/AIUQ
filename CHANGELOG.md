@@ -17,19 +17,19 @@ All notable changes to AIUQ are listed here. Versions follow [semantic versionin
 - The Launcher offers the variables and levels of the chosen checkpoint and rejects the others; the Monitor names and
   scales the new variables; Weather shows model gusts and, marked ≈, Aurora 1.5 precipitation estimated from its
   hourly rate; the `aiuq options` command prints the outputs per checkpoint.
-- **EC-Earth3 CMIP6 initial conditions** (`ICS: ec-earth3`, branch `ics/ec-earth3`, work in progress): the state of
+- **EC-Earth3 CMIP6 initial conditions** (`ICS: ec-earth3`): the state of
   the EC-Earth3 `historical` and ScenarioMIP simulations (member `r4i1p1f1`) read from ESGF over OPeNDAP, only the
   time steps needed. Upper-air profiles combine the 6-hourly fields (7 levels) with the daily means (19 levels);
   the variables EC-Earth3 does not publish are derived or taken from the support files. Optional
   `MODEL.ICS_EXPERIMENT` / `MODEL.ICS_MEMBER`. The vertical-interpolation helpers of the ECMWF analysis moved to
-  `AIUQst_lib/pressure_levels.py`.
+  `AIUQst_lib/pressure_levels.py`. Verified on FELIPE with every checkpoint except AIFS ENS 2.0 (no wave fields);
+  the NeuralGCM deterministic checkpoints do not pass (see Known issues).
 - **AIFS ENS v2** (`MODEL.CHECKPOINT_NAME: aifs-ens-crps-2.0.ckpt`, ECMWF's operational ensemble model since
   May 2026): 14 pressure levels (10 hPa added), snow depth and soil moisture in input, the ocean-wave component
   (11 wave fields in input and output) and vertical velocity as a diagnostic. It needs a new container image
   (`remote_set/image_anemoi-2.def`: anemoi-inference 0.8.3, torch 2.7, FlashAttention 2.8), chosen by the AIFS
-  templates from the checkpoint name; the 1.x checkpoints keep `image_anemoi.sif`. Integration on branch
-  `models/aifs-ens-2`, not yet verified on FELIPE (support matrix: work in progress; not available with EERIE,
-  which has no wave fields).
+  templates from the checkpoint name; the 1.x checkpoints keep `image_anemoi.sif`. Verified on FELIPE from ERA5 and
+  from the ECMWF analysis; not available with EERIE and EC-Earth3, which have no wave fields.
 - **AIUQ-st v100**: the standard adds the wave fields (`swh`, `mwd`, `mwp`, `cdww`, `wmb`, `h1012` … `h2530`, type
   `wave`, sea points only) as *optional* variables; everything else is as in v010, which stays in
   `conf/AIUQ-st/v010` as reference. ERA5 takes them from ARCO ERA5 (the period bands `h1012` … `h2530`, not
@@ -41,10 +41,31 @@ All notable changes to AIUQ are listed here. Versions follow [semantic versionin
   (`checkpoints` block of `conf/cards/models/aifs_card.yml`: fields masked over sea, image).
 - **Output store**: on FELIPE a final `ARCHIVE` job (Autosubmit host, `templates/archive.sh`) moves the experiment
   folder from the HPC scratch to `<OUTPUT_STORE.DIR>/<expid>_<time>/` (unique even when Autosubmit reuses an expid;
-  default `/data/users/jgrassi/AIUQ-outputs`, configurable per experiment in `main.yml` or in the Launcher): outputs,
+  default `/data/users/<PLATFORM.USER_CODE>/AIUQ-outputs`, configurable per experiment in `main.yml` or in the Launcher): outputs,
   checkpoints, all job logs, the code that ran, the Autosubmit configuration and an `archive.json` record (git commit
   included). The HPC folder is removed only after verification, and `~/autosubmit/<expid>/OUTPUT_STORE.json` points
   to the store. The Monitor, the Launcher (new "Output store" field), Compare, Weather and the `aiuq` skill follow it.
+
+### Changed
+- **No personal or site values in the repository.** The FELIPE platforms take the HPC user and the scratch folder
+  from `PLATFORM.USER_CODE` of the experiment's `main.yml` (as MareNostrum 5 already did), and the default output
+  store is `/data/users/<PLATFORM.USER_CODE>/AIUQ-outputs`. Experiments whose `main.yml` sets `USER_CODE` (every
+  experiment created by the Launcher) resolve to the same folders as before.
+- **Dashboard**: the settings that describe an installation have no default any more and must be set in
+  `~/.config/aiuq-dashboard.env`: `AIUQ_REMOTE_HOST`, `AIUQ_REMOTE_BASE`, `AIUQ_LAUNCH_PLATFORM`,
+  `AIUQ_SUPPORT_FOLDER`, `AIUQ_REMOTE_DELETE_ROOTS` (`AIUQ_REMOTE_USER` defaults to the local user). `install.sh`
+  lists the ones still empty, and the dashboard names a missing setting instead of guessing; a Launcher delete is
+  refused while the HPC folder cannot be determined. **When updating an existing installation, add these settings
+  before restarting the service.** The HPC helpers are now `helpers/hpc_probe.py`, `hpc_preview.py`, `hpc_delete.py`.
+- **Launcher**: the support status of a checkpoint with an IC source comes from `docs/support-matrix.yml` of the
+  chosen branch instead of a table in the code, so it follows the documentation (and knows `ecmwf-an`).
+- **Agent skill**: `aiuq` reads the two hosts and the experiments folder from `~/.aiuq/config`
+  (`skill/aiuq/config.example`) and has no built-in host; `aiuq site` prints the settings and the user's site notes
+  (`~/.aiuq/site.md`, template `skill/aiuq/site.example.md`), which hold what is specific to an installation. New
+  optional settings `AIUQ_AS_BIN`, `AIUQ_DASH_SOCK`, `AIUQ_GPU_PARTITIONS`, `AIUQ_SRUN_PARTITION`.
+- Documentation: "Running AIUQ at a new site" (`docs/source/configuration.rst`) says where every site setting
+  lives and how to add a machine. `tests/test_no_site_paths.py` fails when a personal path or a built-in host
+  comes back.
 
 ### Fixed
 - **Out of memory in the SIM post-processing with fine output grids**: NeuralGCM and Aurora regridded every model
@@ -62,7 +83,24 @@ All notable changes to AIUQ are listed here. Versions follow [semantic versionin
 - AIFS POSTPROCESS now fails when cdo fails (it used to finish as COMPLETED without the output), removes the SIM
   output only after the final file is written, and skips variables the SIM did not produce.
 
+### Verified
+- **Support matrix, 2026-11-21** (FELIPE, commit `d1880c0`): every combination that was "work in progress" was run
+  as a 2-day forecast through the Launcher (19 experiments, 2 members for ensemble checkpoints) and its outputs
+  checked: no NaN, temperature and geopotential height at 850 and 500 hPa within physical ranges, stable global
+  means, different members. 16 are now available: AIFS ENS 2.0 from ERA5 and from the ECMWF analysis; AIFS single
+  1.1 and the four Aurora checkpoints from EERIE; from EC-Earth3 the three NeuralGCM stochastic checkpoints, AIFS
+  single 1.1, AIFS ENS 1.0 and the four Aurora checkpoints. The same runs exercised the site-settings change
+  (user, scratch folder and output store resolved from `PLATFORM.USER_CODE`) and the `ARCHIVE` job.
+
 ### Known issues
+- **NeuralGCM deterministic checkpoints from EC-Earth3** (`deterministic_0_7/1_4/2_8_deg.pkl`, still work in
+  progress): the jobs complete, but the outputs have unphysical values at isolated points over the tropical oceans
+  from the first output time (temperature at 850 hPa up to 3199 K with `deterministic_1_4`, 380 K with
+  `deterministic_2_8`; a few points of geopotential height with `deterministic_0_7`). The same checkpoints are
+  clean from ERA5 and the stochastic checkpoints are clean from EC-Earth3, which points to the EC-Earth3 initial
+  state for these checkpoints.
+- ECMWF accepts at most 5 queued MARS requests per user: several `ICS: eerie` experiments started together fail in
+  `PREPARE_ICS` with `USER_QUEUED_LIMIT_EXCEEDED`. Start them one at a time.
 - Aurora 1.5 writes precipitation, snowfall and radiation only for the last hour of each 6 h step; their units are
   not documented upstream (inferred: m and J m⁻²). None of the new outputs has been produced by a real run yet.
 - AIFS output files (written by cdo) name the horizontal dimensions `lat`/`lon`; the other models use

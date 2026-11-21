@@ -23,8 +23,8 @@ from . import local, remote, settings
 log = logging.getLogger("aiuq_dash.launcher")
 
 GIT_REPO = os.environ.get("AIUQ_GIT_REPO", "https://github.com/JGrassi97/AIUQ.git")
-PLATFORM = os.environ.get("AIUQ_LAUNCH_PLATFORM", "FELIPE")
-SUPPORT_FOLDER = os.environ.get("AIUQ_SUPPORT_FOLDER", f"/work/users/{settings.REMOTE_USER}/AIUQ")
+PLATFORM = settings.LAUNCH_PLATFORM
+SUPPORT_FOLDER = settings.SUPPORT_FOLDER
 # OUTPUT_STORE.DIR (a folder on this host) is written into main.yml only when the form sets it; otherwise the
 # branch's default applies: conf/jobs/<platform>/ics/<ics>/<ics>.yml, else conf/general.yml.
 STORE_RE = re.compile(r"^/[A-Za-z0-9_./-]+$")
@@ -33,17 +33,35 @@ AUDIT = settings.STATE_DIR / "launcher.log"
 AS_BIN = os.path.join(os.path.dirname(settings.AS_PYTHON), "autosubmit")
 
 MODEL_NAMES = {"aifs": "AIFS", "ms-aurora": "Aurora", "neuralgcm": "NeuralGCM", "ace": "ACE"}
-# Support matrix from the README (ok / wip / no); checkpoints not listed are "unknown".
-SUPPORT = {
-    "aifs-single-mse-1.1.ckpt": {"era5": "ok", "eerie": "wip", "ec-earth3": "wip"},
-    "aifs-ens-crps-1.0.ckpt": {"era5": "ok", "eerie": "ok", "ec-earth3": "wip"},
-    "aifs-ens-crps-2.0.ckpt": {"era5": "wip", "eerie": "no", "ec-earth3": "no"},
-    "aurora-0.25-pretrained.ckpt": {"era5": "ok", "eerie": "wip", "ec-earth3": "wip"},
-    "aurora-0.25-finetuned.ckpt": {"era5": "wip", "eerie": "wip", "ec-earth3": "wip"},
-    "aurora-0.25-v1.5.ckpt": {"era5": "wip", "eerie": "wip", "ec-earth3": "wip"},
-    "aurora-0.25-v1.5-ensemble.ckpt": {"era5": "ok", "eerie": "wip", "ec-earth3": "wip"},
-}
-NEURALGCM_OK = {"era5": "ok", "eerie": "ok", "ec-earth3": "wip"}
+# Support status per checkpoint and IC source (ok / wip / no), read from docs/support-matrix.yml of the chosen
+# branch (the file behind the README table), so the Launcher never disagrees with the documentation.
+MATRIX_ICS = {"ERA5": "era5", "EERIE (AMIP)": "eerie", "ECMWF analysis": "ecmwf-an", "EC-Earth3 (CMIP6)": "ec-earth3"}
+MATRIX_STATUS = {"available": "ok", "wip": "wip", "not_implemented": "no"}
+
+
+def parse_support_matrix(matrix):
+    """{checkpoint file: {ics: 'ok' | 'wip' | 'no'}} from the content of docs/support-matrix.yml."""
+    label = {ck["id"]: ck["label"] for m in matrix.get("models") or [] for ck in m.get("checkpoints") or []}
+    out = {}
+    for ics_label, per_ckpt in (matrix.get("status") or {}).items():
+        ics = MATRIX_ICS.get(ics_label)
+        if not ics:
+            continue
+        for ckpt_id, status in (per_ckpt or {}).items():
+            if ckpt_id in label and status in MATRIX_STATUS:
+                out.setdefault(label[ckpt_id], {})[ics] = MATRIX_STATUS[status]
+    return out
+
+
+def support_matrix(branch):
+    """Support table of a branch; empty (every combination 'unknown') when the branch has no matrix."""
+    try:
+        return parse_support_matrix(repo_yaml(branch, "docs/support-matrix.yml"))
+    except (RuntimeError, yaml.YAMLError, KeyError, TypeError, AttributeError):
+        log.warning("no usable docs/support-matrix.yml on %s", branch, exc_info=True)
+        return {}
+
+
 AMIP_MODELS = {"neuralgcm"}
 FORCINGS = ["ESA-CCI-v3.0", "AIMIP"]
 RESOLUTIONS = ["original", "0.25", "0.5", "1", "1.5", "2"]
@@ -116,7 +134,11 @@ _opts_cache = {}
 
 
 def _store_dir(conf):
-    return ((conf or {}).get("OUTPUT_STORE") or {}).get("DIR")
+    """OUTPUT_STORE.DIR of a config file, with the placeholders the Launcher itself fills in main.yml resolved."""
+    d = ((conf or {}).get("OUTPUT_STORE") or {}).get("DIR")
+    if isinstance(d, str):
+        d = d.replace("%PLATFORM.USER_CODE%", settings.REMOTE_USER).replace("%PLATFORM.NAME%", PLATFORM)
+    return d
 
 
 def output_store_defaults(branch, ics_list):
@@ -138,6 +160,9 @@ def output_store_defaults(branch, ics_list):
 
 def options(branch):
     """Everything the form needs for one branch: models, checkpoints, ICS, variables, levels."""
+    problem = settings.not_set("AIUQ_LAUNCH_PLATFORM", "AIUQ_SUPPORT_FOLDER", "AIUQ_REMOTE_HOST")
+    if problem:
+        raise ValueError(f"The Launcher is not configured: {problem}.")
     if branch not in branches():
         raise ValueError(f"unknown branch {branch!r}")
     hit = _opts_cache.get(branch)
@@ -161,6 +186,7 @@ def options(branch):
     plat_ics = repo_ls(branch, f"conf/jobs/{PLATFORM}/ics")
     store_by_ics = output_store_defaults(branch, plat_ics)
     ckpts = checkpoints_on_hpc()
+    support = support_matrix(branch)
     models = []
     for card in repo_ls(branch, "conf/cards/models"):
         c = repo_yaml(branch, f"conf/cards/models/{card}")
@@ -171,14 +197,14 @@ def options(branch):
         levels = (c.get("pressure_levels") or {}).get("values") or []
         on_hpc = ckpts.get(name)
         ck_blocks = {k: v for k, v in (c.get("checkpoints") or {}).items() if k != "default" and isinstance(v, dict)}
-        model_ck = sorted(set(on_hpc or []) | {k for k in SUPPORT if _ckpt_model(k) == name}
+        model_ck = sorted(set(on_hpc or []) | {k for k in support if _ckpt_model(k) == name and k.endswith((".pkl", ".ckpt"))}
                           | {k for k, v in ck_blocks.items() if v.get("outputs")})
         checkpoints = []
         for k in model_ck:
             listed = (ck_blocks.get(k) or {}).get("outputs")
             checkpoints.append({
                 "name": k, "present": on_hpc is not None and k in on_hpc, "ensemble": is_ensemble(k),
-                "support": SUPPORT.get(k) or (NEURALGCM_OK if name == "neuralgcm" else {}),
+                "support": support.get(k) or {},
                 # What this checkpoint writes (model card), or None: the model-wide list applies.
                 "variables": [v for v in listed if v in known] if listed else None,
                 "levels": (ck_blocks.get(k) or {}).get("levels") or None,
@@ -231,7 +257,7 @@ def checkpoints_on_hpc():
     if time.time() - _ck_cache["t"] < 600:
         return _ck_cache["data"]
     try:
-        r = remote.run_helper("felipe_probe.py", {"user": settings.REMOTE_USER, "exps": {}, "ls": f"{SUPPORT_FOLDER}/models"}, timeout=60)
+        r = remote.run_helper("hpc_probe.py", {"user": settings.REMOTE_USER, "exps": {}, "ls": f"{SUPPORT_FOLDER}/models"}, timeout=60)
         _ck_cache.update(t=time.time(), data=r.get("ls") or {})
     except remote.RemoteError:
         log.warning("could not list checkpoints", exc_info=True)
@@ -276,7 +302,9 @@ def validate(cfg):
     elif ck:
         sup = ck["support"].get(ics)
         if sup == "wip":
-            warnings.append(f"{ck['name']} with {ics.upper()} is marked as work in progress in the README.")
+            warnings.append(f"{ck['name']} with {ics.upper()} is marked as work in progress in the support matrix.")
+        elif sup == "no":
+            warnings.append(f"{ck['name']} with {ics.upper()} is marked as not implemented in the support matrix.")
         elif sup is None:
             warnings.append(f"No support information for {ck['name']} with {ics.upper()}.")
     run_type = cfg.get("run_type") or "hindcast"
@@ -606,8 +634,7 @@ def stop(expid, cancel=False):
 
 # ---------------------------------------------------------------------------- delete
 # Remote folders may only be removed below these roots, at <root>/<project>/<user>/<expid>.
-DELETE_ROOTS = [r for r in os.environ.get("AIUQ_REMOTE_DELETE_ROOTS",
-                                          f"/work/users/{settings.REMOTE_USER}/autosubmit_scratch").split(":") if r]
+DELETE_ROOTS = settings.REMOTE_DELETE_ROOTS
 LEFTOVERS = settings.STATE_DIR / "pending_remote_deletes.json"
 _left_lock = threading.Lock()
 
@@ -616,9 +643,14 @@ def _remote_path(expid):
     """The experiment's HPCROOTDIR, read from its job history (gone after `autosubmit delete`)."""
     hpc = (local.read_job_data(expid).get("hpc") or {})
     host = hpc.get("HPCHOST")
+    if not settings.REMOTE_HOST:
+        raise RuntimeError(settings.not_set("AIUQ_REMOTE_HOST"))
     if host and host != settings.REMOTE_HOST:
         return None, f"its jobs ran on {host}; only {settings.REMOTE_HOST} folders are handled here"
-    return (hpc.get("HPCROOTDIR") or f"{settings.REMOTE_BASE}/{expid}"), None
+    root = hpc.get("HPCROOTDIR") or (f"{settings.REMOTE_BASE}/{expid}" if settings.REMOTE_BASE else None)
+    if not root:  # never guess: without the folder the experiment cannot be checked, so it is not deleted
+        raise RuntimeError(f"the HPC folder of {expid} is unknown: {settings.not_set('AIUQ_REMOTE_BASE')}")
+    return root, None
 
 
 def _local_size(path):
@@ -635,7 +667,7 @@ def _local_size(path):
 
 def _slurm_jobs(expid):
     try:
-        r = remote.run_helper("felipe_probe.py", {"user": settings.REMOTE_USER, "slurm": True, "exps": {}}, timeout=60)
+        r = remote.run_helper("hpc_probe.py", {"user": settings.REMOTE_USER, "slurm": True, "exps": {}}, timeout=60)
     except remote.RemoteError as exc:
         raise RuntimeError(f"cannot read the SLURM queue: {exc}") from exc
     return [j for j in (r.get("slurm") or {}).get("jobs", []) if j.get("name", "").startswith(expid + "_")]
@@ -701,7 +733,9 @@ def _delete_store(t, expid, path):
 
 
 def _inspect_remote(expid, path):
-    return remote.run_helper("felipe_delete.py", {"mode": "inspect", "expid": expid, "path": path, "roots": DELETE_ROOTS}, timeout=180)
+    if not DELETE_ROOTS:
+        return {"ok": False, "error": settings.not_set("AIUQ_REMOTE_DELETE_ROOTS")}
+    return remote.run_helper("hpc_delete.py", {"mode": "inspect", "expid": expid, "path": path, "roots": DELETE_ROOTS}, timeout=180)
 
 
 def delete_plan(expid):
@@ -710,7 +744,12 @@ def delete_plan(expid):
         raise ValueError("unknown experiment")
     lpath = settings.AS_ROOT / expid
     files, size = _local_size(lpath)
-    rpath, rerr = _remote_path(expid)
+    blockers = []
+    try:
+        rpath, rerr = _remote_path(expid)
+    except RuntimeError as exc:
+        rpath, rerr = None, str(exc)
+        blockers.append(f"Nothing will be deleted: {exc}.")
     remote_info = {"ok": False, "error": rerr}
     if rpath:
         try:
@@ -720,7 +759,6 @@ def delete_plan(expid):
     spath = _store_path(expid)
     store_info = _inspect_store(expid, spath) if spath else {"ok": True, "exists": False}
     jobs = _slurm_jobs(expid)
-    blockers = []
     if expid in local.running_autosubmit():
         blockers.append("autosubmit run is active for this experiment: stop it first.")
     if jobs:
@@ -761,7 +799,7 @@ def _set_leftover(expid, path, add, kind="hpc"):
 def _delete_remote(t, expid, path):
     t.step(f"Deleting {path} on {settings.REMOTE_HOST}")
     _set_leftover(expid, path, True)  # recorded first, so a failure can be retried
-    r = remote.run_helper("felipe_delete.py", {"mode": "delete", "expid": expid, "path": path, "roots": DELETE_ROOTS}, timeout=3600)
+    r = remote.run_helper("hpc_delete.py", {"mode": "delete", "expid": expid, "path": path, "roots": DELETE_ROOTS}, timeout=3600)
     if not r.get("ok"):
         for e in r.get("errors", []):
             t.say(e)

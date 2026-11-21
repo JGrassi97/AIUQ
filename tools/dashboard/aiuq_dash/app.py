@@ -24,7 +24,9 @@ async def lifespan(_app):
     import os
 
     collector.start()
-    log.info("collector started (refresh %ss, remote %s)", settings.REFRESH, settings.REMOTE_HOST)
+    log.info("collector started (refresh %ss, remote %s)", settings.REFRESH, settings.REMOTE_HOST or "not set")
+    if settings.missing():
+        log.warning("site settings: %s", settings.not_set())
     yield
     collector.stop()
 
@@ -121,7 +123,7 @@ def preview(exp: str, var: str, member: str, file: str,
             _preview_cache.move_to_end(key)
             return _preview_cache[key]
     try:
-        data = remote.run_helper("felipe_preview.py",
+        data = remote.run_helper("hpc_preview.py",
                                  {"path": path, "var": var, "level": level, "time": time_index}, timeout=60)
     except remote.RemoteError as exc:
         raise HTTPException(502, str(exc)) from exc
@@ -170,7 +172,7 @@ def point_series(exp: str, var: str, start: str, lat: float | None = None, lon: 
         if key in _series_cache:
             return _series_cache[key]
     try:
-        data = remote.run_helper("felipe_preview.py", {"mode": "series", "paths": paths, "var": var, "level": level,
+        data = remote.run_helper("hpc_preview.py", {"mode": "series", "paths": paths, "var": var, "level": level,
                                                         "lat": lat, "lon": lon, "box": box}, timeout=120)
     except remote.RemoteError as exc:
         raise HTTPException(502, str(exc)) from exc
@@ -204,7 +206,7 @@ def _analysis(key, payload, timeout=120):
             _analysis_cache.move_to_end(key)
             return _analysis_cache[key]
     try:
-        data = remote.run_helper("felipe_preview.py", payload, timeout=timeout)
+        data = remote.run_helper("hpc_preview.py", payload, timeout=timeout)
     except remote.RemoteError as exc:
         raise HTTPException(502, str(exc)) from exc
     with _preview_lock:
