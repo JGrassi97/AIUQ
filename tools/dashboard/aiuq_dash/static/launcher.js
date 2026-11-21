@@ -2,7 +2,13 @@
    Every write goes through POST /api/launcher/* with the X-AIUQ-Launcher header and an explicit confirmation. */
 "use strict";
 
+function launcherViewFromUrl() {
+  const v = new URLSearchParams(location.search).get("view");
+  return ["new", "runs", "delete", "activity"].includes(v) ? v : "new";
+}
 const L = {
+  view: launcherViewFromUrl(),   // which of the four views is shown: new | runs | delete | activity
+  q: "",                         // filter of the experiment tables
   built: false, opts: null, branches: [], preview: null, pending: null, task: null, poll: null,
   dateMode: "single", reg: { from: "1989-01-01", to: "1989-12-31", every: 10 }, listText: "",
   cfg: {
@@ -52,24 +58,42 @@ function syncDates() {
 }
 
 // ------------------------------------------------------------------ page
+function setLauncherView(view) {
+  L.view = view;
+  const url = new URL(location.href);
+  if (view === "new") url.searchParams.delete("view"); else url.searchParams.set("view", view);
+  history.replaceState(history.state, "", url);
+  const main = $("#main");
+  if (main.dataset.view) main.dataset.view = view;
+  renderTabs();
+  if (view === "activity") renderTasks();
+  if (view === "delete") renderDeleteList();
+  window.scrollTo({ top: 0 });
+}
+
+const filterBox = (id) => `<div class="side-search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+  <input type="search" id="${id}" data-filter="1" placeholder="Filter experiments" aria-label="Filter experiments" autocomplete="off" spellcheck="false" value="${esc(L.q)}"></div>`;
+const lnList = () => groupedExps(L.q).flatMap((g) => g[2]);   // same order as the Monitor panel: running first, newest ids first
+
 function renderLauncher() {
   const main = $("#main");
   if (!L.built || !$("#ln-form")) {
     L.built = true;
     main.removeAttribute("data-tab");
+    main._html = null;
     main.innerHTML = `
       <div class="page-head"><h2>AIUQ Launcher</h2><span class="lede">Create AIUQ experiments on mafalda and start or stop their runs. Every action asks for confirmation and is logged.</span></div>
-      <nav class="jump ln-jump" aria-label="Launcher sections"><a href="#ln-form">New experiment</a><a href="#ln-exps">Launch / stop</a><a href="#ln-delete" class="danger-link">Delete experiments</a></nav>
-      <div id="ln-banner"></div>
-      <div class="ln-grid">
-        <div id="ln-form"><div class="empty">Reading the AIUQ repository…</div></div>
-        <aside class="ln-side" id="ln-side"></aside>
+      <div id="ln-banner" data-view="new"></div>
+      <div class="ln-grid" data-view="new">
+        <div id="ln-form">${'<div class="skeleton block" style="margin-bottom:16px"></div>'.repeat(3)}</div>
+        <aside class="ln-side" id="ln-side"><div class="skeleton block"></div></aside>
       </div>
-      <section class="card" id="ln-exps"><div class="card-head"><h3>Experiments</h3><span class="sub">start, stop or reuse an existing experiment</span></div><div id="ln-exp-list"></div></section>
-      <section class="card danger-zone" id="ln-delete"><div class="card-head"><h3>Delete experiments</h3>
+      <section class="card" id="ln-exps" data-view="runs"><div class="card-head"><h3>Experiments</h3><span class="sub">launch, resume, stop or reuse an existing experiment</span></div>
+        <div class="ln-toolbar">${filterBox("ln-q1")}<span class="note" id="ln-count1"></span></div><div id="ln-exp-list"></div></section>
+      <section class="card danger-zone" id="ln-delete" data-view="delete"><div class="card-head"><h3>Delete experiments</h3>
         <span class="sub">removes the experiment from Autosubmit on mafalda and its working folder on the HPC · cannot be undone</span></div>
-        <div id="ln-del-list"></div></section>
-      <section class="card" id="ln-tasks"><div class="card-head"><h3>Recent actions</h3><span class="sub">this dashboard session · full history in ~/.local/share/aiuq-dashboard/launcher.log</span></div><div id="ln-task-list"></div></section>
+        <div class="ln-toolbar">${filterBox("ln-q2")}<span class="note" id="ln-count2"></span></div><div id="ln-del-list"></div></section>
+      <section class="card" id="ln-tasks" data-view="activity"><div class="card-head"><h3>Recent actions</h3><span class="sub">this dashboard session · full history in ~/.local/share/aiuq-dashboard/launcher.log</span></div><div id="ln-task-list"></div></section>
       <dialog id="ln-dialog"></dialog>`;
     $("#ln-form").addEventListener("click", onFormClick);
     $("#ln-form").addEventListener("change", onFormChange);
@@ -77,25 +101,37 @@ function renderLauncher() {
     $("#ln-side").addEventListener("click", onSideClick);
     $("#ln-exp-list").addEventListener("click", onExpClick);
     $("#ln-del-list").addEventListener("click", onDeleteClick);
-    loadBranches();
+    main.addEventListener("input", (e) => {
+      if (!e.target.dataset?.filter) return;
+      L.q = e.target.value;
+      main.querySelectorAll("input[data-filter]").forEach((x) => { if (x !== e.target) x.value = L.q; });
+      renderExpList(); renderDeleteList(false);
+    });
+    // coming back to the Launcher: show the form as it was left at once, and re-read the repository behind it
+    if (L.opts && model()) { renderForm(); renderSide(); }
+    loadBranches(!!L.opts);
   }
+  main.dataset.view = L.view;
+  main.querySelectorAll("input[data-filter]").forEach((x) => { if (x !== document.activeElement && x.value !== L.q) x.value = L.q; });
   renderExpList();
   renderDeleteList();
   renderTasks();
 }
 
-async function loadBranches() {
+async function loadBranches(quiet = false) {
   try {
     L.branches = (await api("/api/launcher/branches")).branches;
     if (!L.branches.includes(L.cfg.branch)) L.cfg.branch = L.branches.includes("main") ? "main" : L.branches[0];
-    await loadOptions();
+    await loadOptions(quiet);
   } catch (e) { $("#ln-form").innerHTML = `<div class="err-banner"><b>Cannot read the AIUQ repository</b><br>${esc(e.message)}</div>`; }
 }
 
-async function loadOptions() {
-  $("#ln-form").classList.add("busy");
+async function loadOptions(quiet = false) {
+  if (!$("#ln-form")) return;
+  if (!quiet) $("#ln-form").classList.add("busy");
   try { L.opts = await api(`/api/launcher/options?branch=${encodeURIComponent(L.cfg.branch)}`); }
-  catch (e) { $("#ln-form").innerHTML = `<div class="err-banner"><b>Cannot read branch ${esc(L.cfg.branch)}</b><br>${esc(e.message)}</div>`; return; }
+  catch (e) { if ($("#ln-form")) $("#ln-form").innerHTML = `<div class="err-banner"><b>Cannot read branch ${esc(L.cfg.branch)}</b><br>${esc(e.message)}</div>`; return; }
+  if (!$("#ln-form")) return;   // the user left the Launcher while this was loading
   $("#ln-form").classList.remove("busy");
   fixCfg();
   renderForm();
@@ -130,11 +166,21 @@ function fixCfg() {  // keep the form consistent with what the branch offers
 }
 
 // ------------------------------------------------------------------ form
-const step = (n, title, sub, body) => `<section class="card ln-step"><div class="card-head"><span class="step-n">${n}</span><h3>${title}</h3>${sub ? `<span class="sub">${sub}</span>` : ""}</div>${body}</section>`;
+const step = (n, title, sub, body) => `<section class="card ln-step" id="ln-s${n}"><div class="card-head"><span class="step-n">${n}</span><h3>${title}</h3>${sub ? `<span class="sub">${sub}</span>` : ""}</div>${body}</section>`;
 const choice = (k, v, on, inner, disabled, title) => `<button type="button" class="choice ${on ? "on" : ""}" data-k="${k}" data-v="${esc(v)}" ${disabled ? "disabled" : ""} ${title ? `title="${esc(title)}"` : ""} aria-pressed="${on}">${inner}</button>`;
 const tag = (cls, t) => `<span class="tag ${cls}">${esc(t)}</span>`;
 
 function renderForm() {
+  const form = $("#ln-form"), act = document.activeElement;
+  const focusKey = form.contains(act) ? [act.dataset.k || act.closest("[data-k]")?.dataset.k, act.dataset.v, act.tagName] : null;
+  buildForm();
+  if (focusKey?.[0]) {   // the form was rebuilt: put the focus back where it was
+    const same = [...form.querySelectorAll(`[data-k="${focusKey[0]}"]`)].flatMap((x) => (x.matches("button, input, select, textarea") ? [x] : [...x.querySelectorAll("button")]))
+      .find((x) => x.tagName === focusKey[2] && (focusKey[1] === undefined || x.dataset.v === focusKey[1]));
+    same?.focus({ preventScroll: true });
+  }
+}
+function buildForm() {
   const o = L.opts, c = L.cfg, m = model(), k = ckpt();
   const exps = S.list.map((e) => e.expid);
   const icsSup = (ics) => k?.support?.[ics];
@@ -149,7 +195,7 @@ function renderForm() {
 
   $("#ln-form").innerHTML =
     step(1, "Start from", "a blank form or the settings of an existing experiment", `
-      <div class="chips-sel">${choice("tpl", "", false, "Blank")}${exps.map((x) => choice("tpl", x, false, esc(x))).join("")}</div>
+      <div class="chips-sel">${choice("tpl", "", false, "Blank")}${exps.map((x) => choice("tpl", x, false, esc(x), false, S.list.find((e) => e.expid === x)?.description)).join("")}</div>
       <div class="ln-row">
         <label class="ln-field">Code branch <select data-k="branch">${L.branches.map((b) => `<option ${b === c.branch ? "selected" : ""}>${esc(b)}</option>`).join("")}</select></label>
         <label class="ln-field grow">Description <input type="text" data-k="description" maxlength="200" value="${esc(c.description)}" placeholder="e.g. Aurora ensemble, ERA5, winter 1989"></label>
@@ -266,7 +312,8 @@ async function useTemplate(expid) {
     L.listText = compress(t.dates);
     if (branchChanged && L.branches.includes(t.branch)) await loadOptions();
     else { fixCfg(); renderForm(); updatePreview(); }
-  } catch (e) { alert(`Cannot read ${expid}: ${e.message}`); }
+    if (L.view !== "new") setLauncherView("new");
+  } catch (e) { toast(`Cannot read ${expid}: ${e.message}`, true); }
 }
 
 // ------------------------------------------------------------------ preview & summary
@@ -281,8 +328,17 @@ function updatePreview() {
 
 function renderSide() {
   const p = L.preview, c = L.cfg, m = model(), side = $("#ln-side");
-  if (!p || !m) return;
+  if (!p || !m || !side) return;   // no side panel: the user left the Launcher while the preview was computed
   const est = p.estimate;
+  const levs = c.out_levs === "original" ? "all levels" : `${c.out_levs.join(", ")} hPa`;
+  const lead = c.chunk_size * c.num_chunks;
+  const recap = [
+    ["Start from", `branch ${c.branch}${c.description ? ` · ${c.description}` : " · no description yet"}`, !c.description.trim()],
+    ["Model", `${m.label} · ${c.checkpoint || "no checkpoint"}`, !c.checkpoint],
+    ["Initial conditions", `${(ICS_LABEL[c.ics] || [c.ics])[0]} · ${c.run_type === "amip" ? `AMIP, ${c.forcing}` : "hindcast"}`, false],
+    ["Ensemble", `${c.members} member${c.members === 1 ? "" : "s"} × ${c.dates.length} start date${c.dates.length === 1 ? "" : "s"} · ${lead} ${c.chunk_unit}${lead === 1 ? "" : "s"}`, !c.dates.length],
+    ["Outputs", `${c.out_vars.join(", ") || "no variables"} · ${levs} · ${c.out_res === "original" ? "native" : c.out_res + "°"} · ${c.out_freq === "original" ? "every step" : c.out_freq}`, !c.out_vars.length],
+  ];
   const openKeys = new Set([...side.querySelectorAll("details[open]")].map((d) => d.dataset.k));
   side.innerHTML = `
     <div class="ln-summary">
@@ -291,19 +347,22 @@ function renderSide() {
       <div class="note mono">${esc(c.checkpoint || "")}</div>
       ${p.summary ? `<div class="ln-big"><b>${p.summary.sims}</b> simulation${p.summary.sims === 1 ? "" : "s"}</div>
         <div class="note">${p.summary.n_dates} start date${p.summary.n_dates === 1 ? "" : "s"} × ${p.summary.members} member${p.summary.members === 1 ? "" : "s"} × ${p.summary.num_chunks} chunk${p.summary.num_chunks === 1 ? "" : "s"} of ${p.summary.chunk_size} ${p.summary.chunk_unit}${p.summary.chunk_size === 1 ? "" : "s"}</div>` : ""}
+      <ol class="ln-recap">${recap.map(([k, v, bad], i) => `<li class="${bad ? "bad" : ""}"><a href="#ln-s${i + 1}" data-scroll="ln-s${i + 1}" title="${esc(v)}"><span class="n">${i + 1}</span><span class="k">${k}</span><span class="v">${esc(v)}</span></a></li>`).join("")}</ol>
       ${est ? `<div class="ln-est"><div><span class="note">GPU time</span><b>~${fmtDur(est.gpu_s)}</b></div><div><span class="note">Prepare ICs</span><b>~${fmtDur(est.prep_s)}</b></div>
         <div><span class="note">Wall time (${est.gpus} GPUs free)</span><b>~${fmtDur(est.wall_s)}</b></div></div>
         <div class="note">Estimate based on ${esc(est.based_on.join(", ") || "—")}. Queue waits are not included.</div>` : `<div class="note">No finished experiment with this model yet, so no time estimate.</div>`}
-      ${(p.errors || []).map((x) => `<div class="finding f-warn" style="background:color-mix(in srgb,var(--st-failed) 12%,var(--surface-1))">${ICONS.warn}<div>${esc(x)}</div></div>`).join("")}
+      ${(p.errors || []).map((x) => `<div class="finding f-err">${ICONS.warn}<div>${esc(x)}</div></div>`).join("")}
       ${(p.warnings || []).map((x) => `<div class="finding f-warn">${ICONS.warn}<div>${esc(x)}</div></div>`).join("")}
-      <button type="button" class="primary ln-create" data-act="create" ${p.ok ? "" : "disabled"}>Create experiment</button>
-      <div class="note" style="text-align:center">Registers it in Autosubmit and builds the workflow. It does not start the run.</div>
+      <div class="ln-cta"><button type="button" class="primary ln-create" data-act="create" ${p.ok ? "" : "disabled"}>Create experiment</button>
+        <div class="note" style="text-align:center">Registers it in Autosubmit and builds the workflow. It does not start the run.</div></div>
     </div>
     ${p.yaml ? `<details data-k="yaml" ${openKeys.has("yaml") ? "open" : ""}><summary>conf/main.yml that will be written</summary><pre class="log">${esc(p.yaml)}</pre></details>
       <details data-k="cmd" ${openKeys.has("cmd") ? "open" : ""}><summary>Commands that will run</summary><pre class="log">${esc(p.commands.join("\n"))}</pre></details>` : ""}`;
 }
 
 function onSideClick(e) {
+  const sc = e.target.closest("a[data-scroll]");
+  if (sc) { e.preventDefault(); document.getElementById(sc.dataset.scroll)?.scrollIntoView({ behavior: "smooth", block: "start" }); return; }
   const b = e.target.closest("button[data-act]");
   if (b?.dataset.act === "create" && L.preview?.ok) {
     confirmDialog({
@@ -319,18 +378,20 @@ function onSideClick(e) {
 function renderExpList() {
   const el = $("#ln-exp-list");
   if (!el) return;
-  el.innerHTML = `<div class="tbl-wrap"><table><thead><tr><th>Experiment</th><th>Model · ICS</th><th>Description</th><th>Progress</th><th>State</th><th></th></tr></thead><tbody>
-    ${S.list.map((e) => `<tr><td><b>${e.expid}</b></td><td>${what(e.conf)}</td><td class="note" style="white-space:normal">${esc(e.description || "")}</td>
-      <td style="min-width:120px">${miniBar(e.counts, e.summary.total)}<span class="note">${e.summary.pct.toFixed(0)}% · ${statusLine(e)}</span></td>
-      <td><span class="badge ${e.active ? "active" : "stopped"}">${e.active ? "running" : "stopped"}</span></td>
+  const list = lnList();
+  setHTML($("#ln-count1"), L.q.trim() ? `${list.length} of ${S.list.length} experiments` : `${S.list.length} experiments`);
+  setHTML(el, !S.meta ? `<div class="skeleton block"></div>` : !list.length ? `<div class="empty">${S.list.length ? "No experiment matches this filter." : "No experiments yet."}</div>`
+    : `<div class="tbl-wrap"><table><thead><tr><th>Experiment</th><th>Model · ICS</th><th>Description</th><th>Progress</th><th>State</th><th></th></tr></thead><tbody>
+    ${list.map((e) => `<tr><td><span style="display:inline-flex;align-items:center;gap:9px">${ring(e)}<b>${e.expid}</b></span></td><td>${what(e.conf)}</td><td class="note wrap">${esc(e.description || "")}</td>
+      <td style="min-width:130px">${miniBar(e.counts, e.summary.total)}<span class="note">${e.summary.pct.toFixed(0)}% · ${statusLine(e)}</span></td>
+      <td>${stateBadge(e)}</td>
       <td class="ln-actions">${e.active
-        ? `<button type="button" data-act="stop" data-exp="${e.expid}">Stop</button>`
-        : e.summary.total && e.summary.completed === e.summary.total
-          ? `<button type="button" disabled title="every job is completed">Done</button>`
-          : `<button type="button" class="primary" data-act="run" data-exp="${e.expid}" ${e.summary.total ? "" : "disabled title=\"no workflow yet\""}>${e.summary.completed ? "Resume" : "Launch"}</button>`}
-        <button type="button" class="ghost" data-act="tpl" data-exp="${e.expid}" title="Fill the form with this experiment's settings">Use as template</button>
-        <button type="button" class="ghost" data-act="open" data-exp="${e.expid}">Monitor →</button></td></tr>`).join("")}
-    </tbody></table></div>`;
+        ? `<button type="button" class="small danger-ghost" data-act="stop" data-exp="${e.expid}">Stop…</button>`
+        : e.summary.total && e.summary.completed === e.summary.total ? ""
+          : `<button type="button" class="small primary" data-act="run" data-exp="${e.expid}" ${e.summary.total ? "" : "disabled title=\"no workflow yet\""}>${e.summary.completed ? "Resume…" : "Launch…"}</button>`}
+        <button type="button" class="small ghost" data-act="tpl" data-exp="${e.expid}" title="Fill the form with this experiment's settings">Use as template</button>
+        <button type="button" class="small ghost" data-act="open" data-exp="${e.expid}">Monitor →</button></td></tr>`).join("")}
+    </tbody></table></div>`);
 }
 
 function onExpClick(e) {
@@ -338,7 +399,7 @@ function onExpClick(e) {
   if (!b) return;
   const x = b.dataset.exp, ex = S.list.find((q) => q.expid === x);
   if (b.dataset.act === "open") { switchApp("monitor"); selectExp(x); return; }
-  if (b.dataset.act === "tpl") { useTemplate(x); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
+  if (b.dataset.act === "tpl") { useTemplate(x); return; }
   if (b.dataset.act === "run") {
     const left = ex.summary.total - ex.summary.completed;
     confirmDialog({
@@ -401,7 +462,7 @@ function showTask() {
   $("#t-close").onclick = () => d.close();
   if ($("#t-open")) $("#t-open").onclick = () => { d.close(); switchApp("monitor"); selectExp(t.expid); };
   if ($("#t-launch")) $("#t-launch").onclick = async () => {
-    try { startTask(await lapi(`/api/launcher/run/${t.expid}`)); } catch (e) { alert(e.message); }
+    try { startTask(await lapi(`/api/launcher/run/${t.expid}`)); } catch (e) { toast(e.message, true); }
   };
 }
 
@@ -410,27 +471,32 @@ async function renderTasks() {
   if (!el) return;
   let ts = [];
   try { ts = (await api("/api/launcher/tasks")).tasks; } catch { /* ignore */ }
-  el.innerHTML = ts.length ? `<ul class="recent">${ts.map((t) => `<li><i style="background:${stColor(t.status === "done" ? "COMPLETED" : t.status === "failed" ? "FAILED" : "RUNNING")}"></i>
-      <b>${esc(t.kind)}</b> ${esc(t.expid || "")} <span class="note">${esc(t.error || t.lines[t.lines.length - 1] || "")}</span><span class="note">${fmtAgo(t.started)}</span></li>`).join("")}</ul>`
-    : `<div class="empty">No actions yet in this session.</div>`;
+  setHTML(el, ts.length ? `<ul class="recent">${ts.map((t) => `<li><i style="background:${stColor(t.status === "done" ? "COMPLETED" : t.status === "failed" ? "FAILED" : "RUNNING")}"></i>
+      <b>${esc(t.kind)}</b> ${esc(t.expid || "")} <span class="note grow" title="${esc(t.error || t.lines[t.lines.length - 1] || "")}">${esc(t.error || t.lines[t.lines.length - 1] || "")}</span><span class="note">${fmtAgo(t.started)}</span></li>`).join("")}</ul>`
+    : `<div class="empty">No actions yet in this session.</div>`);
 }
 
 
 // ------------------------------------------------------------------ delete experiments
-async function renderDeleteList() {
-  const el = $("#ln-del-list");
+async function renderDeleteList(refetch = true) {
+  let el = $("#ln-del-list");
   if (!el) return;
-  let left = [];
-  try { left = (await api("/api/launcher/leftovers")).leftovers; } catch { /* ignore */ }
-  el.innerHTML = `
+  if (refetch || !L.leftovers) { try { L.leftovers = (await api("/api/launcher/leftovers")).leftovers; } catch { L.leftovers = L.leftovers || []; } }
+  const left = L.leftovers;
+  el = $("#ln-del-list");
+  if (!el) return;
+  const list = lnList();
+  setHTML($("#ln-count2"), L.q.trim() ? `${list.length} of ${S.list.length} experiments` : `${S.list.length} experiments`);
+  setHTML(el, `
     ${left.length ? `<div class="finding f-warn" style="margin-bottom:12px">${ICONS.warn}<div><b>Leftover folders</b> — these experiments were removed from Autosubmit but a folder could not be deleted:
       <ul class="recent" style="margin-top:6px">${left.map((x) => `<li><b>${esc(x.expid)}</b><span class="note">${x.kind === "store" ? "output store" : "HPC"}</span><span class="mono note">${esc(x.path)}</span>
-        <button type="button" data-act="retry" data-exp="${esc(x.expid)}" style="margin-left:auto">Retry cleanup</button></li>`).join("")}</ul></div></div>` : ""}
-    <div class="tbl-wrap"><table><thead><tr><th>Experiment</th><th>Model · ICS</th><th>Description</th><th>State</th><th></th></tr></thead><tbody>
-    ${S.list.map((e) => `<tr><td><b>${e.expid}</b></td><td>${what(e.conf)}</td><td class="note" style="white-space:normal">${esc(e.description || "")}</td>
-      <td><span class="badge ${e.active ? "active" : "stopped"}">${e.active ? "running" : "stopped"}</span></td>
-      <td class="ln-actions"><button type="button" class="danger-ghost" data-act="delete" data-exp="${e.expid}" ${e.active ? 'disabled title="Stop the run first"' : ""}>Delete…</button></td></tr>`).join("")}
-    </tbody></table></div>`;
+        <button type="button" class="small" data-act="retry" data-exp="${esc(x.expid)}" style="margin-left:auto">Retry cleanup</button></li>`).join("")}</ul></div></div>` : ""}
+    ${!S.meta ? `<div class="skeleton block"></div>` : !list.length ? `<div class="empty">${S.list.length ? "No experiment matches this filter." : "No experiments yet."}</div>`
+    : `<div class="tbl-wrap"><table><thead><tr><th>Experiment</th><th>Model · ICS</th><th>Description</th><th>State</th><th></th></tr></thead><tbody>
+    ${list.map((e) => `<tr><td><span style="display:inline-flex;align-items:center;gap:9px">${ring(e)}<b>${e.expid}</b></span></td><td>${what(e.conf)}</td><td class="note wrap">${esc(e.description || "")}</td>
+      <td>${stateBadge(e)}</td>
+      <td class="ln-actions"><button type="button" class="small danger-ghost" data-act="delete" data-exp="${e.expid}" ${e.active ? 'disabled title="Stop the run first"' : ""}>Delete…</button></td></tr>`).join("")}
+    </tbody></table></div>`}`);
 }
 
 async function onDeleteClick(e) {

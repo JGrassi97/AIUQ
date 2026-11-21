@@ -5,8 +5,15 @@ A web dashboard for the Autosubmit experiments of the AIUQ framework, made of tw
 - **Autosubmit Monitor** — read-only: pickles, sqlite (opened `mode=ro`), YAML, log files, `squeue`, `nvidia-smi`.
 - **AIUQ Launcher** — creates experiments and starts/stops their runs (see below). It is the only part that writes.
 
-The start page (`/`) introduces both apps with live figures and the experiments running now. The experiments sidebar
-can be hidden with the button at the left of the header (or the `[` key); the choice is remembered per browser.
+The start page (`/`) introduces both apps with live figures, the experiments running now and the latest ones.
+
+In the Monitor, the experiments panel on the left groups experiments by state (running, needs attention, not
+finished, completed; newest first) and has a filter (id, model, initial conditions, start date, description). It can be
+hidden with the button at the left of the header; the choice is remembered per browser. Moving the pointer over an
+experiment loads it in advance and visited experiments are kept in memory, so opening one is immediate.
+
+Keyboard: `/` filter experiments · `J` / `K` next / previous experiment · `1`–`4` tabs · `R` refresh now ·
+`[` hide the panel · `Esc` close the job details · `?` guide (also the "Guide" button in the header).
 
 It runs permanently on the Autosubmit host (mafalda) as a `systemd --user` service and listens on a **private
 Unix socket** (`~/.aiuq-dashboard/dash.sock`, folder 0700, socket 0600), so only your user can reach it.
@@ -36,7 +43,7 @@ Then browse to <http://localhost:8765>. The selected experiment is part of the U
 | Outputs and map | `outputs/<var>/<member>/*.nc` listing (once `~/autosubmit/<expid>/OUTPUT_STORE.json` says the ARCHIVE job is done, logs and outputs are read from the store folder `<store>/<expid>_<time>/`); the map reads one time step and one level on the HPC host and subsamples to ≤ 360 longitudes | measured |
 | Failed jobs | stderr of each FAILED job, from the last `Traceback` onwards (or its last lines) | measured |
 | Experiment setup card | ICS → model → ensemble → outputs, workflow chain with per-section progress, start-date strip | measured / config |
-| Job panel (click a grid cell, a start date or a Gantt bar) | the job's attempts, duration vs. section median, stderr / log tail / MARS lines | measured |
+| Job details (click a grid cell, a start date, a Gantt bar or a job name; opens as a panel on the right, `Esc` closes it) | the job's attempts, duration vs. section median, stderr / log tail / MARS lines | measured |
 | Map: shaded field + contours | any two output variables (same member, start date and time step); colormap, reverse, min/max, contour count or interval, unit conversions (K→°C, geopotential→m/dam); style is remembered in the browser | measured |
 | Point time series (click the map) | nearest grid point, every member of that start date, ensemble mean, member shown on the map highlighted; click a time to move the map there (`/api/series`) | measured |
 | Area average (series card → "Area average") | preset regions, a box drawn on the map, or the visible map area; cos(latitude)-weighted mean per member, computed on the HPC host | measured |
@@ -44,7 +51,7 @@ Then browse to <http://localhost:8765>. The selected experiment is part of the U
 | HPC performance | per step: waiting for Autosubmit (ready → submitted, from the pkl), queued (submitted → started), running (STAT); jobs running at once; finished jobs over time; pauses; failed attempts; platform limits from the experiment config; automatic "what is slowing things down" findings | measured; findings are heuristics |
 | GPU use history | node `nvidia-smi` and `squeue` sampled every refresh, kept 7 days in `~/.local/share/aiuq-dashboard/history.json` (node-wide, shared with other users) | measured |
 
-Each experiment page has three tabs (kept in the URL as `&tab=live|review|data`; running experiments open on Live, stopped ones on Run review):
+Each experiment page has three tabs in the bar under the header (kept in the URL as `&tab=live|review|data`; running experiments open on Live, stopped ones on Run review):
 
 - **Live** — right now (running jobs vs. typical duration, SLURM-pending jobs and why, latest finished), progress grid, initial conditions / MARS, simulations & GPUs, problems.
 - **Run review** — setup, timeline, durations & time left, HPC performance.
@@ -55,7 +62,8 @@ Each experiment page has three tabs (kept in the URL as `&tab=live|review|data`;
   - Hovmöller: longitude × time over a latitude band, ensemble mean or one member (`/api/hovmoller`);
   - across start dates: area mean at chosen forecast days for every start date and member, and the average drift with lead time (`/api/hindcast`, on demand: it reads one file per start date × member, ~12 s for 1080 files).
 
-Every section can be collapsed (click its title, or "Collapse all"); the choice is remembered per browser.
+Every section can be collapsed (click its title, or "Collapse all" at the right of the tab bar); the choice is
+remembered per browser. On a refresh only the parts that changed are redrawn, so logs keep their scroll position.
 
 Why the pickle and not `autosubmit monitor -o txt`: reading the pickle takes about 0.1 s for all experiments,
 includes WAITING/READY jobs, and writes nothing. `monitor` takes seconds and writes files into
@@ -76,12 +84,17 @@ The page polls the server every 30, 45 or 60 s (selectable) and always shows whe
 
 ## AIUQ Launcher
 
-A five-step form (start from blank or from an existing experiment · model & checkpoint · initial conditions & run type ·
+Four views in the tab bar (kept in the URL as `&view=runs|delete|activity`): **New experiment**, **Launch & stop**,
+**Delete** and **Activity** (the actions of this dashboard session). The experiment tables have the same filter as the
+Monitor, and "Manage in Launcher" on an experiment page opens Launch & stop on that experiment.
+
+New experiment is a five-step form (start from blank or from an existing experiment · model & checkpoint · initial conditions & run type ·
 members & start dates · outputs). Choices come from the selected Git branch (a blob-less clone kept in
 `~/.local/share/aiuq-dashboard/repo.git`): models and ICS with a FELIPE job configuration, the model cards (variables,
 levels) and the AIUQ-st standard. Checkpoints are checked on the HPC (`<support folder>/models/<model>/`) and the README
-support matrix is shown as badges. The side panel shows the number of simulations, a time estimate from finished
-experiments with the same model, errors/warnings, the exact `conf/main.yml` and the commands.
+support matrix is shown as badges. The side panel shows the number of simulations, a recap of the five steps (click
+one to jump to it), a time estimate from finished experiments with the same model, errors/warnings, the exact
+`conf/main.yml` and the commands.
 
 | Action | What runs on mafalda |
 |---|---|
@@ -121,8 +134,9 @@ touched), downloads Plotly / topojson / coastlines into `aiuq_dash/static/vendor
 
 ## Look and feel
 
-The brand colours, fonts, radii and logo follow the documentation theme (`docs/source/_static/aiuq.css`): navy
-header, teal accent, ink text. The design tokens at the top of `static/style.css` mirror those values (light and a
+The interface shares its visual language with AIUQ Compare (header, sticky tab bar, cards, key-number tiles, segmented
+controls, skeleton loaders, dialogs). The brand colours, fonts, radii and logo follow the documentation theme
+(`docs/source/_static/aiuq.css`): navy header, teal accent, ink text. The design tokens at the top of `static/style.css` mirror those values (light and a
 navy dark variant); change them together with the docs. Job-status colours (`--st-*`) and the data palettes of
 charts and maps are semantic and kept independent of the brand.
 
