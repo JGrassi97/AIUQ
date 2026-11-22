@@ -251,7 +251,7 @@ def m_preview(st, d):
     k = d.get("compression") or {}
     if k.get("preset"):
         sizes = k.get("sizes") or {}
-        gb = lambda name: "~%.1f GB" % (sizes[name] / 1e9)                                     # noqa: E731
+        gb = lambda name: "~%.1f GB" % (sizes[name] / 1e9) if sizes[name] >= 1e9 else "~%.0f MB" % (sizes[name] / 1e6)   # noqa: E731
         others = ", ".join("%s %s" % (n, gb(n)) for n in ("none", "lossless", "bits", "integer", "mixed") if n in sizes and n != k["preset"])
         print("output compression: %s%s%s" % (k["preset"], " · outputs %s" % gb(k["preset"]) if k["preset"] in sizes else "",
                                               " (estimates; %s)" % others if others else ""))
