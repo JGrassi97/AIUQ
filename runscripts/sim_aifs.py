@@ -26,6 +26,7 @@ from AIUQst_lib.functions import parse_arguments, read_config, normalize_out_var
 from AIUQst_lib.pressure_levels import check_pressure_levels
 from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
 from AIUQst_lib.variables import resample_daily, resolve_outputs
+from AIUQst_lib.compression import Scheme
 
 from postprocess_aifs import build_dataset_for_state
 from AIUQst_lib.streaming import StepBuffer
@@ -76,6 +77,10 @@ def main() -> None:
     _OUT_LEVS           = config.get("OUT_LEVS", "")
     _ICS_TEMP_DIR       = config.get("ICS_TEMP_DIR", "")
     _STD_VERSION        = config.get("STD_VERSION", "")
+
+    # The final files are written by POSTPROCESS; a compression setting that cannot be used must stop the
+    # experiment here, before the GPU run, not there.
+    Scheme.from_config(config)
     
       
     #IC settings

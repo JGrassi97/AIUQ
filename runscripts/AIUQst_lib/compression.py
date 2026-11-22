@@ -545,5 +545,8 @@ def _blocks(var, target_bytes=256 * 2 ** 20) -> list:
     axis = var.dimensions.index("valid_time")
     per_time = max(1, int(np.prod([n for i, n in enumerate(var.shape) if i != axis], dtype="i8")) * 8)
     step = max(1, int(target_bytes // per_time))
-    return [tuple(slice(start, start + step) if i == axis else slice(None) for i in range(var.ndim))
-            for start in range(0, var.shape[axis], step)]
+    length = var.shape[axis]
+    # Slices end at the last valid time: along an unlimited dimension (cdo writes one) a longer slice would
+    # ask for that many values when writing.
+    return [tuple(slice(start, min(start + step, length)) if i == axis else slice(None) for i in range(var.ndim))
+            for start in range(0, length, step)]

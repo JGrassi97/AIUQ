@@ -222,7 +222,8 @@ def legacy_file(path, model, tag=None, packed=None, keepbits=None):
     values[0, 0].flat[:7] = np.nan
     with netCDF4.Dataset(path, "w") as nc:
         for dim in dims:
-            nc.createDimension(dim, sizes[dim])
+            # cdo leaves the time dimension unlimited in the AIFS files
+            nc.createDimension(dim, None if dim == "valid_time" and model.startswith("aifs") else sizes[dim])
         nc.createVariable("valid_time", "i8", ("valid_time",)).units = "hours since 2026-11-21 06:00:00"
         nc["valid_time"][:] = np.arange(8) * 6
         nc.createVariable("level", "i8", ("level",))[:] = [1000, 850]
