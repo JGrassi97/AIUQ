@@ -8,6 +8,11 @@ metadata:
                 A model card maps them to its own names in its 'outputs' block; each checkpoint lists what it
                 can write in its 'checkpoints' block."
   reference_url : https://codes.ecmwf.int/grib/param-db/
+  # units, standard_name, height and pack as in variables.yml (CF notation, CF standard name table version 95).
+  # Precipitation, snowfall and runoff: 0.1 mm with 'mixed' and 1 mm with 'integer' (1 mm sets to zero about
+  # a third of the grid points with rain in 6 h); the rates the same amounts in 6 h.
+  # No CF standard name exists for the runoff in metres (ro), the UV flux (avg_sduvrf) and a moisture flux
+  # that is negative upwards (avg_ie): they carry long_name only, which CF allows.
   # accumulated: true   the field is a total over a period (the model step for AIFS, 6 h): daily output
   #                     sums the steps of the day instead of averaging them.
   # Time-mean rates and fluxes (avg_*) are averages over a period, given for each model by the 'window' of
@@ -19,45 +24,56 @@ data:
     short_name  : stl1
     long_name   : Soil temperature level 1
     units       : K
+    standard_name : soil_temperature
     type        : sfc
+    pack        : {mixed: 1, integer: 1, offset: 273.15}
 
   170 :
     short_name  : stl2
     long_name   : Soil temperature level 2
     units       : K
+    standard_name : soil_temperature
     type        : sfc
+    pack        : {mixed: 1, integer: 1, offset: 273.15}
 
   143 :
     short_name  : cp
     long_name   : Convective precipitation
     units       : m
+    standard_name : lwe_thickness_of_convective_precipitation_amount
     type        : sfc
+    pack        : {mixed: 0.0001, integer: 0.001}
     accumulated : true
 
   144 :
     short_name  : sf
     long_name   : Snowfall
-    units       : m of water equivalent
+    units       : m
+    standard_name : lwe_thickness_of_snowfall_amount
     type        : sfc
+    pack        : {mixed: 0.0001, integer: 0.001}
     accumulated : true
 
   159 :
     short_name  : blh
     long_name   : Boundary layer height
     units       : m
+    standard_name : atmosphere_boundary_layer_thickness
     type        : sfc
 
   169 :
     short_name  : ssrd
     long_name   : Surface short-wave (solar) radiation downwards
-    units       : J m**-2
+    units       : J m-2
+    standard_name : integral_wrt_time_of_surface_downwelling_shortwave_flux_in_air
     type        : sfc
     accumulated : true
 
   175 :
     short_name  : strd
     long_name   : Surface long-wave (thermal) radiation downwards
-    units       : J m**-2
+    units       : J m-2
+    standard_name : integral_wrt_time_of_surface_downwelling_longwave_flux_in_air
     type        : sfc
     accumulated : true
 
@@ -66,59 +82,73 @@ data:
     long_name   : Runoff
     units       : m
     type        : sfc
+    pack        : {mixed: 0.0001, integer: 0.001}
     accumulated : true
 
   228 :
     short_name  : tp
     long_name   : Total precipitation
     units       : m
+    standard_name : lwe_thickness_of_precipitation_amount
     type        : sfc
+    pack        : {mixed: 0.0001, integer: 0.001}
     accumulated : true
 
   228029 :
     short_name  : i10fg
     long_name   : Instantaneous 10 metre wind gust
-    units       : m s**-1
+    units       : m s-1
+    standard_name : wind_speed_of_gust
+    height      : 10
     type        : sfc
+    pack        : {mixed: 1, integer: 1}
 
   235027 :
     short_name  : avg_sduvrf
     long_name   : Time-mean surface downward UV radiation flux
-    units       : W m**-2
+    units       : W m-2
     type        : sfc
 
   235031 :
     short_name  : avg_tsrwe
     long_name   : Time-mean total snowfall rate water equivalent
-    units       : kg m**-2 s**-1
+    units       : kg m-2 s-1
+    standard_name : snowfall_flux
     type        : sfc
+    pack        : {mixed: 4.6296296296296296e-06, integer: 4.6296296296296294e-05}
 
   235035 :
     short_name  : avg_sdswrf
     long_name   : Time-mean surface downward short-wave radiation flux
-    units       : W m**-2
+    units       : W m-2
+    standard_name : surface_downwelling_shortwave_flux_in_air
     type        : sfc
 
   235040 :
     short_name  : avg_tnlwrf
     long_name   : Time-mean top net long-wave radiation flux
-    units       : W m**-2
+    units       : W m-2
+    standard_name : toa_net_downward_longwave_flux
     type        : sfc
 
   235043 :
     short_name  : avg_ie
     long_name   : Time-mean moisture flux (evaporation, negative upwards)
-    units       : kg m**-2 s**-1
+    units       : kg m-2 s-1
     type        : sfc
 
   235055 :
     short_name  : avg_tprate
     long_name   : Time-mean total precipitation rate
-    units       : kg m**-2 s**-1
+    units       : kg m-2 s-1
+    standard_name : precipitation_flux
     type        : sfc
+    pack        : {mixed: 4.6296296296296296e-06, integer: 4.6296296296296294e-05}
 
   260289 :
     short_name  : fscov
     long_name   : Fraction of snow cover
-    units       : (0 - 1)
+    units       : "1"
+    standard_name : surface_snow_area_fraction
     type        : sfc
+    pack        : {mixed: 0.01, integer: 0.01}

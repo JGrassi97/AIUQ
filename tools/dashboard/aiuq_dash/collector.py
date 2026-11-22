@@ -13,6 +13,7 @@ import collections
 import json
 import logging
 import os
+import re
 import statistics
 import threading
 import time
@@ -39,6 +40,7 @@ class ExpCache:
         self.err, self.err_sig = {}, {}
         self.tails = {}
         self.outputs, self.outputs_t = None, None
+        self.outputs_tag = None                   # 'aiuq_compression' of the newest output file
         self.outputs_dir, self.archive = None, None
         self.remote_t, self.remote_error, self.remote_root = None, None, None
         self.local_stats = []
@@ -257,6 +259,7 @@ class Collector:
         c.tails = r.get("tail", {})
         if "outputs" in r:
             c.outputs, c.outputs_t = r["outputs"], now
+            c.outputs_tag = r.get("outputs_tag")
         c.remote_t = now
 
 
@@ -292,6 +295,39 @@ def _member_key(m):
         return (0, int(m))
     except (TypeError, ValueError):
         return (1, str(m))
+
+
+LEGACY_BITS = re.compile(r"^float32, BitRound keepbits=(\d+),")
+
+
+def compression_info(conf, tag):
+    """How the outputs of an experiment are stored: {"preset", "source", "keepbits", "variables", "detail"}.
+
+    The files say it themselves in their 'aiuq_compression' attribute (JSON; the forecasts compressed by the
+    earlier scripts carry one of two texts), and that wins: it is what is on disk. Without files, the
+    experiment configuration (EXPERIMENT.OUT_COMPRESSION), and failing that nothing is known.
+    """
+    conf = conf or {}
+    if tag:
+        info = None
+        try:
+            parsed = json.loads(tag)
+            if isinstance(parsed, dict) and parsed.get("preset"):
+                info = {"preset": parsed["preset"], "keepbits": parsed.get("keepbits"), "variables": parsed.get("variables") or {},
+                        "chunks": parsed.get("chunks")}
+        except ValueError:
+            match = LEGACY_BITS.match(tag)
+            if match:
+                info = {"preset": "bits", "keepbits": int(match.group(1)), "variables": {}, "chunks": "point"}
+            elif tag.startswith("AIUQ mixed integer packing v1"):
+                info = {"preset": "mixed", "keepbits": 12, "variables": {}, "chunks": "point"}
+        if info:
+            return {**info, "source": "files", "detail": tag}
+    if conf.get("out_compression"):
+        opts = conf.get("out_compression_opts") or {}
+        return {"preset": conf["out_compression"], "keepbits": opts.get("keepbits"), "variables": {}, "chunks": opts.get("chunks"),
+                "source": "configuration", "detail": None}
+    return None
 
 
 def build_view(c, description, active, slurm, gpu, now):
@@ -492,7 +528,8 @@ def build_view(c, description, active, slurm, gpu, now):
         "gpu": gpu,
         "outputs": {"files": out_files, "by_var_member": by_vm, "n": len(out_files),
                     "size": sum(f[3] for f in out_files), "fetched": c.outputs_t,
-                    "dir": c.outputs_dir or f"{c.remote_root}/outputs", "archive": c.archive},
+                    "dir": c.outputs_dir or f"{c.remote_root}/outputs", "archive": c.archive,
+                    "compression": compression_info(c.conf, c.outputs_tag)},
         "remote": {"t": c.remote_t, "error": c.remote_error, "root": c.remote_root, "host": settings.REMOTE_HOST},
         "pkl_error": c.pkl_error, "pkl_mtime": c.pkl_m,
     }

@@ -91,7 +91,8 @@ def conf_line(c):
                 c.get("model"), c.get("checkpoint"), c.get("ics"), c.get("run_type"), c.get("branch"),
                 len(c.get("dates") or []), c.get("first_date"), c.get("last_date"), len(c.get("members") or []),
                 c.get("num_chunks"), c.get("chunk_size"), c.get("chunk_unit"), ",".join(c.get("out_vars") or []),
-                c.get("out_levs"), c.get("out_res"), c.get("out_freq")))
+                c.get("out_levs"), c.get("out_res"), c.get("out_freq"))
+            + (" · compression %s" % c["out_compression"] if c.get("out_compression") else ""))
 
 
 # ----------------------------------------------------------------------------- modes
@@ -247,6 +248,13 @@ def m_preview(st, d):
     if e:
         print("estimate (from %s): GPU time %s, ICS prep %s, wall ~%s on %s GPU(s) — excludes queue waits" % (
             ",".join(e.get("based_on") or []), dur(e["gpu_s"]), dur(e["prep_s"]), dur(e["wall_s"]), e["gpus"]))
+    k = d.get("compression") or {}
+    if k.get("preset"):
+        sizes = k.get("sizes") or {}
+        gb = lambda name: "~%.1f GB" % (sizes[name] / 1e9) if sizes[name] >= 1e9 else "~%.0f MB" % (sizes[name] / 1e6)   # noqa: E731
+        others = ", ".join("%s %s" % (n, gb(n)) for n in ("none", "lossless", "bits", "integer", "mixed") if n in sizes and n != k["preset"])
+        print("output compression: %s%s%s" % (k["preset"], " · outputs %s" % gb(k["preset"]) if k["preset"] in sizes else "",
+                                              " (estimates; %s)" % others if others else ""))
     if d.get("yaml"):
         print("----- conf/main.yml -----")
         print(d["yaml"].rstrip())

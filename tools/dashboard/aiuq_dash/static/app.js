@@ -720,6 +720,8 @@ function renderSetup(v) {
   const [icsName, icsSrc] = ICS_INFO[c.ics] || [c.ics || "?", ""];
   const levs = Array.isArray(c.out_levs) ? `${c.out_levs.join(", ")} hPa` : (c.out_levs || "—");
   const res = c.out_res && c.out_res !== "original" ? `${c.out_res}°` : (c.out_res || "—");
+  const cmp = v.outputs?.compression;       // what the files say, else the experiment configuration
+  const cmpText = cmp ? `${esc(cmp.preset)}${cmp.preset === "bits" && cmp.keepbits ? ` (${cmp.keepbits} bits)` : ""}` : null;
   const stage = (icon, k, big, sub, rows) => `<div class="stage"><div class="stage-k">${ICON[icon]}<span>${k}</span></div>
       <div class="stage-big">${big}</div><div class="stage-sub">${sub}</div>
       <dl>${rows.filter((r) => r[1] != null && r[1] !== "").map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join("")}</dl></div>`;
@@ -745,7 +747,8 @@ function renderSetup(v) {
       ${stage("ens", "Ensemble", plural(nm, "member"), `× ${plural(nd, "start date")} = <b>${nm * nd}</b> forecasts`, [["forecast length", lead], ["split in", plural(nc, "chunk")]])}
       ${arrow}
       ${stage("out", "Outputs", (c.out_vars || []).map((x) => `<span class="var-tag" title="${esc(varName(x))}">${esc(x)}</span>`).join("") || "—", esc(levs),
-        [["resolution", esc(res)], ["frequency", esc(c.out_freq)]])}
+        [["resolution", esc(res)], ["frequency", esc(c.out_freq)], ["compression", cmpText],
+         ["size on disk", v.outputs?.n ? fmtBytes(v.outputs.size) : null]])}
     </div>
     <div class="setup-meta">
       <span>runs on <b>${esc(c.platform)}</b></span>

@@ -70,6 +70,229 @@ CHUNK_UNITS = ["day", "month"]
 EXPID_RE = re.compile(r"^[a-z0-9]{4}$")
 DATE_RE = re.compile(r"^\d{8}$")
 
+# ---------------------------------------------------------------------------- output compression
+# EXPERIMENT.OUT_COMPRESSION of the experiment (runscripts/AIUQst_lib/compression.py reads it in the jobs; the
+# rules here are the same, tests/test_launcher_compression.py keeps the two in step). The steps of 'integer' and
+# 'mixed' come from 'pack' of the AIUQ-st standard of the chosen branch.
+COMPRESSION_PRESETS = [
+    ("none", "None", "As the model writes them: not compressed. For debugging."),
+    ("lossless", "Lossless", "float32 (what the models compute in), compressed. Nothing is rounded: research, verification, hindcasts."),
+    ("bits", "Rounded bits", "Lossless, with the values rounded to a number of significant bits (12: relative error below 0.025 %)."),
+    ("integer", "Integers", "Whole °C, m/s, hPa, metres, millimetres and percent. Smallest files; light rain becomes zero."),
+    ("mixed", "Mixed", "Integers, with precipitation at 0.1 mm. Made for operational forecasts."),
+    ("custom", "Custom", "A step, a number of bits or lossless for each output variable."),
+]
+COMPRESSION_NAMES = [name for name, _, _ in COMPRESSION_PRESETS]
+KEEPBITS_MIN, KEEPBITS_MAX, KEEPBITS_DEFAULT = 4, 23, 12
+CHUNK_NAMES = ("point", "map")
+PRECIPITATION = ("tp", "cp", "sf", "ro", "avg_tprate", "avg_tsrwe")
+# Size estimate: bytes per stored value, from the forecasts of November 2026 (0.25 degrees, 6-hourly) compressed
+# with each scheme. Rough: a smooth field compresses better than a noisy one.
+BYTES_UNCOMPRESSED = {"aifs": 4.0, "ms-aurora": 8.0, "neuralgcm": 8.0}      # the type each model writes
+BYTES_LOSSLESS, BYTES_INTEGER, BYTES_INTEGER_FINE = 2.7, 0.33, 0.5
+GRID_POINTS = {"0.25": 721 * 1440, "0.5": 361 * 720, "1": 181 * 360, "1.5": 121 * 240, "2": 91 * 180}
+NATIVE_POINTS = {"aifs": 542080, "ms-aurora": 721 * 1440, "deterministic_0_7": 256 * 512, "_1_4_": 128 * 256, "_2_8_": 64 * 128}
+BIG_RUN_BYTES = 20e9                         # 'none' above this size gets a warning
+
+
+def default_compression(ics):
+    """What the form proposes: forecasts from the latest analysis are kept small, everything else exact."""
+    return "mixed" if ics == "ecmwf-an" else "lossless"
+
+
+def compression_supported(branch):
+    """True when the code of the branch reads OUT_COMPRESSION (its conf/general.yml sets the default)."""
+    try:
+        return bool((repo_yaml(branch, "conf/general.yml").get("EXPERIMENT") or {}).get("OUT_COMPRESSION"))
+    except RuntimeError:
+        return False
+
+
+def _bits_bytes(keepbits):
+    return 0.25 + 0.0625 * keepbits          # 12 bits: about 1 byte per value
+
+
+def _rule_of(rules, name):
+    return rules.get(name, rules.get("default"))
+
+
+def variable_storage(preset, opts, variable):
+    """(mode, value) for one variable of the form: ('integer', step), ('bits', n), ('lossless', None), ('none', None)."""
+    keepbits = opts.get("keepbits", KEEPBITS_DEFAULT)
+    if preset in ("none", "lossless"):
+        return preset, None
+    if preset == "bits":
+        return "bits", keepbits
+    if preset == "custom":
+        rule = _rule_of(opts.get("custom") or {}, variable["name"])
+        if not rule:
+            return "bits", keepbits
+        if "step" in rule:
+            return "integer", float(rule["step"])
+        if "keepbits" in rule:
+            return "bits", int(rule["keepbits"])
+        return str(rule.get("mode") or "lossless"), None
+    step = (variable.get("pack") or {}).get(preset)
+    return ("integer", float(step)) if step else ("bits", keepbits)
+
+
+def clean_compression(cfg, ics, out_vars, variables, supported, errors, warnings):
+    """Checked (preset, options) of a form config; problems are appended to ``errors`` and ``warnings``."""
+    preset = cfg.get("out_compression")
+    given = cfg.get("out_compression_opts") or {}
+    if not supported:
+        if preset or given:
+            warnings.append("This branch does not read OUT_COMPRESSION: the outputs are written as its code does.")
+        return None, {}
+    preset = str(preset or default_compression(ics)).strip().lower()
+    if preset not in COMPRESSION_NAMES:
+        errors.append(f"Output compression must be one of {', '.join(COMPRESSION_NAMES)}.")
+        return None, {}
+    if not isinstance(given, dict):
+        errors.append("The compression options must be a mapping.")
+        return preset, {}
+    opts = {}
+    unknown = set(given) - {"keepbits", "chunks", "complevel", "custom"}
+    if unknown:
+        errors.append(f"Unknown compression option(s): {', '.join(sorted(unknown))}.")
+
+    def whole(value, low, high, what):
+        try:
+            number = int(value)
+            if number != float(value) or not low <= number <= high:
+                raise ValueError
+            return number
+        except (TypeError, ValueError):
+            errors.append(f"{what} must be a whole number from {low} to {high}.")
+            return None
+
+    if given.get("keepbits") not in (None, ""):
+        bits = whole(given["keepbits"], KEEPBITS_MIN, KEEPBITS_MAX, "The number of significant bits")
+        if bits is not None and bits != KEEPBITS_DEFAULT:
+            opts["keepbits"] = bits
+    if given.get("complevel") not in (None, ""):
+        level = whole(given["complevel"], 1, 9, "The zlib level")
+        if level is not None and level != 1:
+            opts["complevel"] = level
+    chunks = given.get("chunks")
+    if chunks not in (None, "", "point"):
+        if isinstance(chunks, str):
+            if chunks.strip().lower() not in CHUNK_NAMES:
+                errors.append("Chunks must be point, map or three numbers: valid times, latitudes, longitudes.")
+            else:
+                opts["chunks"] = chunks.strip().lower()
+        else:
+            try:
+                sizes = [int(x) for x in chunks]
+                if len(sizes) != 3 or any(x < 1 for x in sizes) or any(int(x) != float(x) for x in chunks):
+                    raise ValueError
+                opts["chunks"] = sizes
+            except (TypeError, ValueError):
+                errors.append("Chunks must be point, map or three whole numbers of at least 1: valid times, latitudes, longitudes.")
+
+    custom = given.get("custom")
+    if preset == "custom":
+        rules = {}
+        if not isinstance(custom, dict) or not custom:
+            errors.append("Custom compression needs a rule for at least one output variable, or a default.")
+        else:
+            for name, rule in custom.items():
+                name = str(name).strip().lower()
+                if name != "default" and name not in out_vars:
+                    errors.append(f"Custom compression: '{name}' is not among the output variables.")
+                    continue
+                if not isinstance(rule, dict):
+                    errors.append(f"Custom compression of '{name}': give a step, a number of bits or lossless.")
+                    continue
+                rule = {str(k).lower(): v for k, v in rule.items()}
+                if "step" in rule:
+                    try:
+                        step, offset = float(rule["step"]), float(rule.get("offset") or 0.0)
+                        if not step > 0 or step != step or abs(step) == float("inf") or offset != offset:
+                            raise ValueError
+                        rules[name] = {"step": step, **({"offset": offset} if offset else {})}
+                    except (TypeError, ValueError):
+                        errors.append(f"Custom compression of '{name}': the step must be a number greater than zero.")
+                elif "keepbits" in rule:
+                    bits = whole(rule["keepbits"], KEEPBITS_MIN, KEEPBITS_MAX, f"Custom compression of '{name}': the number of bits")
+                    if bits is not None:
+                        rules[name] = {"keepbits": bits}
+                elif str(rule.get("mode", "")).lower() in ("lossless", "none"):
+                    rules[name] = {"mode": str(rule["mode"]).lower()}
+                else:
+                    errors.append(f"Custom compression of '{name}': give a step, a number of bits or lossless.")
+        if rules:
+            opts["custom"] = rules
+    elif custom:
+        errors.append("Per-variable rules are only for the custom compression.")
+
+    by_name = {v["name"]: v for v in variables}
+    used = [by_name.get(v, {"name": v}) for v in out_vars]
+    bits_used = [value for mode, value in (variable_storage(preset, opts, v) for v in used) if mode == "bits"]
+    if bits_used and min(bits_used) < 8:
+        warnings.append(f"{min(bits_used)} significant bits is a relative error of {100 * 2.0 ** -min(bits_used):.1f} %: visible in maps and in differences between fields.")
+    rain = [v for v in out_vars if v in PRECIPITATION]
+    if preset == "integer" and rain:
+        warnings.append(f"Integer compression stores {', '.join(rain)} in whole millimetres: about a third of the grid points "
+                        "with rain in 6 h become zero. 'mixed' keeps 0.1 mm.")
+    return preset, opts
+
+
+def estimate_size(model, checkpoint, preset, opts, out_vars, variables, n_levels, res, freq, members, n_dates, days):
+    """Rough size in bytes of the outputs of an experiment, per compression preset: {preset: bytes}."""
+    if res in GRID_POINTS:
+        points = GRID_POINTS[res]
+    else:
+        points = NATIVE_POINTS.get(model) or next((n for key, n in NATIVE_POINTS.items() if key in str(checkpoint)), 128 * 256)
+    by_name = {v["name"]: v for v in variables}
+    steps = max(1.0, days * (1 if freq == "daily" else 4))
+    sizes = {}
+    for name in COMPRESSION_NAMES:
+        chosen = opts if name == preset else {}
+        if name == "custom" and name != preset:
+            continue                                   # depends on rules that have not been given
+        total = 0.0
+        for var in out_vars:
+            info = by_name.get(var, {"name": var})
+            fields = n_levels if info.get("type") == "pl" else 1
+            mode, value = variable_storage(name, chosen, info)
+            if mode == "none":
+                rate = BYTES_UNCOMPRESSED.get(model, 8.0)
+            elif mode == "lossless":
+                rate = BYTES_LOSSLESS
+            elif mode == "bits":
+                rate = _bits_bytes(value)
+            else:
+                coarse = (info.get("pack") or {}).get("integer")
+                rate = BYTES_INTEGER_FINE if coarse and value < 0.5 * float(coarse) else BYTES_INTEGER
+            total += fields * rate
+        sizes[name] = total * points * steps * members * n_dates
+    return sizes
+
+
+def compression_yaml(preset, opts):
+    """Lines of EXPERIMENT in main.yml. The per-variable rules are a list of texts: Autosubmit hands the jobs the
+    single values of the configuration, never a nested mapping."""
+    if not preset:
+        return ""
+    lines = [f"  OUT_COMPRESSION: {preset}"]
+    body = []
+    if "keepbits" in opts:
+        body.append(f"    KEEPBITS: {opts['keepbits']}")
+    if "chunks" in opts:
+        body.append(f"    CHUNKS: {opts['chunks'] if isinstance(opts['chunks'], str) else '[' + ', '.join(map(str, opts['chunks'])) + ']'}")
+    if "complevel" in opts:
+        body.append(f"    COMPLEVEL: {opts['complevel']}")
+    if opts.get("custom"):
+        body.append("    CUSTOM:")
+        for name, rule in opts["custom"].items():
+            inner = ", ".join(f"{k}: {v!r}" if isinstance(v, float) else f"{k}: {v}" for k, v in rule.items())
+            body.append(f'      - "{name}: {{{inner}}}"')
+    if body:
+        lines += ["  OUT_COMPRESSION_OPTS:"] + body
+    return "\n".join(lines) + "\n"
+
+
 
 def is_ensemble(ckpt):
     c = (ckpt or "").lower()
@@ -221,7 +444,12 @@ def options(branch):
     res = {"branch": branch, "platform": PLATFORM, "ics": plat_ics, "models": models, "std_version": std_version,
            "forcings": FORCINGS, "resolutions": RESOLUTIONS, "freqs": FREQS, "chunk_units": CHUNK_UNITS,
            "support_folder": SUPPORT_FOLDER, "user_code": settings.REMOTE_USER, "checkpoints_checked": bool(ckpts),
-           "store_by_ics": store_by_ics}
+           "store_by_ics": store_by_ics,
+           "compression": {"supported": compression_supported(branch),
+                           "presets": [{"name": n, "label": l, "description": d} for n, l, d in COMPRESSION_PRESETS],
+                           "keepbits": {"min": KEEPBITS_MIN, "max": KEEPBITS_MAX, "default": KEEPBITS_DEFAULT},
+                           "chunks": list(CHUNK_NAMES), "precipitation": list(PRECIPITATION),
+                           "defaults": {ics: default_compression(ics) for ics in plat_ics}}}
     _opts_cache[branch] = (time.time(), res)
     return res
 
@@ -237,8 +465,8 @@ def card_variables(card, std_by_code):
             window = entry.get("window") if isinstance(entry, dict) else None
             period = bool(s.get("accumulated") or window)
             out[s["short_name"]] = {
-                "name": s["short_name"], "long": s.get("long_name", ""), "units": s.get("units", ""),
-                "type": s.get("type", ""),
+                "name": s["short_name"], "long": s.get("long_name", ""), "units": str(s.get("units", "")),
+                "type": s.get("type", ""), "pack": s.get("pack"),
                 "period": window or ("over the output step" if s.get("accumulated") else None),
                 "group": "period" if period else s.get("type", ""),
             }
@@ -390,11 +618,20 @@ def validate(cfg):
     sims = len(dates) * members * max(num_chunks, 0)
     if sims > 3000:
         warnings.append(f"This creates {sims} simulation jobs.")
+    compression, compression_opts = clean_compression(cfg, ics, out_vars, model["variables"], opts["compression"]["supported"],
+                                                       errors, warnings)
+    days = max(chunk_size, 0) * max(num_chunks, 0) * (30 if unit == "month" else 1)
+    sizes = estimate_size(model["name"], ck["name"] if ck else "", compression, compression_opts, out_vars, model["variables"],
+                          len(model_levels) if levs == "original" else len(levs or []), res, freq, max(members, 0), len(dates), days)
+    if compression == "none" and sizes.get("none", 0) > BIG_RUN_BYTES:
+        warnings.append(f"Without compression the outputs take about {sizes['none'] / 1e9:.0f} GB "
+                        f"(lossless: about {sizes['lossless'] / 1e9:.0f} GB, with the same values).")
     clean = {"branch": branch, "model": model["name"], "checkpoint": ck["name"] if ck else None, "ics": ics,
              "run_type": run_type, "forcing": forcing, "members": members, "dates": dates, "chunk_size": chunk_size,
              "chunk_unit": unit, "num_chunks": num_chunks, "out_vars": out_vars, "out_levs": levs, "out_res": res,
              "out_freq": freq, "description": desc, "support_folder": SUPPORT_FOLDER, "user_code": settings.REMOTE_USER,
-             "output_store": store, "sims": sims}
+             "output_store": store, "sims": sims, "out_compression": compression,
+             "out_compression_opts": compression_opts, "sizes": sizes}
     return clean, errors, warnings
 
 
@@ -422,7 +659,7 @@ EXPERIMENT:
   OUT_RES: "{c['out_res']}"
   OUT_LEVS: {levs}
   FORCING_VERSION: {c['forcing']}
-
+{compression_yaml(c.get('out_compression'), c.get('out_compression_opts') or {})}
 PATHS:
   SUPPORT_FOLDER: {c['support_folder']}
   SIF_FOLDER: "%PATHS.SUPPORT_FOLDER%/sif"
@@ -453,7 +690,8 @@ def preview(cfg):
             "# write <expid>/conf/main.yml (shown above)",
             f"{AS_BIN} create <expid> -np"]
     return {"ok": not errors, "errors": errors, "warnings": warnings, "yaml": main_yml(clean), "commands": cmds,
-            "summary": {k: clean[k] for k in ("sims", "members", "num_chunks", "chunk_size", "chunk_unit")} | {"n_dates": len(clean["dates"])}}
+            "summary": {k: clean[k] for k in ("sims", "members", "num_chunks", "chunk_size", "chunk_unit")} | {"n_dates": len(clean["dates"])},
+            "compression": {"preset": clean["out_compression"], "opts": clean["out_compression_opts"], "sizes": clean["sizes"]}}
 
 
 def template(expid):
@@ -469,7 +707,9 @@ def template(expid):
             "num_chunks": conf.get("num_chunks") or 1, "out_vars": conf.get("out_vars") or [],
             "out_levs": lev if lev == "original" else (lev or []), "out_res": str(conf.get("out_res") or "1"),
             "out_freq": conf.get("out_freq") or "daily", "description": f"copy of {expid}",
-            "output_store": conf.get("output_store")}
+            "output_store": conf.get("output_store"),
+            # None: the experiment was written before compression could be chosen; the form proposes its default
+            "out_compression": conf.get("out_compression"), "out_compression_opts": conf.get("out_compression_opts") or {}}
 
 
 # ---------------------------------------------------------------------------- tasks

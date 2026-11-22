@@ -140,8 +140,55 @@ Output controls
      - List of pressure levels in hPa, or ``original``
      - Pressure-level selection.
 
-Output support depends on the model's postprocessing implementation. Consult its
-job configuration and templates when extending these settings to a new model.
+Every model writes the same CF-compliant NetCDF files, described in :doc:`outputs`.
+
+Output compression
+------------------
+
+``EXPERIMENT.OUT_COMPRESSION`` chooses how the values are stored; the default,
+``lossless``, is in ``conf/general.yml``.
+
+.. list-table::
+   :header-rows: 1
+   :widths: 16 84
+
+   * - Value
+     - Storage
+   * - ``none``
+     - As the model gives them, not compressed.
+   * - ``lossless``
+     - ``float32``, compressed, nothing rounded. Default.
+   * - ``bits``
+     - As ``lossless``, rounded to ``KEEPBITS`` significant bits (default 12).
+   * - ``integer``
+     - Whole degrees, m/s, hPa, metres, millimetres and percent; the other variables
+       as ``bits``. Whole millimetres set light rain to zero.
+   * - ``mixed``
+     - As ``integer`` with precipitation at 0.1 mm: for operational forecasts.
+   * - ``custom``
+     - A rule per variable, in ``OUT_COMPRESSION_OPTS.CUSTOM``.
+
+.. code-block:: yaml
+
+   EXPERIMENT:
+     OUT_COMPRESSION: mixed
+     OUT_COMPRESSION_OPTS:       # optional
+       KEEPBITS: 12              # 4-23
+       CHUNKS: point             # point | map | [valid times, latitudes, longitudes]
+       COMPLEVEL: 1              # zlib 1-9
+       CUSTOM:                   # only with OUT_COMPRESSION: custom; a list of texts
+         - "t2m: {step: 0.5, offset: 273.15}"
+         - "default: {keepbits: 12}"
+
+The steps, the errors, the chunks and the command that compresses existing outputs
+are in :doc:`outputs`. A wrong value (an unknown preset, bits outside 4-23, a step
+of zero, ``custom`` without rules) stops the ``SIM`` job at its start with a message
+that names it. One more setting says who produced the data:
+
+.. code-block:: yaml
+
+   OUTPUT_FORMAT:
+     INSTITUTION: ""     # written as the global attribute "institution"; left out when empty
 
 Output store
 ------------

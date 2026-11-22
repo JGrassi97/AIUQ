@@ -96,6 +96,16 @@ support matrix is shown as badges. The side panel shows the number of simulation
 one to jump to it), a time estimate from finished experiments with the same model, errors/warnings, the exact
 `conf/main.yml` and the commands.
 
+**Output compression** (step 5): the six presets of `EXPERIMENT.OUT_COMPRESSION` with a size estimate for the
+experiment being configured, the storage of each selected variable, advanced options (significant bits, chunks,
+zlib level) and, for `custom`, a table with a rule per output variable. The form proposes `mixed` for forecasts
+from the ECMWF analysis and `lossless` otherwise; it warns about `integer` with precipitation, fewer than 8 bits
+and `none` on large runs, and refuses a step of zero or less, a rule for a variable that is not written and
+invalid chunks. The steps come from `pack` in the AIUQ-st standard of the chosen branch; a branch without the
+setting shows a note instead of the controls. The Monitor shows the scheme of an experiment (read from the output
+files, otherwise from its configuration) and the size on disk in the setup card and in the Data tab, and reads
+integer-packed files like any other.
+
 | Action | What runs on the Autosubmit host |
 |---|---|
 | Create | `autosubmit expid -min -H <AIUQ_LAUNCH_PLATFORM> -d … -repo … -b <branch> -conf conf/bootstrap/`, write `<expid>/conf/main.yml` (never overwrites; includes `OUTPUT_STORE.DIR` only if set in the form, otherwise the branch default for the chosen ICS applies), `autosubmit create <expid> -np`. Nothing is submitted. |

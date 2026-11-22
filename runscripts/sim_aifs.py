@@ -25,7 +25,8 @@ from anemoi.inference.runners.simple import SimpleRunner
 from AIUQst_lib.functions import parse_arguments, read_config, normalize_out_vars
 from AIUQst_lib.pressure_levels import check_pressure_levels
 from AIUQst_lib.cards import read_model_card, read_ic_card, read_std_version
-from AIUQst_lib.variables import output_attrs, resample_daily, resolve_outputs
+from AIUQst_lib.variables import resample_daily, resolve_outputs
+from AIUQst_lib.compression import Scheme
 
 from postprocess_aifs import build_dataset_for_state
 from AIUQst_lib.streaming import StepBuffer
@@ -76,6 +77,10 @@ def main() -> None:
     _OUT_LEVS           = config.get("OUT_LEVS", "")
     _ICS_TEMP_DIR       = config.get("ICS_TEMP_DIR", "")
     _STD_VERSION        = config.get("STD_VERSION", "")
+
+    # The final files are written by POSTPROCESS; a compression setting that cannot be used must stop the
+    # experiment here, before the GPU run, not there.
+    Scheme.from_config(config)
     
       
     #IC settings
@@ -187,7 +192,6 @@ def main() -> None:
                 attrs=reference.attrs,
             )
             dataset = predictions.to_dataset(name=var)
-            dataset.attrs["Conventions"] = "CF-1.8"
 
             # # rename time -> valid_time and attach coords with matching length
             dataset = dataset.rename({"time": "valid_time"})
@@ -207,8 +211,10 @@ def main() -> None:
             if _OUT_FREQ == "daily":
                 dataset = resample_daily(dataset, var, spec["accumulated"])
 
+            # Intermediate file on the model grid: POSTPROCESS regrids it (cdo) and writes the final CF file
+            # (runscripts/finalize_aifs_output.py), taking the initial time from the 'time' coordinate here.
             predictions_datarray = dataset[var].rename(var_name)
-            predictions_datarray.attrs.update(output_attrs(spec, _OUT_FREQ == "daily"))
+            predictions_datarray.attrs = {}
             OUTPUT_BASE_PATH = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
             os.makedirs(OUTPUT_BASE_PATH, exist_ok=True)
             OUTPUT_FILE = f"{OUTPUT_BASE_PATH}/out-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var_name}_temp.nc"

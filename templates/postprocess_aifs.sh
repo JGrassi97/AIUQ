@@ -48,7 +48,12 @@ vars=$(printf '%s' "$RAW_VARS_STR" | sed -E 's/[^A-Za-z0-9_]+/ /g')
 # Load required modules on MareNostrum5
 if [ "$PLATFORM_NAME" = "MARENOSTRUM5" ]; then
     module load EB/apps EB/install CDO/2.2.2-gompi-2023b
+    ml singularity
 fi
+
+# The final files are written in the AIFS image (runscripts/finalize_aifs_output.py)
+source %HPCROOTDIR%/lib/functions.sh
+SIF_PATH=%PATHS.SIF_FOLDER%/$(aifs_sif_name "%MODEL.CHECKPOINT_NAME%")
 
 # Dates: input may be YYYYMMDD; files are YYYY-MM-DD
 start_date=$(echo "$CHUNK_START_DATE" | sed 's/^\([0-9]\{4\}\)\([0-9]\{2\}\)\([0-9]\{2\}\)$/\1-\2-\3/')
@@ -67,24 +72,41 @@ case "$OUT_RES" in
     *)        echo "ERROR: unsupported OUT_RES '$OUT_RES' (original / 0.25 / 0.5 / 1 / 1.5 / 2)"; exit 1 ;;
 esac
 
+# For every variable: SIM output on the model grid (_temp.nc) -> cdo file with the grid description, regridded
+# unless OUT_RES is original (_grid.nc) -> final file in the AIUQ output convention (.nc). The intermediate
+# files end in _temp.nc / _grid.nc, which every reader skips, and are removed once the final file is complete.
+finalize_args=()
 for var in $vars; do
-    infile="${OUTPUT_PATH}/${var}/${MEMBER}/out-${start_date}-${end_date}-${MEMBER}-${var}_temp.nc"
-    gridf="${OUTPUT_PATH}/${var}/${MEMBER}/out-${start_date}-${end_date}-${MEMBER}-${var}_grid.nc"
-    outf="${OUTPUT_PATH}/${var}/${MEMBER}/out-${start_date}-${end_date}-${MEMBER}-${var}.nc"
+    base="${OUTPUT_PATH}/${var}/${MEMBER}/out-${start_date}-${end_date}-${MEMBER}-${var}"
+    infile="${base}_temp.nc"
+    nativef="${base}_native_grid.nc"
+    gridf="${base}_grid.nc"
+    outf="${base}.nc"
 
     if [ ! -f "${infile}" ]; then
-        # SIM skips requested variables that AIFS does not produce.
-        echo "WARNING: no SIM output for '${var}' (${infile}), skipped"
+        # SIM skips requested variables that AIFS does not produce; a rerun finds finished variables done.
+        if [ -f "${outf}" ]; then
+            echo "${outf} is already final"
+        else
+            echo "WARNING: no SIM output for '${var}' (${infile}), skipped"
+        fi
         continue
     fi
 
-    # The SIM output is removed only once the final file has been written.
-    cdo -P 8 -setgrid,${GRID_FILE} "${infile}" "${gridf}" || exit 1
     if [ -n "$target_grid" ]; then
-        cdo -P 8 -f nc4 remapdis,${target_grid} "${gridf}" "${outf}" || exit 1
-        rm -f "${gridf}"
+        cdo -P 8 -setgrid,${GRID_FILE} "${infile}" "${nativef}" || exit 1
+        cdo -P 8 -f nc4 remapdis,${target_grid} "${nativef}" "${gridf}" || exit 1
+        rm -f "${nativef}"
     else
-        mv "${gridf}" "${outf}"
+        cdo -P 8 -setgrid,${GRID_FILE} "${infile}" "${gridf}" || exit 1
     fi
-    rm -f "${infile}"
+    finalize_args+=(--file "${var}" "${gridf}" "${infile}" "${outf}")
 done
+
+if [ ${#finalize_args[@]} -gt 0 ]; then
+    singularity exec \
+        --bind $HPCROOTDIR \
+        --env HPCROOTDIR=$HPCROOTDIR \
+        ${SIF_PATH} \
+        python3 $HPCROOTDIR/runscripts/finalize_aifs_output.py -c $configfile "${finalize_args[@]}" || exit 1
+fi

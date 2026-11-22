@@ -67,6 +67,7 @@ def read_conf(expid):
     exp = main.get("EXPERIMENT", {}) or {}
     git = minimal.get("GIT", {}) or {}
     dates = expand_datelist(exp.get("DATELIST"))
+    compression, compression_opts = _compression(exp)
     return {
         "model": model.get("NAME"),
         "checkpoint": model.get("CHECKPOINT_NAME"),
@@ -87,10 +88,31 @@ def read_conf(expid):
         "out_freq": exp.get("OUT_FREQ"),
         "calendar": exp.get("CALENDAR"),
         "forcing": exp.get("FORCING_VERSION"),
+        "out_compression": compression,
+        "out_compression_opts": compression_opts,
         "output_store": (main.get("OUTPUT_STORE", {}) or {}).get("DIR"),
         "platform": (main.get("PLATFORM", {}) or {}).get("NAME") or (minimal.get("DEFAULT", {}) or {}).get("HPCARCH"),
         "as_version": (minimal.get("CONFIG", {}) or {}).get("AUTOSUBMIT_VERSION"),
     }
+
+
+def _compression(experiment):
+    """(preset, options) of EXPERIMENT.OUT_COMPRESSION in main.yml; the per-variable rules are a list of texts
+    there (Autosubmit hands the jobs single values only) and a mapping here."""
+    preset = experiment.get("OUT_COMPRESSION")
+    raw = {str(k).lower(): v for k, v in (experiment.get("OUT_COMPRESSION_OPTS") or {}).items()}
+    opts = {k: raw[k] for k in ("keepbits", "chunks", "complevel") if raw.get(k) not in (None, "")}
+    custom, rules = raw.get("custom"), {}
+    for item in custom if isinstance(custom, list) else ([{k: v} for k, v in custom.items()] if isinstance(custom, dict) else []):
+        try:
+            parsed = yaml.safe_load("{" + item + "}") if isinstance(item, str) else item
+            (name, rule), = parsed.items()
+            rules[str(name).lower()] = {str(k).lower(): v for k, v in rule.items()}
+        except (ValueError, AttributeError, TypeError, yaml.YAMLError):
+            continue
+    if rules:
+        opts["custom"] = rules
+    return (str(preset).lower() if preset else None), opts
 
 
 def store_marker(expid):

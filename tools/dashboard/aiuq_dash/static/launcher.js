@@ -16,6 +16,8 @@ const L = {
     members: 10, dates: ["19890101"], chunk_size: 30, chunk_unit: "day", num_chunks: 1,
     out_vars: ["t", "z"], out_levs: [1000, 850, 500], out_res: "1", out_freq: "daily", description: "",
     output_store: null,
+    out_compression: null,          // null: the default for the initial conditions (mixed for ecmwf-an, else lossless)
+    out_compression_opts: {},       // keepbits, chunks, complevel, custom: {variable: {step, offset} | {keepbits} | {mode}}
   },
 };
 const ICS_LABEL = { era5: ["ERA5", "Google Cloud · from 1940"], eerie: ["EERIE", "MARS · ECMWF Web API"],
@@ -149,6 +151,81 @@ function outVars() {
 }
 function outLevels() { return ckpt()?.levels || model().levels; }
 
+// ------------------------------------------------------------------ output compression
+const cmp = () => L.opts?.compression || { supported: false, presets: [], defaults: {} };
+const cmpPreset = () => L.cfg.out_compression || cmp().defaults?.[L.cfg.ics] || "lossless";
+const cmpBits = () => +(L.cfg.out_compression_opts.keepbits ?? cmp().keepbits?.default ?? 12);
+function cmpDefaultRule(name) {   // what 'mixed' would do with this variable: a starting point for a custom rule
+  const pack = outVars().find((v) => v.name === name)?.pack;
+  return pack?.mixed ? { step: +pack.mixed, ...(pack.offset ? { offset: +pack.offset } : {}) } : { keepbits: cmpBits() };
+}
+function cmpFixCustom() {         // one rule per selected variable while 'custom' is chosen
+  const o = L.cfg.out_compression_opts;
+  if (cmpPreset() !== "custom") return;
+  const rules = {};
+  for (const v of L.cfg.out_vars) rules[v] = o.custom?.[v] || cmpDefaultRule(v);
+  o.custom = rules;
+}
+const cmpRuleMode = (r) => ("step" in r ? "step" : "keepbits" in r ? "bits" : "lossless");
+function cmpStepText(v, step, offset) {   // a step in the unit people read, when the variable has one
+  const pack = v?.pack, base = pack?.integer ? +pack.integer : null;
+  const unit = { t2m: "°C", d2m: "°C", t: "°C", skt: "°C", stl1: "°C", stl2: "°C", sst: "°C", msl: "hPa", sp: "hPa", z: "m",
+    tp: "mm", cp: "mm", sf: "mm", ro: "mm", avg_tprate: "mm in 6 h", avg_tsrwe: "mm in 6 h", tcw: "mm", tcwv: "mm" }[v?.name];
+  if (["tcc", "lcc", "mcc", "hcc", "ci", "fscov"].includes(v?.name)) return `${+(step * 100).toPrecision(3)} %`;
+  if (unit && base) return `${+(step / base).toPrecision(3)} ${unit}`;
+  return `${+(+step).toPrecision(4)} ${v?.units || ""}`.trim();
+}
+function cmpStorageText(v) {              // how one variable is stored with the current choice
+  const preset = cmpPreset(), o = L.cfg.out_compression_opts;
+  if (preset === "none") return "as the model writes it";
+  if (preset === "lossless") return "float32, nothing rounded";
+  if (preset === "bits") return `${cmpBits()} significant bits`;
+  if (preset === "custom") {
+    const r = o.custom?.[v.name];
+    if (!r) return `${cmpBits()} significant bits`;
+    return "step" in r ? `step ${cmpStepText(v, r.step, r.offset)}` : "keepbits" in r ? `${r.keepbits} significant bits` : "float32, nothing rounded";
+  }
+  const step = v.pack?.[preset];
+  return step ? `step ${cmpStepText(v, step, v.pack.offset)}` : `${cmpBits()} significant bits`;
+}
+function compressionBlock() {
+  const info = cmp(), c = L.cfg, o = c.out_compression_opts;
+  if (!info.supported) return `<div class="ln-sub">Output compression</div><div class="note">Branch <span class="mono">${esc(c.branch)}</span> does not have this setting: the outputs are written as its code does.</div>`;
+  const preset = cmpPreset(), sizes = L.preview?.compression?.sizes || {};
+  const isDefault = !c.out_compression, def = info.defaults?.[c.ics] || "lossless";
+  const selected = outVars().filter((v) => c.out_vars.includes(v.name));
+  const chunks = Array.isArray(o.chunks) ? "custom" : (o.chunks || "point");
+  const custom = preset !== "custom" ? "" : `
+      <div class="ln-sub">A rule for each output variable</div>
+      <div class="tbl-wrap"><table class="cmp-rules"><thead><tr><th>Variable</th><th>Store as</th><th>Step or bits</th><th>Offset</th><th>Which is</th></tr></thead><tbody>
+      ${selected.map((v) => { const r = o.custom?.[v.name] || cmpDefaultRule(v.name), mode = cmpRuleMode(r);
+        return `<tr><td><b class="mono">${esc(v.name)}</b> <span class="note">${esc(v.long)}${v.units ? ` [${esc(v.units)}]` : ""}</span></td>
+          <td><select data-k="cr.${esc(v.name)}.mode">${[["step", "integers with a step"], ["bits", "significant bits"], ["lossless", "lossless"]].map(([m, t]) => `<option value="${m}" ${m === mode ? "selected" : ""}>${t}</option>`).join("")}</select></td>
+          <td>${mode === "step" ? `<input type="number" step="any" min="0" data-k="cr.${esc(v.name)}.step" value="${r.step}" style="width:120px">`
+            : mode === "bits" ? `<input type="number" min="${info.keepbits.min}" max="${info.keepbits.max}" data-k="cr.${esc(v.name)}.keepbits" value="${r.keepbits}" style="width:120px">` : "—"}</td>
+          <td>${mode === "step" ? `<input type="number" step="any" data-k="cr.${esc(v.name)}.offset" value="${r.offset ?? 0}" style="width:100px">` : "—"}</td>
+          <td class="note" data-cmp-text="${esc(v.name)}">${esc(cmpStorageText(v))}</td></tr>`; }).join("")}
+      </tbody></table></div>
+      <div class="note">A step is in the units of the variable; the offset is subtracted first (273.15 stores a temperature in °C). The error is at most half a step.</div>`;
+  return `
+      <div class="ln-sub">Output compression</div>
+      <div class="choice-grid">${info.presets.map((p) => choice("out_compression", p.name, p.name === preset,
+        `<b>${esc(p.label)}</b><small>${esc(p.description)}</small>${sizes[p.name] ? `<span class="tag">~${fmtBytes(sizes[p.name])}</span>` : ""}${p.name === def ? tag("ok", "default here") : ""}`)).join("")}</div>
+      <div class="note">${isDefault ? `Proposed for ${esc((ICS_LABEL[c.ics] || [c.ics])[0])} initial conditions.` : `<a href="#" data-k="out_compression" data-v="">Back to the default (${esc(def)})</a>`}
+        Sizes are estimates for this experiment, from forecasts compressed with each scheme.</div>
+      ${["integer", "mixed"].includes(preset) && selected.length ? `<div class="note">${selected.map((v) => `<span class="mono">${esc(v.name)}</span> ${esc(cmpStorageText(v))}`).join(" · ")}</div>` : ""}
+      ${custom}
+      <details class="ln-adv" data-k="cmpadv" ${L.cmpAdvOpen ? "open" : ""}><summary>Advanced: bits, chunks, zlib level</summary>
+        <div class="ln-row">
+          <label class="ln-field">Significant bits <input type="number" min="${info.keepbits.min}" max="${info.keepbits.max}" data-k="cmp.keepbits" value="${cmpBits()}" style="width:80px" ${["none", "lossless"].includes(preset) ? "disabled" : ""}>
+            <small class="note">${preset === "bits" ? "for every variable" : "for the variables without a step"}</small></label>
+          <div class="ln-field">Chunks ${seg("cmp.chunks", [["point", "points and small maps"], ["map", "whole maps"]].concat(chunks === "custom" ? [["custom", o.chunks.join(" × ")]] : []), chunks)}
+            <small class="note">${chunks === "map" ? "one global map per chunk: fastest for maps, slow for a time series at a point" : "4 times × 45 latitudes × 90 longitudes: a point in milliseconds, about 5 % larger files"}</small></div>
+          <label class="ln-field">zlib level <input type="number" min="1" max="9" data-k="cmp.complevel" value="${o.complevel ?? 1}" style="width:70px" ${preset === "none" ? "disabled" : ""}>
+            <small class="note">1 is as small as higher levels, and faster</small></label>
+        </div></details>`;
+}
+
 function fixCfg() {  // keep the form consistent with what the branch offers
   const o = L.opts, c = L.cfg;
   if (!model()) c.model = (o.models.find((m) => m.on_platform) || o.models[0])?.name;
@@ -163,6 +240,9 @@ function fixCfg() {  // keep the form consistent with what the branch offers
     c.out_levs = c.out_levs.filter((l) => !levels.length || levels.includes(l));
     if (!c.out_levs.length) c.out_levs = [1000, 850, 500].filter((l) => levels.includes(l));
   }
+  if (!c.out_compression_opts || typeof c.out_compression_opts !== "object") c.out_compression_opts = {};
+  if (c.out_compression && !cmp().presets.some((p) => p.name === c.out_compression)) c.out_compression = null;
+  if (cmpPreset() === "custom") cmpFixCustom(); else delete c.out_compression_opts.custom;
 }
 
 // ------------------------------------------------------------------ form
@@ -172,6 +252,7 @@ const tag = (cls, t) => `<span class="tag ${cls}">${esc(t)}</span>`;
 
 function renderForm() {
   const form = $("#ln-form"), act = document.activeElement;
+  L.cmpAdvOpen = !!form.querySelector('details[data-k="cmpadv"]')?.open;
   const focusKey = form.contains(act) ? [act.dataset.k || act.closest("[data-k]")?.dataset.k, act.dataset.v, act.tagName] : null;
   buildForm();
   if (focusKey?.[0]) {   // the form was rebuilt: put the focus back where it was
@@ -243,6 +324,7 @@ function buildForm() {
         <div class="ln-field">Resolution ${seg("out_res", o.resolutions.map((r) => [r, r === "original" ? "native" : `${r}°`]), c.out_res)}</div>
         <div class="ln-field">Frequency ${seg("out_freq", o.freqs.map((f) => [f, f === "original" ? "every step" : f]), c.out_freq)}</div>
       </div>
+      ${compressionBlock()}
       <div class="ln-row" style="margin-top:12px">
         <label class="ln-field grow">Output store <input type="text" class="mono" data-k="output_store" value="${esc(c.output_store || "")}" placeholder="${esc(o.store_by_ics?.[c.ics] || "no output store on this branch")}" spellcheck="false"></label>
       </div>
@@ -250,6 +332,8 @@ function buildForm() {
 }
 
 function onFormClick(e) {
+  const link = e.target.closest("a[data-k]");
+  if (link) { e.preventDefault(); L.cfg[link.dataset.k] = link.dataset.v || null; fixCfg(); renderForm(); updatePreview(); return; }
   const b = e.target.closest("button[data-k], .seg[data-k] button[data-v]");
   if (!b || b.disabled) return;
   const k = b.dataset.k || b.closest("[data-k]")?.dataset.k;
@@ -259,13 +343,15 @@ function onFormClick(e) {
     case "tpl": if (v) useTemplate(v); else { c.description = ""; renderForm(); updatePreview(); } return;
     case "model": c.model = v; c.checkpoint = null; fixCfg(); break;
     case "checkpoint": c.checkpoint = v; fixCfg(); break;
-    case "ics": c.ics = v; break;
-    case "var": c.out_vars = c.out_vars.includes(v) ? c.out_vars.filter((x) => x !== v) : [...c.out_vars, v]; break;
+    case "ics": c.ics = v; fixCfg(); break;
+    case "out_compression": c.out_compression = v || null; fixCfg(); break;
+    case "var": c.out_vars = c.out_vars.includes(v) ? c.out_vars.filter((x) => x !== v) : [...c.out_vars, v]; fixCfg(); break;
     case "lev": { const l = +v; c.out_levs = c.out_levs.includes(l) ? c.out_levs.filter((x) => x !== l) : [...c.out_levs, l].sort((a, b2) => b2 - a); break; }
     default: {
       const sk = b.closest(".seg[data-k]")?.dataset.k;
       if (!sk) return;
       if (sk === "dateMode") { L.dateMode = v; if (v === "list") L.listText = compress(c.dates); syncDates(); }
+      else if (sk === "cmp.chunks") { if (v === "point") delete c.out_compression_opts.chunks; else if (v !== "custom") c.out_compression_opts.chunks = v; }
       else c[sk] = v;
     }
   }
@@ -279,12 +365,31 @@ function onFormChange(e) {
   if (k === "chunk_unit") c.chunk_unit = t.value;
   if (k === "alllev") c.out_levs = t.checked ? "original" : [1000, 850, 500].filter((l) => model().levels.includes(l));
   if (k === "single") c.dates = t.value ? [t.value.replace(/-/g, "")] : [];
+  if (k.startsWith("cr.") && k.endsWith(".mode")) {   // a custom rule changes kind: start from a sensible value
+    const name = k.slice(3, -5), base = cmpDefaultRule(name);
+    c.out_compression_opts.custom[name] = t.value === "step" ? ("step" in base ? base : { step: 1 })
+      : t.value === "bits" ? { keepbits: cmpBits() } : { mode: "lossless" };
+  }
+  if (k.startsWith("cmp.") || (k.startsWith("cr.") && !k.endsWith(".mode"))) return;   // handled on input
   if (["members", "chunk_size", "num_chunks", "reg.every", "reg.from", "reg.to"].includes(k)) return;  // handled on input
   renderForm(); updatePreview();
 }
 function onFormInput(e) {
   const t = e.target, k = t.dataset.k, c = L.cfg;
   if (k === "description") { c.description = t.value; updatePreview(); return; }
+  if (k === "cmp.keepbits" || k === "cmp.complevel") {
+    const key = k.slice(4), dflt = key === "keepbits" ? (cmp().keepbits?.default ?? 12) : 1;
+    if (t.value === "" || +t.value === dflt) delete c.out_compression_opts[key]; else c.out_compression_opts[key] = +t.value;
+    updatePreview(); return;
+  }
+  if (k?.startsWith("cr.")) {
+    const [, name, field] = k.split("."), rule = c.out_compression_opts.custom?.[name];
+    if (!rule) return;
+    if (field === "offset") { if (+t.value) rule.offset = +t.value; else delete rule.offset; } else rule[field] = t.value === "" ? null : +t.value;
+    const cell = document.querySelector(`[data-cmp-text="${name}"]`), v = outVars().find((x) => x.name === name);
+    if (cell && v && rule[field] !== null) cell.textContent = cmpStorageText(v);
+    updatePreview(); return;
+  }
   if (k === "output_store") { c.output_store = t.value.trim() || null; updatePreview(); return; }
   if (k === "members") { c.members = Math.max(1, Math.min(100, +t.value || 1)); document.querySelectorAll('[data-k="members"]').forEach((x) => { if (x !== t) x.value = c.members; }); updatePreview(); return; }
   if (k === "chunk_size" || k === "num_chunks") { c[k] = Math.max(1, +t.value || 1); updatePreview(); return; }
@@ -337,8 +442,9 @@ function renderSide() {
     ["Model", `${m.label} · ${c.checkpoint || "no checkpoint"}`, !c.checkpoint],
     ["Initial conditions", `${(ICS_LABEL[c.ics] || [c.ics])[0]} · ${c.run_type === "amip" ? `AMIP, ${c.forcing}` : "hindcast"}`, false],
     ["Ensemble", `${c.members} member${c.members === 1 ? "" : "s"} × ${c.dates.length} start date${c.dates.length === 1 ? "" : "s"} · ${lead} ${c.chunk_unit}${lead === 1 ? "" : "s"}`, !c.dates.length],
-    ["Outputs", `${c.out_vars.join(", ") || "no variables"} · ${levs} · ${c.out_res === "original" ? "native" : c.out_res + "°"} · ${c.out_freq === "original" ? "every step" : c.out_freq}`, !c.out_vars.length],
+    ["Outputs", `${c.out_vars.join(", ") || "no variables"} · ${levs} · ${c.out_res === "original" ? "native" : c.out_res + "°"} · ${c.out_freq === "original" ? "every step" : c.out_freq}${p.compression?.preset ? ` · ${p.compression.preset} compression` : ""}`, !c.out_vars.length],
   ];
+  const size = p.compression?.preset ? p.compression.sizes?.[p.compression.preset] : null;
   const openKeys = new Set([...side.querySelectorAll("details[open]")].map((d) => d.dataset.k));
   side.innerHTML = `
     <div class="ln-summary">
@@ -351,6 +457,7 @@ function renderSide() {
       ${est ? `<div class="ln-est"><div><span class="note">GPU time</span><b>~${fmtDur(est.gpu_s)}</b></div><div><span class="note">Prepare ICs</span><b>~${fmtDur(est.prep_s)}</b></div>
         <div><span class="note">Wall time (${est.gpus} GPUs free)</span><b>~${fmtDur(est.wall_s)}</b></div></div>
         <div class="note">Estimate based on ${esc(est.based_on.join(", ") || "—")}. Queue waits are not included.</div>` : `<div class="note">No finished experiment with this model yet, so no time estimate.</div>`}
+      ${size ? `<div class="ln-est"><div><span class="note">Outputs (${esc(p.compression.preset)})</span><b>~${fmtBytes(size)}</b></div>${p.compression.sizes.none && p.compression.preset !== "none" ? `<div><span class="note">Not compressed</span><b>~${fmtBytes(p.compression.sizes.none)}</b></div>` : ""}</div>` : ""}
       ${(p.errors || []).map((x) => `<div class="finding f-err">${ICONS.warn}<div>${esc(x)}</div></div>`).join("")}
       ${(p.warnings || []).map((x) => `<div class="finding f-warn">${ICONS.warn}<div>${esc(x)}</div></div>`).join("")}
       <div class="ln-cta"><button type="button" class="primary ln-create" data-act="create" ${p.ok ? "" : "disabled"}>Create experiment</button>

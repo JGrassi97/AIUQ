@@ -23,7 +23,9 @@ followed by `autosubmit create <expid> -np`. Always run `aiuq preview` first; fi
   "out_vars": ["t", "z"],
   "out_levs": [1000, 850, 500],
   "out_res": "1",
-  "out_freq": "daily"
+  "out_freq": "daily",
+  "out_compression": "mixed",
+  "out_compression_opts": {"keepbits": 12, "chunks": "point", "complevel": 1}
 }
 ```
 
@@ -43,8 +45,30 @@ followed by `autosubmit create <expid> -np`. Always run `aiuq preview` first; fi
 | `out_levs` | hPa levels from the model's level list, or `"original"` for all of them. |
 | `out_res` | `"original"` (model grid; N320 reduced Gaussian for AIFS), `"0.25" "0.5" "1" "1.5" "2"` regular lat-lon. |
 | `out_freq` | `original` (model step, 6-hourly) or `daily` (daily means). |
+| `out_compression` | How the values are stored: `none`, `lossless`, `bits`, `integer`, `mixed`, `custom` (below). Leave it out for the default: `mixed` with `ics: ecmwf-an`, `lossless` otherwise. |
+| `out_compression_opts` | Optional: `keepbits` (4–23, default 12), `chunks` (`point`, `map` or `[times, lats, lons]`), `complevel` (1–9), and for `custom` a mapping `custom: {"t2m": {"step": 0.5, "offset": 273.15}, "q": {"keepbits": 10}, "z": {"mode": "lossless"}, "default": {"keepbits": 12}}` whose variables must be among `out_vars`. |
 
 Number of SIM jobs = dates × members × num_chunks (each needs one GPU). Above ~3000 the Launcher warns.
+
+### Output compression (`EXPERIMENT.OUT_COMPRESSION`)
+
+| Preset | Storage | Use |
+|---|---|---|
+| `none` | as the model writes (float64 for NeuralGCM/Aurora), not compressed | debugging only |
+| `lossless` | float32 + zlib, nothing rounded | research, verification, hindcasts (**default**) |
+| `bits` | lossless + values rounded to `keepbits` significant bits (12: relative error ≤ 2.5e-4) | compact research archive |
+| `integer` | whole °C, m/s, hPa, m, **mm**, %; variables without a step (q, w, cloud water, soil, radiation) as `bits` | smallest; 1 mm zeroes ~1/3 of the rainy grid points in 6 h |
+| `mixed` | as `integer` with precipitation at 0.1 mm | operational forecasts (default for `ecmwf-an`) |
+| `custom` | a rule per variable | special cases |
+
+`aiuq preview` prints the size estimate per preset and the warnings: `integer` with a precipitation variable,
+fewer than 8 bits, `none` on a large run. Tell the user what a lossy choice costs before creating (the error is
+half a step: 0.5 °C, 0.5 m/s, 0.5 hPa with `mixed`) and never pick `integer`/`mixed` for a run meant for
+verification or for differences between fields without asking. In `main.yml` the Launcher writes the custom
+rules as a **list of texts** (`CUSTOM: ["t2m: {step: 0.5, offset: 273.15}", …]`): Autosubmit does not pass nested
+mappings to the jobs, and a mapping written by hand makes `SIM` stop with a message saying so. Branches without
+the setting (older code) ignore the two keys and the Launcher says so. Existing outputs are compressed with
+`runscripts/compress_outputs.py PATH --scheme <preset>` (idempotent, verifies before replacing; needs consent).
 
 ### Recipes
 - **Ensemble forecast from the latest analysis**: `ics: ecmwf-an`, `dates: [today]`, stochastic/ensemble

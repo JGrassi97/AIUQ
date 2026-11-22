@@ -11,7 +11,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "runscripts"))
 from AIUQst_lib.cards import read_std_version  # noqa: E402
-from AIUQst_lib.variables import (checkpoint_entry, deaccumulate, output_attrs, output_specs,  # noqa: E402
+from AIUQst_lib.output import time_cell, variable_attributes  # noqa: E402
+from AIUQst_lib.variables import (checkpoint_entry, deaccumulate, output_specs,  # noqa: E402
                                   resample_daily, resolve_outputs)
 
 STD = read_std_version(str(ROOT), "v100")
@@ -116,11 +117,14 @@ def test_aurora_hourly_totals_become_mean_rates():
     assert specs["avg_tprate"]["scale"] == pytest.approx(1000 / 3600)
     assert specs["avg_sdswrf"]["scale"] == pytest.approx(1 / 3600)
     assert specs["sd"]["model"] == "scaled_sd" and specs["stl1"]["model"] == "stl1"
-    attrs = output_attrs(specs["avg_tprate"])
-    assert attrs["units"] == "kg m**-2 s**-1" and "1 h" in attrs["aiuq_period"]
-    assert output_attrs(specs["avg_tprate"], daily=True)["aiuq_period"].startswith("day: mean")
+    attrs = variable_attributes("avg_tprate", specs["avg_tprate"])
+    assert attrs["units"] == "kg m-2 s-1" and attrs["standard_name"] == "precipitation_flux"
+    # a mean over the hour before each output time; as daily output, the mean of those over the day
+    assert time_cell(specs["avg_tprate"], step_hours=6)[:2] == ("valid_time: mean", (-1.0, 0.0))
+    assert time_cell(specs["avg_tprate"], daily=True, step_hours=6)[:2] == ("valid_time: mean (interval: 6 hours)", (0.0, 24.0))
     tp = output_specs(card("aifs"), STD)["tp"]
-    assert output_attrs(tp, daily=True)["cell_methods"].startswith("valid_time: sum (day:")
+    assert time_cell(tp, step_hours=6)[:2] == ("valid_time: sum", (-6.0, 0.0))
+    assert time_cell(tp, daily=True, step_hours=6)[:2] == ("valid_time: sum", (0.0, 24.0))
 
 
 def test_aifs_names():

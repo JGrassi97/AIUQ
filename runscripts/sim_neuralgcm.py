@@ -18,10 +18,11 @@ from dinosaur import horizontal_interpolation, spherical_harmonic, xarray_utils
 # Local
 from AIUQst_lib.functions import parse_arguments, read_config, normalize_out_vars
 from AIUQst_lib.cards import read_model_card, read_std_version
-from AIUQst_lib.variables import (name_mapper_for_model, output_attrs, resample_daily, resolve_outputs,
+from AIUQst_lib.variables import (name_mapper_for_model, resample_daily, resolve_outputs,
                                   deaccumulate)
 from AIUQst_lib.streaming import StepBuffer
 from AIUQst_lib.regrid import regrid_latlon
+from AIUQst_lib.output import RunInfo, write_output
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -76,6 +77,7 @@ def main() -> None:
     days_to_run = (end_date - start_date).days + 1
     outer_steps = days_to_run * 24 // _INNER_STEPS
     delta_t = np.timedelta64(_INNER_STEPS, "h")
+    run_info = RunInfo.from_config(config)        # what the output files say about this run
     times = np.arange(outer_steps) * _INNER_STEPS  # in hours
 
     # Hindcast: unroll in blocks of CHUNK_STEPS (bounded GPU memory) and stream the requested
@@ -326,14 +328,12 @@ def main() -> None:
         chunk_t_end = str(chunk_valid_time[-1])[:10]
 
         for var, var_name in zip(output_vars, out_vars):
-            predictions_datarray = predictions_ds_chunk[var].rename(var_name)
-            predictions_datarray.attrs.update(output_attrs(specs[var_name], _OUT_FREQ == "daily"))
             output_base_path = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
-            os.makedirs(output_base_path, exist_ok=True)
             output_file = (
                 f"{output_base_path}/out-{chunk_t_start}-{chunk_t_end}-{_RNG_KEY}-{var_name}.nc"
             )
-            predictions_datarray.to_netcdf(output_file)
+            write_output(output_file, predictions_ds_chunk[var], var_name, specs[var_name], run_info,
+                         daily=_OUT_FREQ == "daily", step_hours=float(_INNER_STEPS), reference_time=initial_time)
             logging.info(f"Saved {output_file}")
 
         # Save the state checkpoint once the chunk's outputs are written (with the running totals of the
@@ -377,16 +377,14 @@ def main() -> None:
                 if _OUT_RES in ["0.25", "0.5", "1", "1.5", "2"]:
                     dataset = regrid_latlon(dataset, out_latitudes, out_longitudes)
 
-                predictions_datarray = dataset[var].rename(var_name)
-                predictions_datarray.attrs.update(output_attrs(spec, _OUT_FREQ == "daily"))
                 output_base_path = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
-                os.makedirs(output_base_path, exist_ok=True)
                 output_file = (
                     f"{output_base_path}/out-{run_t_start}-{run_t_end}-{_RNG_KEY}-{var_name}.nc"
                 )
-                predictions_datarray.to_netcdf(output_file)
+                write_output(output_file, dataset[var], var_name, spec, run_info, daily=_OUT_FREQ == "daily",
+                             step_hours=float(_INNER_STEPS), reference_time=initial_time)
                 logging.info(f"Saved {output_file}")
-                del dataset, predictions_datarray
+                del dataset
         finally:
             buffer.close()
 

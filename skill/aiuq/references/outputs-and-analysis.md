@@ -32,25 +32,38 @@ ignore them (a leftover `_temp.nc` means POSTPROCESS did not run or failed).
 - One data variable named like the folder (AIUQ-st short names, ECMWF parameter database:
   `t z u v q w` on pressure levels; `t2m msl sp u10 v10 d2m tcw skt …` at the surface; output-only fields of
   `conf/AIUQ-st/v100/outputs.yml` such as `tp cp sf ro ssrd strd stl1 i10fg avg_tprate …`).
-- Periods (attribute `aiuq_period` / `cell_methods`, written since the output-variables update, Nov 2026):
+- **Format** (global attribute `aiuq_output_format`; full description in `docs/source/outputs.rst`):
+  files with `aiuq_output_format = "1.0"` are CF-1.8 and identical in layout for the three models:
+  `(valid_time, [level,] latitude, longitude)`, float32, latitudes −90…90, longitudes 0…360, `level` in hPa
+  from 1000 upwards; `time` (scalar) is the initial time of the forecast, `step` the lead time in hours,
+  `number` the member; `standard_name`, `long_name`, `units` on every variable; global attributes say model,
+  checkpoint, initial conditions, experiment and commit.
+- **Storage** (global attribute `aiuq_compression`, JSON; `aiuq conf <expid>` shows `OUT_COMPRESSION`): depending on
+  the experiment the data variable is float32 (`lossless`, or `bits` = rounded to N significant bits), float64
+  (`none`) or **int16/int32 with `scale_factor` and `add_offset`** (`integer`, `mixed`, `custom`: the error is
+  half a step, e.g. 0.5 °C, 0.5 hPa, 0.05 mm). xarray and netCDF4 decode them by themselves to floats in the
+  units of the variable: never read the raw integers, and do not switch decoding off (`mask_and_scale=False`,
+  `set_auto_maskandscale(False)`). Keep `decode_timedelta=True` as before. With a lossy scheme, differences
+  between fields or members smaller than the step are not meaningful: check the tag before computing spreads of
+  slowly varying fields. The forecasts archived in November 2026 carry an older text in the same attribute
+  (`AIUQ mixed integer packing v1 (...)` = `mixed`, `float32, BitRound keepbits=12, ...` = `bits`).
+- **Files without `aiuq_output_format`** (written before the format, AIUQ ≤ 1.0 and the stores of Nov 2026)
+  differ between models — **select by name, never by position**:
+
+  | Model | Level field dims | Notes |
+  |---|---|---|
+  | NeuralGCM | `(valid_time, level, longitude, latitude)` — longitude first | coords `time` (scalar), `step`; no coordinate attributes |
+  | Aurora | `(valid_time, level, latitude, longitude)` | coord `time` (scalar); no coordinate attributes |
+  | AIFS (cdo) | `(valid_time, level, lat, lon)`, levels 250 → 850 | no initial time in the file; oldest ones `units: "unknown"` |
+
+- Periods (`cell_methods` + `valid_time_bnds`; old files: attribute `aiuq_period`, or nothing):
   AIFS `tp cp sf ro` (m) and `ssrd strd` (J m⁻²) are totals over the 6 h step ending at `valid_time`
   (daily output = daily total); NeuralGCM `tp` is the total over each output step (de-accumulated from the
   model's running total) and `avg_ie` the rate of its last 1 h step; Aurora 1.5 `avg_*` are mean rates
   (kg m⁻² s⁻¹) or fluxes (W m⁻²) over the **last hour** of each step only (the model writes 1-hour totals).
-- **Dimension order and names differ between models — always select by name, never by position**
-  (checked on real files, Nov 2026):
-
-  | Model | Level field dims | Dtype | Notes |
-  |---|---|---|---|
-  | NeuralGCM | `(valid_time, level, longitude, latitude)` — longitude first | float64 | coords `time` (scalar), `step` |
-  | Aurora | `(valid_time, level, latitude, longitude)`; surface `(valid_time, latitude, longitude)` | float64 | coord `time` (scalar) |
-  | AIFS (cdo POSTPROCESS) | `(valid_time, level, lat, lon)` | float32 | `units: "unknown"`; `OUT_RES: original` keeps the N320 reduced Gaussian grid (no regular lat/lon) |
-
-  Latitudes ascend −90…90 on the regular grids, longitudes run 0…360, `level` is in hPa.
-- Units are the ECMWF/AIUQ-st ones (`conf/AIUQ-st/v100/variables.yml` and `outputs.yml`): K, m² s⁻² for `z`
-  (geopotential, divide by 9.80665 for metres), m s⁻¹, kg kg⁻¹, Pa. Outputs written before the
-  output-variables update (Nov 2026) carry **no meaningful `units` attribute**; newer ones carry
-  `units` and `long_name` from the standard.
+- Units are the ECMWF/AIUQ-st ones in CF notation (`conf/AIUQ-st/v100/variables.yml` and `outputs.yml`): K,
+  `m2 s-2` for `z` (geopotential, divide by 9.80665 for metres), `m s-1`, `kg kg-1`, Pa, `1` for fractions.
+  Old files write them the ECMWF way (`m2 s**-2`, `(0 - 1)`) or not at all.
 - Time: `OUT_FREQ: original` = 6-hourly; `daily` = daily means. With `ICS: ecmwf-an` the valid times
   follow the analysis cycle chosen when PREPARE_ICS ran, so they can start the day **before** the
   DATELIST date and differ between experiments with the same date (a00e: 2026-11-16 18 UTC; a00c:

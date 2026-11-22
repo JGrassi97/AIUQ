@@ -10,6 +10,38 @@ MODEL:
   ICS_EXPERIMENT: ""
   ICS_MEMBER: ""
 
+# Output files (CF-compliant NetCDF, see "Output format" in the documentation).
+OUTPUT_FORMAT:
+  # Written as the global attribute "institution" (who produced the data); left out when empty.
+  # Set it in the experiment's conf/main.yml, e.g. OUTPUT_FORMAT: {INSTITUTION: "My institute"}.
+  INSTITUTION: ""
+
+# How the output values are stored. Set in the experiment's conf/main.yml, under EXPERIMENT:
+#   OUT_COMPRESSION   none      as the model gives them, not compressed
+#                     lossless  float32, compressed, nothing rounded                          (default)
+#                     bits      as lossless, rounded to KEEPBITS significant bits
+#                     integer   whole degrees, m/s, hPa, metres, millimetres, percent
+#                     mixed     as integer, but precipitation at 0.1 mm
+#                     custom    a rule per variable (CUSTOM)
+#   OUT_COMPRESSION_OPTS
+#     KEEPBITS    4-23, default 12: for 'bits', and for the variables without a step in 'integer' and 'mixed'
+#     CHUNKS      point (4 valid times x 45 latitudes x 90 longitudes, default) | map (one map per chunk) |
+#                 [valid times, latitudes, longitudes]
+#     COMPLEVEL   zlib level 1-9, default 1
+#     CUSTOM      only for 'custom': a list of texts, one rule per AIUQ-st variable and a default, e.g.
+#                   - "t2m: {step: 0.5, offset: 273.15}"
+#                   - "q: {keepbits: 10}"
+#                   - "z: {mode: lossless}"
+#                   - "default: {keepbits: 12}"
+#                 (a list of texts, not a mapping: Autosubmit hands the jobs single values only)
+EXPERIMENT:
+  OUT_COMPRESSION: lossless
+  OUT_COMPRESSION_OPTS:
+    KEEPBITS: ""
+    CHUNKS: ""
+    COMPLEVEL: ""
+    CUSTOM: ""
+
 # Output store: once every simulation has finished, the ARCHIVE job (platforms that define it, see
 # conf/jobs/<platform>/models/, and templates/archive.sh) copies the experiment folder of the HPC (outputs,
 # logs, code) to <DIR>/<expid>_<time>/ on the Autosubmit host and records that folder in
