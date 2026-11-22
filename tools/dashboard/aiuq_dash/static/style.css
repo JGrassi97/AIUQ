@@ -659,6 +659,11 @@ ul.recent li .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ell
 .choice:disabled { opacity: .5; cursor: not-allowed; }
 .chips-sel .choice { height: 27px; border-radius: 999px; padding: 0 11px; font-size: 12.5px; font-weight: 500; border-width: 1px; border-color: var(--border-strong); flex-direction: row; align-items: center; }
 .ck-list { display: flex; flex-direction: column; gap: 6px; }
+.choice .tag { margin-top: 2px; }
+.ln-adv { margin-top: 12px; }
+.ln-adv > summary { cursor: pointer; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); }
+.cmp-rules td { vertical-align: middle; }
+.cmp-rules select, .cmp-rules input { height: 30px; }
 .ck-list .choice { flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; padding: 8px 12px; }
 
 .ln-side { position: sticky; top: calc(var(--top-h) + var(--tabs-h) + 14px); display: flex; flex-direction: column; gap: 10px; max-height: calc(100vh - var(--top-h) - var(--tabs-h) - 28px); overflow-y: auto; scrollbar-width: thin; }

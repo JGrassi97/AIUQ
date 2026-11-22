@@ -47,6 +47,45 @@ All notable changes to AIUQ are listed here. Versions follow [semantic versionin
   to the store. The Monitor, the Launcher (new "Output store" field), Compare, Weather and the `aiuq` skill follow it.
 
 ### Changed
+- **One CF-compliant output format for every model** (`aiuq_output_format` 1.0, described in the new documentation
+  page "Output format"). NeuralGCM, Aurora and AIFS used to write their files each in its own way; they now go
+  through one writer (`runscripts/AIUQst_lib/output.py`):
+  - NetCDF-4 files following CF-1.8, dimensions `(valid_time, [level,] latitude, longitude)` for all models
+    (NeuralGCM stored longitude before latitude, AIFS named them `lat`/`lon`), latitudes south to north, levels
+    from 1000 hPa upwards, CF attributes on every coordinate;
+  - the initial time of the forecast (`time`), the lead time (`step`) and the member (`number`) in every file:
+    AIFS files had lost them in the cdo regridding;
+  - `standard_name`, `long_name`, CF units and the ECMWF parameter number on every variable; totals and means
+    carry `cell_methods` and the period they refer to (`valid_time_bnds`); fields at 2, 10 and 100 m a `height`;
+  - global attributes that say what wrote the file: model, checkpoint, initial conditions, experiment, member,
+    commit, and the institution when `OUTPUT_FORMAT.INSTITUTION` is set;
+  - compressed and chunked as the experiment asks (next entry). Files are written under a temporary name, read
+    back, compared with what was computed and renamed when complete.
+  The AIFS `POSTPROCESS` job writes the final file in the AIFS image after cdo
+  (`runscripts/finalize_aifs_output.py`). Verified with the IOOS compliance checker (no CF-1.8 error) and by
+  rewriting real outputs in the four model images; the Monitor, Compare, Weather and AIUQ-store read the new
+  files unchanged. Outputs written before this change keep their format.
+- **Output compression, chosen per experiment**: `EXPERIMENT.OUT_COMPRESSION` = `none` | `lossless` (default) |
+  `bits` | `integer` | `mixed` | `custom`, with `OUT_COMPRESSION_OPTS` (`KEEPBITS` 4-23, `CHUNKS` point / map /
+  three numbers, `COMPLEVEL`, `CUSTOM`). Until now SIM wrote uncompressed files, `float64` for NeuralGCM and
+  Aurora: an operational run (3 models, 10 members, 10 days at 0.25 degrees) took about 100 GB.
+  - `lossless` is `float32` with zlib and shuffle; `bits` rounds to significant bits; `integer` and `mixed` store
+    the variables that have a step as CF integers (`scale_factor` / `add_offset`): 1 degree C, 1 m/s, 1 hPa, 1 m,
+    1 %, and precipitation at 1 mm (`integer`) or 0.1 mm (`mixed`). The steps are in the AIUQ-st standard (`pack`).
+  - One library for the three models and for AIFS after cdo (`runscripts/AIUQst_lib/compression.py`); every file
+    is verified before it gets its name and says how it is stored in `aiuq_compression` (JSON).
+  - `runscripts/compress_outputs.py` compresses existing outputs in place: parallel, verified before the atomic
+    replacement, repeatable. It recognises the files compressed by the earlier scripts and leaves alone a file
+    stored with less precision than asked.
+  - Launcher: the presets with a size estimate, advanced options and a rule table for `custom`; `mixed` proposed
+    for `ics: ecmwf-an`, `lossless` otherwise; warnings and errors in the preview. New JSON fields
+    `out_compression`, `out_compression_opts`. Monitor: the scheme and the size of every experiment.
+  - The rules of `custom` are a list of texts in `main.yml`: Autosubmit hands the jobs single values only, so a
+    nested mapping would be lost; a job that does not find its rules stops instead of using others.
+- **AIUQ-st v100 describes every variable for CF**: `standard_name` (49 of 62 variables, checked against version
+  95 of the CF table), `height`, and the units in CF notation (`m2 s-2` instead of `m2 s**-2`, `1` instead of
+  `(0 - 1)` and `Numeric`, `m` instead of `m of water equivalent`). `z` is named "Geopotential", which is what
+  its units say (it was "Geopotential height").
 - **No personal or site values in the repository.** The FELIPE platforms take the HPC user and the scratch folder
   from `PLATFORM.USER_CODE` of the experiment's `main.yml` (as MareNostrum 5 already did), and the default output
   store is `/data/users/<PLATFORM.USER_CODE>/AIUQ-outputs`. Experiments whose `main.yml` sets `USER_CODE` (every

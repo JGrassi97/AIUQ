@@ -116,7 +116,7 @@ EOF
 fi
 
 # ---- 1. copy (pairs: source below HPCROOTDIR -> destination below DEST)
-OUT_FILTERS=(--exclude=/tmp/ --exclude=/temp/ --exclude='*_temp.nc' --exclude='*_grid.nc')
+OUT_FILTERS=(--exclude=/tmp/ --exclude=/temp/ --exclude='*_temp.nc' --exclude='*_grid.nc' --exclude='*.writing')
 copy() {  # copy SUBDIR [rsync options...]
     local sub=$1; shift
     on_hpc "test -d '${HPCROOTDIR}/${sub}'" || return 0

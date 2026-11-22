@@ -81,5 +81,6 @@ From initial conditions to outputs
    quickstart
    configuration
    models
+   outputs
    dashboard
    development

@@ -208,7 +208,10 @@ def output_specs(model_card: dict, standard_dict: dict) -> dict:
       scale         factor applied to the model value to get the AIUQ-st units (default 1)
       window        period an accumulation or mean refers to (written to the file attributes)
       deaccumulate  the model gives a running total since the start: write the increment over each output step
-    Returns {short_name: {"model", "scale", "window", "deaccumulate", "accumulated", "long_name", "units", "type"}}.
+    Returns {short_name: {"model", "scale", "window", "deaccumulate", "accumulated", "long_name", "units", "type",
+    "standard_name", "height", "code", "pack"}}: the last four are what the output files need besides names and
+    units (CF standard name, height in metres of a field at a fixed height, ECMWF parameter number, the steps
+    for storing the field as integers).
     """
     std = standard_specs(standard_dict)
     out = {}
@@ -229,8 +232,12 @@ def output_specs(model_card: dict, standard_dict: dict) -> dict:
             "deaccumulate": bool(entry.get("deaccumulate", False)),
             "accumulated": bool(spec.get("accumulated", False)),
             "long_name": spec.get("long_name", short),
-            "units": spec.get("units", ""),
+            "units": str(spec.get("units", "")),
             "type": spec.get("type", ""),
+            "standard_name": spec.get("standard_name"),
+            "height": spec.get("height"),
+            "code": code,
+            "pack": spec.get("pack"),
         }
 
     for code, name in (model_card.get("variables") or {}).items():
@@ -267,20 +274,6 @@ def resolve_outputs(requested, model_card: dict, standard_dict: dict, checkpoint
         if short not in [k for k, _ in selected]:
             selected.append((short, specs[short]))
     return selected, unknown
-
-
-def output_attrs(spec: dict, daily: bool = False) -> dict:
-    """netCDF attributes of an output variable (``daily``: OUT_FREQ daily, see resample_daily)."""
-    attrs = {"long_name": spec["long_name"], "units": spec["units"]}
-    window = spec.get("window")
-    if daily and spec["accumulated"]:
-        window = f"day: sum of the totals over the periods ending 00-24 UTC ({window or 'model step'})"
-    elif daily and window:
-        window = f"day: mean of the values for the {window}"
-    if window:
-        attrs["aiuq_period"] = window
-        attrs["cell_methods"] = f"valid_time: {'sum' if spec['accumulated'] else 'mean'} ({window})"
-    return attrs
 
 
 def deaccumulate(values, previous=None):

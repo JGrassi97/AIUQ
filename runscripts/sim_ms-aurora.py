@@ -34,9 +34,10 @@ except ImportError:
 # Local
 from AIUQst_lib.functions import parse_arguments, read_config, normalize_out_vars
 from AIUQst_lib.cards import read_model_card, read_std_version
-from AIUQst_lib.variables import name_mapper_for_model, output_attrs, resample_daily, resolve_outputs
+from AIUQst_lib.variables import name_mapper_for_model, resample_daily, resolve_outputs
 from AIUQst_lib.streaming import StepBuffer
 from AIUQst_lib.regrid import OUT_RESOLUTIONS, regrid_latlon, target_grid
+from AIUQst_lib.output import RunInfo, write_output
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -311,6 +312,7 @@ def main() -> None:
     base_step_hours = 6
     ar_steps = (days_to_run * 24) // base_step_hours
     delta_t = np.timedelta64(_INNER_STEPS, "h")
+    run_info = RunInfo.from_config(config)        # what the output files say about this run
 
     logging.info(
         f"Running {_MODEL_NAME} "
@@ -417,18 +419,14 @@ def main() -> None:
 
             if _OUT_RES in OUT_RESOLUTIONS:
                 dataset = regrid_latlon(dataset, *target_grid(_OUT_RES))
-            else:
-                dataset = dataset.sortby("latitude")
 
-            # Save NetCDF per output variable
-            predictions_datarray = dataset[var].rename(var_name)
-            predictions_datarray.attrs.update(output_attrs(spec, _OUT_FREQ == "daily"))
+            # One CF file per output variable (the writer orders latitudes and levels)
             output_base_path = f"{_OUTPUT_PATH}/{var_name}/{str(_RNG_KEY)}"
-            os.makedirs(output_base_path, exist_ok=True)
             output_file = f"{output_base_path}/out-{_START_TIME}-{_END_TIME}-{_RNG_KEY}-{var_name}.nc"
-            predictions_datarray.to_netcdf(output_file)
+            write_output(output_file, dataset[var], var_name, spec, run_info, daily=_OUT_FREQ == "daily",
+                         step_hours=float(_INNER_STEPS), reference_time=initial_time)
             logging.info(f"Saved {output_file}")
-            del dataset, predictions_datarray
+            del dataset
 
 
 if __name__ == "__main__":

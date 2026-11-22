@@ -213,6 +213,17 @@ const SVG = {
 };
 
 // ------------------------------------------------------------------ section render
+const COMPRESSION_TEXT = {
+  none: "as the model wrote them, not compressed", lossless: "float32, compressed, nothing rounded",
+  integer: "whole °C, m/s, hPa, metres, millimetres and percent; the other variables rounded to significant bits",
+  mixed: "integers (1 °C, 1 m/s, 1 hPa, 1 m, 0.1 mm, 1 %); the other variables rounded to significant bits",
+  custom: "a rule per variable",
+};
+function compressionText(cmp) {   // one line on how the outputs are stored
+  if (cmp.preset === "bits") return `float32 rounded to ${cmp.keepbits || 12} significant bits, compressed`;
+  const rules = Object.entries(cmp.variables || {}).map(([name, r]) => `${name}: ${r.mode === "integer" ? `step ${r.step}` : r.mode === "bits" ? `${r.keepbits} bits` : r.mode}`);
+  return (COMPRESSION_TEXT[cmp.preset] || cmp.preset) + (rules.length && rules.length <= 3 ? ` (${rules.join(", ")})` : "");
+}
 function renderOutputs(v) {
   const P = S.preview, o = v.outputs;
   const body = $("#o-body");
@@ -229,7 +240,9 @@ function renderOutputs(v) {
   const mems = [...new Set(vars.flatMap((x) => Object.keys(o.by_var_member[x])))].sort(sortMem);
   const expected = (v.conf.dates || []).length * (v.conf.num_chunks || 1);
   const latest = Math.max(...vars.flatMap((x) => Object.values(o.by_var_member[x]).map((b) => b.latest)));
+  const cmp = o.compression, how = cmp ? compressionText(cmp) : "";
   $("#o-sum").innerHTML = `<span class="stat-chip"><b>${o.n}</b> NetCDF files</span><span class="stat-chip"><b>${fmtBytes(o.size)}</b></span>
+    ${cmp ? `<span class="stat-chip" title="${esc(how)}${cmp.source === "files" ? " (read from the files)" : " (from the experiment configuration)"}">compression <b>${esc(cmp.preset)}</b></span>` : ""}
     <span class="stat-chip">variables <b>${vars.map((x) => esc(varName(x))).join(", ")}</b></span>
     ${o.archive ? `<span class="stat-chip" title="Moved by the ARCHIVE job${o.archive.updated_at ? " on " + esc(o.archive.updated_at) : ""} from ${esc(o.archive.source || "the HPC")}">in output store <b>${esc(o.archive.dir || o.dir)}</b></span>`
                 : `<span class="stat-chip" title="${esc(o.dir || "")}">on <b>${esc(v.remote.host)}</b></span>`}

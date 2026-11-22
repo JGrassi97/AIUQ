@@ -39,11 +39,20 @@ V2_INPUTS = (["10u", "10v", "2d", "2t", "lsm", "msl", "sdor", "skt", "slor", "sp
 # ---------------------------------------------------------------- standard and cards
 
 def test_v100_extends_v010_with_optional_wave_fields():
+    """v100 holds the same variables as v010 plus the wave fields. It also describes them for CF: the same
+    units in CF notation (m2 s-2 instead of m2 s**-2, 1 instead of (0 - 1)), a CF standard name and, for
+    fields at a fixed height, the height; the steps for storing it as integers (pack); 'z' is named Geopotential,
+    which is what its units say."""
     v010 = yaml.safe_load((ROOT / "conf/AIUQ-st/v010/variables.yml").read_text())["data"]
     v100 = standard_variables()
     assert set(v010) <= set(v100)
+    notation = {"(0 - 1)": "1", "Numeric": "1", "m of water equivalent": "m"}
     for code, spec in v010.items():
-        assert v100[code] == spec, f"{code} changed between v010 and v100"
+        new = v100[code]
+        assert (new["short_name"], new["type"]) == (spec["short_name"], spec["type"]), f"{code} changed between v010 and v100"
+        assert new["units"] == notation.get(spec["units"], spec["units"].replace("**", "")), code
+        assert new["long_name"] == ("Geopotential" if spec["short_name"] == "z" else spec["long_name"]), code
+        assert set(new) - set(spec) <= {"standard_name", "height", "pack"}, code
     new = {code: spec for code, spec in v100.items() if code not in v010}
     assert {spec["short_name"] for spec in new.values()} == {
         "h1012", "h1214", "h1417", "h1721", "h2125", "h2530", "wmb", "swh", "mwd", "mwp", "cdww"}

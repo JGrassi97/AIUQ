@@ -236,6 +236,20 @@ def list_outputs(outdir):
     return files
 
 
+def outputs_tag(outdir, files):
+    """The 'aiuq_compression' global attribute of the newest output file: how the outputs are stored. None when
+    it is absent or cannot be read (this is the only part of the probe that needs netCDF4)."""
+    if not files:
+        return None
+    var, mem, name = max(files, key=lambda f: f[4])[:3]
+    try:
+        import netCDF4
+        with netCDF4.Dataset(os.path.join(outdir, var, mem, name)) as ds:
+            return str(ds.getncattr("aiuq_compression")) if "aiuq_compression" in ds.ncattrs() else None
+    except Exception:  # noqa: BLE001  a file being written, a missing library: the listing must not fail
+        return None
+
+
 def probe_exp(expid, opt):
     root = opt["root"]
     logdir = os.path.join(root, "LOG_%s" % expid)
@@ -313,6 +327,7 @@ def probe_exp(expid, opt):
 
     if opt.get("outputs"):
         res["outputs"] = list_outputs(outdir)
+        res["outputs_tag"] = outputs_tag(outdir, res["outputs"])
     return res
 
 

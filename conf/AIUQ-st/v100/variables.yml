@@ -9,6 +9,15 @@ metadata:
                 condition source that cannot provide them (for example EERIE) is still valid for the
                 models that do not use them."
   reference_url : https://codes.ecmwf.int/grib/param-db/
+  # Every variable is also described as the CF conventions ask (https://cfconventions.org), which is what the
+  # output files carry (runscripts/AIUQst_lib/output.py):
+  #   units          the ECMWF units in CF (UDUNITS) notation: m2 s-2, "1" for fractions and pure numbers
+  #   standard_name  CF standard name (table version 95), where one describes the field; otherwise absent
+  #   height         metres above the surface, for fields at a fixed height (2 m, 10 m, 100 m)
+  # pack: how the outputs may be stored as integers (EXPERIMENT.OUT_COMPRESSION, AIUQst_lib/compression.py):
+  #   the step between two stored values, in the units of the variable, for the presets 'mixed' and 'integer',
+  #   and an optional offset subtracted before (273.15: temperatures are stored in whole degrees Celsius).
+  #   Variables without it keep their significant bits instead (humidity, cloud water, vertical velocity ...).
   # Variable types:  sfc  single level    pl  pressure level    soil  soil layers
   #                  wave ocean waves (sea points only, NaN over land)
   # optional: true   the IC retrieval only warns when the variable has no source; a model whose
@@ -18,98 +27,123 @@ data:
   31  : 
     short_name  : ci
     long_name   : Sea ice area fraction
-    units       : (0 - 1)
+    units       : "1"
+    standard_name : sea_ice_area_fraction
     type        : sfc
+    pack        : {mixed: 0.01, integer: 0.01}
 
   34  : 
     short_name  : sst
     long_name   : Sea surface temperature
     units       : K
+    standard_name : sea_surface_temperature
     type        : sfc
+    pack        : {mixed: 1, integer: 1, offset: 273.15}
 
   39  : 
     short_name  : swvl1
     long_name   : Volumetric soil water layer 1
-    units       : m3 m**-3
+    units       : m3 m-3
+    standard_name : volume_fraction_of_condensed_water_in_soil
     type        : soil
   
   40  : 
     short_name  : swvl2
     long_name   : Volumetric soil water layer 2
-    units       : m3 m**-3
+    units       : m3 m-3
+    standard_name : volume_fraction_of_condensed_water_in_soil
     type        : soil
 
   43  :
     short_name  : slt
     long_name   : Soil type
-    units       : Numeric
+    units       : "1"
     type        : sfc
     
   129 : 
     short_name  : z
-    long_name   : Geopotential height
-    units       : m2 s**-2
+    long_name   : Geopotential
+    units       : m2 s-2
+    standard_name : geopotential
     type        : pl
+    pack        : {mixed: 9.80665, integer: 9.80665}
 
   130 : 
     short_name  : t
     long_name   : Temperature
     units       : K
+    standard_name : air_temperature
     type        : pl
+    pack        : {mixed: 1, integer: 1, offset: 273.15}
 
   131 :
     short_name  : u
     long_name   : U component of wind
-    units       : m s**-1
+    units       : m s-1
+    standard_name : eastward_wind
     type        : pl
+    pack        : {mixed: 1, integer: 1}
 
   132 : 
     short_name  : v
     long_name   : V component of wind
-    units       : m s**-1
+    units       : m s-1
+    standard_name : northward_wind
     type        : pl
+    pack        : {mixed: 1, integer: 1}
 
   133 : 
     short_name  : q
     long_name   : Specific humidity
-    units       : kg kg**-1
+    units       : kg kg-1
+    standard_name : specific_humidity
     type        : pl
   
   134 : 
     short_name  : sp
     long_name   : Surface pressure
     units       : Pa
+    standard_name : surface_air_pressure
     type        : sfc
+    pack        : {mixed: 100, integer: 100}
 
   135 : 
     short_name  : w
     long_name   : Vertical velocity
-    units       : Pa s**-1
+    units       : Pa s-1
+    standard_name : lagrangian_tendency_of_air_pressure
     type        : pl
   
   136 : 
     short_name  : tcw
     long_name   : Total column water
-    units       : kg m**-2
+    units       : kg m-2
+    standard_name : atmosphere_mass_content_of_water
     type        : sfc
+    pack        : {mixed: 1, integer: 1}
 
   137 :
     short_name  : tcwv
     long_name   : Total column vertically-integrated water vapour
-    units       : kg m**-2
+    units       : kg m-2
+    standard_name : atmosphere_mass_content_of_water_vapor
     type        : sfc
+    pack        : {mixed: 1, integer: 1}
 
   141 :
     short_name  : sd
     long_name   : Snow depth
-    units       : m of water equivalent
+    units       : m
+    standard_name : lwe_thickness_of_surface_snow_amount
     type        : sfc
 
   151 : 
     short_name  : msl
     long_name   : Mean sea level pressure
     units       : Pa
+    standard_name : air_pressure_at_mean_sea_level
     type        : sfc
+    pack        : {mixed: 100, integer: 100}
 
   160 : 
     short_name  : sdor
@@ -120,74 +154,101 @@ data:
   163 :
     short_name  : slor
     long_name   : Slope of sub-gridscale orography
-    units       : Numeric
+    units       : "1"
     type        : sfc
 
   164 :
     short_name  : tcc
     long_name   : Total cloud cover
-    units       : (0 - 1)
+    units       : "1"
+    standard_name : cloud_area_fraction
     type        : sfc
+    pack        : {mixed: 0.01, integer: 0.01}
 
   165 :
     short_name  : u10
     long_name   : 10 metre U wind component
-    units       : m s**-1
+    units       : m s-1
+    standard_name : eastward_wind
+    height      : 10
     type        : sfc
+    pack        : {mixed: 1, integer: 1}
 
   166 :
     short_name  : v10
     long_name   : 10 metre V wind component
-    units       : m s**-1
+    units       : m s-1
+    standard_name : northward_wind
+    height      : 10
     type        : sfc
+    pack        : {mixed: 1, integer: 1}
 
   167 : 
     short_name  : t2m
     long_name   : 2 metre temperature
     units       : K
+    standard_name : air_temperature
+    height      : 2
     type        : sfc
+    pack        : {mixed: 1, integer: 1, offset: 273.15}
 
   168 :
     short_name  : d2m
     long_name   : 2 metre dewpoint temperature
     units       : K
+    standard_name : dew_point_temperature
+    height      : 2
     type        : sfc
+    pack        : {mixed: 1, integer: 1, offset: 273.15}
 
   172 :
     short_name  : lsm
     long_name   : Land-sea mask
-    units       : (0 - 1)
+    units       : "1"
+    standard_name : land_area_fraction
     type        : sfc
 
   186 :
     short_name  : lcc
     long_name   : Low cloud cover
-    units       : (0 - 1)
+    units       : "1"
+    standard_name : low_type_cloud_area_fraction
     type        : sfc
+    pack        : {mixed: 0.01, integer: 0.01}
 
   187 :
     short_name  : mcc
     long_name   : Medium cloud cover
-    units       : (0 - 1)
+    units       : "1"
+    standard_name : medium_type_cloud_area_fraction
     type        : sfc
+    pack        : {mixed: 0.01, integer: 0.01}
 
   188 :
     short_name  : hcc
     long_name   : High cloud cover
-    units       : (0 - 1)
+    units       : "1"
+    standard_name : high_type_cloud_area_fraction
     type        : sfc
+    pack        : {mixed: 0.01, integer: 0.01}
 
   228246 :
     short_name  : u100
     long_name   : 100 metre U wind component
-    units       : m s**-1
+    units       : m s-1
+    standard_name : eastward_wind
+    height      : 100
     type        : sfc
+    pack        : {mixed: 1, integer: 1}
 
   228247 :
     short_name  : v100
     long_name   : 100 metre V wind component
-    units       : m s**-1
+    units       : m s-1
+    standard_name : northward_wind
+    height      : 100
     type        : sfc
+    pack        : {mixed: 1, integer: 1}
 
   140114 :
     short_name  : h1012
@@ -242,13 +303,15 @@ data:
     short_name  : swh
     long_name   : Significant height of combined wind waves and swell
     units       : m
+    standard_name : sea_surface_wave_significant_height
     type        : wave
     optional    : true
 
   140230 :
     short_name  : mwd
     long_name   : Mean wave direction
-    units       : Degree true
+    units       : degree
+    standard_name : sea_surface_wave_from_direction
     type        : wave
     optional    : true
 
@@ -256,13 +319,15 @@ data:
     short_name  : mwp
     long_name   : Mean wave period
     units       : s
+    standard_name : sea_surface_wave_mean_period_from_variance_spectral_density_inverse_frequency_moment
     type        : wave
     optional    : true
 
   140233 :
     short_name  : cdww
     long_name   : Coefficient of drag with waves
-    units       : dimensionless
+    units       : "1"
+    standard_name : surface_drag_coefficient_in_air
     type        : wave
     optional    : true
 
@@ -270,28 +335,34 @@ data:
     short_name  : skt
     long_name   : Skin temperature
     units       : K
+    standard_name : surface_temperature
     type        : sfc
+    pack        : {mixed: 1, integer: 1, offset: 273.15}
 
   246 : 
     short_name  : clwc
     long_name   : Specific cloud liquid water content
-    units       : kg kg**-1
+    units       : kg kg-1
+    standard_name : mass_fraction_of_cloud_liquid_water_in_air
     type        : pl
 
   247 : 
     short_name  : ciwc
     long_name   : Specific cloud ice water content
-    units       : kg kg**-1
+    units       : kg kg-1
+    standard_name : mass_fraction_of_cloud_ice_in_air
     type        : pl
 
   260360 : 
     short_name  : sot
     long_name   : Soil temperature
     units       : K
+    standard_name : soil_temperature
     type        : soil
 
   999999 : 
     short_name  : orog
     long_name   : Elevation
     units       : m
+    standard_name : surface_altitude
     type        : sfc

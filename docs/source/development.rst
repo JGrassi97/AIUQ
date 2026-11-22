@@ -55,12 +55,20 @@ Output-only variables (diagnostics, accumulations, mean rates and fluxes such as
 initial-condition sources are never asked for them. ``accumulated: true`` marks
 totals over a period, which daily output sums instead of averaging. A model card
 maps them to model names in its ``outputs`` block; an entry can be a mapping with
-``name``, ``scale`` (factor to the AIUQ-st units), ``window`` (the period, written
+``name``, ``scale`` (factor to the AIUQ-st units), ``window`` (the period, e.g.
+``6 h ending at valid_time``: it becomes the time bounds and ``cell_methods``, written
 to the file attributes) and ``deaccumulate`` (the model gives a running total). The
 ``checkpoints`` block lists, per checkpoint file, the ``outputs`` it writes and
 optionally its ``levels``; the Launcher and ``SIM`` follow it
 (``AIUQst_lib.variables.resolve_outputs``). ``tests/test_output_variables.py``
 checks the lists against what each checkpoint produces.
+
+A variable of the standard can also carry ``pack``, the step it is stored with when
+the experiment asks for integers (``pack: {mixed: 1, integer: 1, offset: 273.15}``,
+in the units of the variable; see :doc:`outputs`). It is the one table behind
+``AIUQst_lib/compression.py``, the Launcher and the documentation: give a new
+variable a ``pack`` only when a step in the unit people read loses nothing that
+matters; without it the variable keeps its significant bits.
 
 AIFS checkpoints are not hard-coded: ``runscripts/ics_aifs.py`` reads the input
 fields a checkpoint needs from its metadata and takes them from the standard through

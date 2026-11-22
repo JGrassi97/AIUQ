@@ -19,6 +19,12 @@ LEV_NAMES = ("level", "plev", "pressure", "isobaricinhpa", "lev", "pressure_leve
 MAX_LON = 360
 
 
+def data_variables(ds):
+    """Names of the data variables: two or more dimensions, not a coordinate and not the bounds of one."""
+    bounds = {getattr(v, "bounds", None) for v in ds.variables.values()}
+    return [k for k, v in ds.variables.items() if v.ndim >= 2 and k not in ds.dimensions and k not in bounds]
+
+
 def find_dim(dims, names):
     for d in dims:
         if d.lower() in names:
@@ -309,7 +315,7 @@ def main():
     ds.set_auto_mask(True)
     var = req.get("var")
     if var not in ds.variables:
-        cands = [k for k, v in ds.variables.items() if v.ndim >= 2 and k not in ds.dimensions]
+        cands = data_variables(ds)
         var = cands[0]
     v = ds.variables[var]
     dims = v.dimensions
@@ -365,7 +371,7 @@ def main():
         "max": float(finite.max()) if finite.size else None,
         "mean": float(finite.mean()) if finite.size else None,
         "stride": stride, "shape": list(v.shape),
-        "vars": [k for k, vv in ds.variables.items() if vv.ndim >= 2 and k not in ds.dimensions],
+        "vars": data_variables(ds),
     }
     ds.close()
     sys.stdout.write(json.dumps(out))
