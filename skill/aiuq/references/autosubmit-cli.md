@@ -89,8 +89,8 @@ what it would change.
 | Logs of local jobs (SYNCHRONIZE) | Autosubmit host `~/autosubmit/<expid>/tmp/LOG_<expid>/` |
 | Logs of HPC jobs | HPC `<root>/LOG_<expid>/<job>.cmd.{out,err}.<attempt>` (Slurm) or `<job>.<timestamp>.{out,err}` (direct); `<job>_STAT_<n>` (start, end epoch, result); `<job>_COMPLETED` |
 | Job scripts as submitted | HPC `<root>/LOG_<expid>/<job>.cmd` |
-| Outputs | HPC `<root>/outputs/<var>/<member>/` while running. After `ARCHIVE` the whole experiment (outputs, `LOG_<expid>/`, code) is in the store `<store>/<expid>_<time>/` (readable from the HPC at the same path; `~/autosubmit/<expid>/OUTPUT_STORE.json` on the Autosubmit host says where) and `<root>` is gone from the HPC |
-| Logs of ARCHIVE | Autosubmit host `~/autosubmit/<expid>/tmp/LOG_<expid>/` (local job) |
+| Outputs | HPC `<root>/outputs/<var>/<member>/` while running, until the `STORE` job of their start date moves them to `<store>/<expid>_<time>/outputs/` (`OUTPUT_STORE.json` says `partial`; each job lists its files in `<root>/store_pending/<SDATE>/<job>.txt`). After `ARCHIVE` the whole experiment (outputs, `LOG_<expid>/`, code) is in the store `<store>/<expid>_<time>/` (readable from the HPC at the same path; `~/autosubmit/<expid>/OUTPUT_STORE.json` on the Autosubmit host says where) and `<root>` is gone from the HPC |
+| Logs of STORE and ARCHIVE | Autosubmit host `~/autosubmit/<expid>/tmp/LOG_<expid>/` (local job) |
 | Initial conditions | HPC `<root>/ics/<ics>/<date>/` (zarr), temporary `ics_temp/` |
 | Dashboard action log | Autosubmit host `~/.local/share/aiuq-dashboard/launcher.log` |
 

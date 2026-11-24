@@ -311,8 +311,18 @@ Note that some ICs require credentials to be retrieved:
 
 #### Output store
 
-On FELIPE the last job of every experiment, `ARCHIVE`, moves the experiment off the HPC scratch into an output store
-on the Autosubmit host, once every simulation (and, for AIFS, every `POSTPROCESS` and `CLEAN`) has completed.
+On FELIPE the outputs leave the HPC scratch while the experiment runs, so the scratch holds only the start dates being
+simulated:
+
+- `STORE` (one per start date, Autosubmit host, `templates/store.sh`) moves the outputs of its start date into the
+  output store as soon as every `SIM` of that date (and, for AIFS, every `POSTPROCESS` and `CLEAN`) has completed, and
+  removes the date's initial conditions. It moves exactly the files the jobs of that date wrote: each job lists them in
+  `<HPCROOTDIR>/store_pending/<SDATE>/<job>.txt`.
+- `PREPARE_ICS` of a start date waits until every `SIM` two start dates earlier has completed. Initial conditions are
+  prepared at most two dates ahead, and Slurm holds at most about two start dates of `SIM` jobs (members × chunks each)
+  instead of the whole experiment. For a stricter limit add `JOBS: {PREPARE_ICS: {DEPENDENCIES: SIM-1}}` to `main.yml`.
+- `ARCHIVE` (once, last) moves what is left: restart checkpoints, logs and code.
+
 Autosubmit can reuse an expid after `autosubmit delete`, so each experiment gets its own folder:
 
 ```
@@ -321,12 +331,14 @@ Autosubmit can reuse an expid after `autosubmit delete`, so each experiment gets
     LOG_<expid>/                  every job log, configuration, COMPLETED flag and STAT file
     runscripts/ conf/ lib/        the code that ran
     autosubmit/                   the experiment's Autosubmit configuration (main.yml, ...)
-    archive.json                  source, time, files, bytes, git commit of the project
+    archive.json                  source, time, files, bytes, git commit of the project, stored start dates
 ```
 
 The folder has the layout of the experiment folder on the HPC, so the Monitor, Compare, Weather and AIUQ-store read it
-directly. The job writes `~/autosubmit/<expid>/OUTPUT_STORE.json` on the Autosubmit host, which the Monitor and the
-`aiuq` skill follow. The HPC folder (`<HPCROOTDIR>`, initial conditions included) is removed only after a second
+directly. The jobs write `~/autosubmit/<expid>/OUTPUT_STORE.json` on the Autosubmit host, which the Monitor and the
+`aiuq` skill follow once it says `done`; while it says `partial` (some start dates stored, the experiment still
+running) they keep reading the HPC folder, which then holds only the dates not stored yet. A store folder without
+`LOG_<expid>/` is such a running experiment, and Compare and Weather skip it. The HPC folder (`<HPCROOTDIR>`, initial conditions included) is removed only after a second
 rsync pass finds nothing left to copy. The default store is `/data/users/<PLATFORM.USER_CODE>/AIUQ-outputs` (`conf/general.yml`);
 choose another folder per experiment in `main.yml` or in the Launcher's "Output store" field:
 
@@ -337,8 +349,10 @@ OUTPUT_STORE:
   ENABLED: true                          # false: everything stays on the HPC
 ```
 
-`ARCHIVE` refuses to move anything while Slurm still has jobs of the experiment; running it again completes the same
-folder. Experiments created before this job existed do not have it.
+`STORE` refuses to move anything while Slurm still has jobs of its start date, `ARCHIVE` while it has jobs of the
+experiment; both copy, check with a second rsync pass and only then delete, and running them again is harmless.
+Experiments created before 2026-11-19 have no `ARCHIVE` job, and those created before 2026-11-24 have no `STORE` jobs
+(their `ARCHIVE` moves everything at the end).
 
 #### Forecasting from the latest ECMWF analysis
 

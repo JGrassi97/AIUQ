@@ -103,10 +103,13 @@ for var in $vars; do
     finalize_args+=(--file "${var}" "${gridf}" "${infile}" "${outf}")
 done
 
+# The final files are listed in store_pending/<SDATE>/<job>.txt; the STORE job of the start date moves them
+# (templates/store.sh).
 if [ ${#finalize_args[@]} -gt 0 ]; then
     singularity exec \
         --bind $HPCROOTDIR \
         --env HPCROOTDIR=$HPCROOTDIR \
+        --env AIUQ_OUTPUT_RECORD="${HPCROOTDIR}/store_pending/%SDATE%/${JOBNAME}.txt" \
         ${SIF_PATH} \
         python3 $HPCROOTDIR/runscripts/finalize_aifs_output.py -c $configfile "${finalize_args[@]}" || exit 1
 fi

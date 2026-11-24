@@ -68,7 +68,8 @@ What it shows
    * - Outputs: map, point time series, area average
      - ``outputs/<var>/<member>/*.nc``, read on the HPC host; for archived experiments from the output
        store: once ``~/autosubmit/<expid>/OUTPUT_STORE.json`` says the ARCHIVE job is done, the whole experiment
-       (logs and outputs) is read from ``<store>/<expid>_<time>/``
+       (logs and outputs) is read from ``<store>/<expid>_<time>/``. While it says ``partial`` the STORE jobs have
+       already moved the outputs of some start dates: only the dates still on the HPC are shown until the end
      - measured
    * - HPC performance
      - waiting, queued and running time per step, parallelism, failed attempts

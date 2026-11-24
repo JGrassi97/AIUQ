@@ -5,6 +5,11 @@ JOBS:
   PREPARE_ICS:
     CHECK: on_submission
     FILE: templates/prepare_ics.sh
+    # At most two start dates ahead: the initial conditions of a date are prepared once every SIM job two
+    # dates earlier has finished, so the HPC holds the initial conditions and outputs of a few dates only and
+    # Slurm never sees more than about two dates of SIM jobs (members x chunks each). Adds to the dependency of
+    # conf/jobs/<platform>/ics/<ics>/<ics>.yml. A stricter limit in main.yml: DEPENDENCIES: SIM-1.
+    DEPENDENCIES: SIM-2
 
   SIM:
     CHECK: on_submission
@@ -19,15 +24,21 @@ JOBS:
     MEMORY: 49152
     CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
 
+  STORE:
+    # Moves the outputs of one start date to OUTPUT_STORE.DIR (conf/general.yml) and removes its initial
+    # conditions, as soon as every job of that date is done (templates/store.sh). Runs on the Autosubmit host.
+    CHECK: on_submission
+    FILE: templates/store.sh
+    PLATFORM: local
+    RUNNING: date
+    DEPENDENCIES: SIM
+
   ARCHIVE:
-    # Moves the outputs to OUTPUT_STORE.DIR (conf/general.yml). Runs on the Autosubmit host after
-    # every SIM job (all dates, members and chunks).
+    # Moves what is left (logs, code, checkpoints) once every STORE job is done (templates/archive.sh).
     CHECK: on_submission
     FILE: templates/archive.sh
     PLATFORM: local
     RUNNING: once
     DEPENDENCIES:
-      SIM:
+      STORE:
         DATES_TO: all
-        MEMBERS_TO: all
-        CHUNKS_TO: all
