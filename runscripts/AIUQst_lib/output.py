@@ -52,7 +52,7 @@ REFERENCES = "https://github.com/JGrassi97/AIUQ"
 
 BLOCK_BYTES = 256 * 2 ** 20                    # data are written in blocks of valid times of about this size
 
-MODEL_LABELS = {"neuralgcm": "NeuralGCM", "aifs": "AIFS", "ms-aurora": "Aurora"}
+MODEL_LABELS = {"neuralgcm": "NeuralGCM", "aifs": "AIFS", "ms-aurora": "Aurora", "weathernext": "WeatherNext"}
 ICS_LABELS = {"era5": "ERA5", "eerie": "EERIE", "ecmwf-an": "ECMWF analysis", "ec-earth3": "EC-Earth3"}
 ALIASES = {"lat": "latitude", "lon": "longitude", "plev": "level", "pressure_level": "level", "isobaricInhPa": "level"}
 

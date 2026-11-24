@@ -5,6 +5,17 @@ All notable changes to AIUQ are listed here. Versions follow [semantic versionin
 ## [1.1.0] - unreleased
 
 ### Added
+- **WeatherNext 2** (`MODEL.NAME: weathernext`, branch `models/weathernext-2`): Google DeepMind's ensemble model
+  (FGN, [github.com/google-deepmind/weathernext](https://github.com/google-deepmind/weathernext), code Apache 2.0,
+  weights CC BY 4.0, released August 2026). Two checkpoints, each a folder with one weights file per
+  independently trained model ("seed"): `WeatherNext2_2025` (operational, 0.25°, 4 seeds, fine-tuned on HRES
+  analyses) and `WeatherNextCyclones_Mini_2024` (1°, 1 seed). Member *m* runs seed ((*m* − 1) mod *n*) + 1 with its
+  own noise, so an ensemble takes the same number of members from every seed, as in the paper. Inputs at T−6h
+  and T from the AIUQ-st initial conditions (`z t u v w q` on 13 levels, `t2m msl u10 v10 u100 v100 sst`, surface
+  geopotential and land-sea mask); outputs the same fields plus `tp` (6 h totals). New image
+  `remote_set/image_weathernext.def` (weathernext v0.3.0, JAX with CUDA 12). Verified so far on FELIPE on CPU: with
+  the same inputs the AIUQ code gives the same forecast as the upstream demo, to the bit; the 1° model from the
+  ECMWF analysis gives physical fields. GPU runs and the Autosubmit chain are still to be tested.
 - **Every output variable of every checkpoint** (branch `cards/output-variables`): the model cards list per checkpoint
   what `SIM` can write (`checkpoints` block), checked against the checkpoints themselves (AIFS metadata, Aurora model
   classes, NeuralGCM `data_to_xarray`) and the upstream documentation. New outputs: AIFS diagnostics `tp cp sf ro

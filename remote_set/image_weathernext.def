@@ -1,0 +1,66 @@
+Bootstrap: docker
+From: python:3.12-slim-bookworm
+
+# Image for Google DeepMind WeatherNext 2 (FGN), https://github.com/google-deepmind/weathernext.
+# JAX with the CUDA 12 libraries from pip (the host only needs an NVIDIA driver >= 525); the
+# weathernext package pinned to the release tag v0.3.0, which carries the model configs
+# (weathernext/weathernext2/configs/*.json). Weights are separate files, see remote_set/get_models.txt.
+#
+# Python 3.12: gdm-xarray-jax needs it, weathernext still declares 3.10-3.11 (the upstream demo
+# installs it with --ignore-requires-python too).
+#
+# Build (unprivileged, on the HPC):
+#   apptainer build image_weathernext.sif image_weathernext.def
+
+%labels
+    Description "WeatherNext 2 (weathernext v0.3.0) + JAX CUDA 12"
+
+%post
+    set -eux
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y --no-install-recommends ca-certificates git build-essential libgeos-dev libspatialindex-dev
+    rm -rf /var/lib/apt/lists/*
+    update-ca-certificates
+
+    PY=/usr/local/bin/python3
+    $PY -m pip install --no-cache-dir -U pip
+
+    # weathernext declares xarray<=2026.2.0; zarr 3 is what the AIUQ initial conditions are written
+    # with. colabtools (a declared dependency) is only used by the notebooks and is not on PyPI under
+    # that name for Linux builds, so the package is installed without its dependency list and the
+    # dependencies are listed here. Versions as resolved by the first build on FELIPE (2026-11-24),
+    # with which the integration was verified; the full list is in /opt/weathernext-freeze.txt.
+    $PY -m pip install --no-cache-dir \
+        "jax[cuda12]==0.12.1" \
+        "chex==0.1.92" "dask==2026.11.0" "dinosaur-dycore==1.2.1" "dm-haiku==0.0.17" "dm-tree==0.1.10" \
+        "fiddle==0.3.1" "h5netcdf==1.8.3" "jraph==0.0.6.dev0" "numpy==2.5.5" "pandas==2.3.3" \
+        "pyproj==3.8.0" "rtree==1.4.1" "scipy==1.18.1" "trimesh==5.2.2" "typing_extensions" \
+        "xarray==2026.2.0" "xarray-tensorstore==0.3.0" "zarr==3.4.2" "netCDF4==1.7.5.1.post1" \
+        "pyyaml" "cftime==1.6.6.1" \
+        "gdm-xarray-jax @ git+https://github.com/google-deepmind/xarray_jax.git@v0.1.1"
+    $PY -m pip install --no-cache-dir --no-deps --ignore-requires-python \
+        "weathernext @ git+https://github.com/google-deepmind/weathernext.git@v0.3.0"
+
+    $PY -c "import jax, haiku, xarray, xarray_jax; \
+from weathernext.weathernext2 import fgn; \
+from weathernext.utils import fiddle_config_io; \
+fiddle_config_io.get_fiddle_config_by_name('weathernext2/configs/WeatherNext2'); \
+print('jax', jax.__version__, 'haiku', haiku.__version__, 'xarray', xarray.__version__)"
+    $PY -m pip freeze > /opt/weathernext-freeze.txt
+
+%environment
+    export PYTHONUNBUFFERED=1
+    # The home folder is bound into the container: packages the user installed there for the host's
+    # Python 3.12 (~/.local/lib/python3.12) would shadow the image's ones.
+    export PYTHONNOUSERSITE=1
+    # JAX must not take 75% of the GPU memory up front: one forecast step at 0.25 deg needs most of
+    # the card, and the host may share it.
+    export XLA_PYTHON_CLIENT_PREALLOCATE=${XLA_PYTHON_CLIENT_PREALLOCATE:-false}
+    unset SSL_CERT_FILE
+    unset REQUESTS_CA_BUNDLE
+    export SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+    export REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+
+%runscript
+    exec "$@"

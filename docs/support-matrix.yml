@@ -86,6 +86,21 @@ models:
         download_url: https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-v1.5-ensemble.ckpt
         size: 5,04GB
 
+  - name: WeatherNext
+    label: weathernext
+    supported_modes: hindcast
+    checkpoints:
+      - id: wn2_2025
+        label: WeatherNext2_2025
+        url: https://github.com/google-deepmind/weathernext
+        download_url: https://console.cloud.google.com/storage/browser/dm_graphcast/weathernext2/params
+        size: 4 x 701MB
+      - id: wn_cyclones_mini_2024
+        label: WeatherNextCyclones_Mini_2024
+        url: https://github.com/google-deepmind/weathernext
+        download_url: https://console.cloud.google.com/storage/browser/dm_graphcast/weathernext2/params
+        size: 216MB
+
   # Planned for a later release (integration on the models/ace branch).
   - name: ACE
     label: ace
@@ -115,6 +130,7 @@ models:
 #                     time (2026-11-21: temperature at 850 hPa up to 3199 K with deterministic_1_4, 380 K with
 #                     deterministic_2_8; a few points of geopotential height with deterministic_0_7). The same
 #                     checkpoints are clean from ERA5, and the stochastic checkpoints are clean from EC-Earth3.
+#                     WeatherNext 2 (branch models/weathernext-2): integration in progress.
 #   not_implemented = no integration. AIFS ENS 2.0 needs ocean-wave fields, which EERIE and EC-Earth3 do not have.
 status:
   ERA5:
@@ -131,6 +147,8 @@ status:
     aurora_0_25_finetuned: "available"
     aurora_0_25_v1_5: "available"
     aurora_0_25_v1_5_ensemble: "available"
+    wn2_2025: "wip"
+    wn_cyclones_mini_2024: "wip"
     ace2_era5: "not_implemented"
 
 
@@ -148,6 +166,8 @@ status:
     aurora_0_25_finetuned: "available"
     aurora_0_25_v1_5: "available"
     aurora_0_25_v1_5_ensemble: "available"
+    wn2_2025: "wip"
+    wn_cyclones_mini_2024: "wip"
     ace2_era5: "not_implemented"
 
   # Latest IFS analysis from ECMWF Open Data (ICS: ecmwf-an).
@@ -165,6 +185,8 @@ status:
     aurora_0_25_finetuned: "available"
     aurora_0_25_v1_5: "available"
     aurora_0_25_v1_5_ensemble: "available"
+    wn2_2025: "wip"
+    wn_cyclones_mini_2024: "wip"
     ace2_era5: "not_implemented"
 
   # EC-Earth3 CMIP6 state from ESGF (ICS: ec-earth3). No ocean-wave fields, which AIFS ENS 2.0 needs.
@@ -183,4 +205,6 @@ status:
     aurora_0_25_finetuned: "available"
     aurora_0_25_v1_5: "available"
     aurora_0_25_v1_5_ensemble: "available"
+    wn2_2025: "wip"
+    wn_cyclones_mini_2024: "wip"
     ace2_era5: "not_implemented"

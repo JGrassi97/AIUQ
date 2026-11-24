@@ -25,6 +25,12 @@ Simulation modes
 * **AIFS:** hindcast workflows, with single-model and ensemble checkpoints.
 * **MS Aurora:** hindcast workflows; availability depends on checkpoint and
   initial conditions.
+* **WeatherNext 2** (Google DeepMind, FGN): hindcast workflows, ensemble only.
+  Members are split evenly over the independently trained models of a checkpoint
+  (4 seeds for ``WeatherNext2_2025``): member *m* runs seed ((*m* − 1) mod 4) + 1
+  with its own noise, drawn anew at every 6-hour step. The operational checkpoint
+  was fine-tuned on HRES analyses, so ``ecmwf-an`` is the intended initial
+  condition. Integration in progress (branch ``models/weathernext-2``).
 * **ACE:** AMIP integration in development; check the matrix before planning a run.
 
 Output variables
@@ -61,6 +67,12 @@ by ``data_to_xarray``) and agree with the upstream documentation.
        swvl1 sd ci tcwv tcc lcc mcc hcc``; output-only ``i10fg blh`` and the hourly
        fields as mean rates and fluxes ``avg_tprate avg_tsrwe avg_sdswrf avg_tnlwrf
        avg_sduvrf``.
+   * - WeatherNext 2 (``WeatherNext2_2025``, 0.25°)
+     - ``z t u v w q`` on 13 levels (50–1000 hPa); ``t2m msl u10 v10 u100 v100
+       sst``; output-only ``tp`` (6 h total). Sea surface temperature is NaN over
+       land, as in the input.
+   * - WeatherNext Cyclones Mini (``WeatherNextCyclones_Mini_2024``, 1°)
+     - As WeatherNext 2 without ``u100 v100``.
    * - NeuralGCM (deterministic, ``stochastic_1_4_deg``)
      - ``z t u v q clwc ciwc`` on 37 levels (1–1000 hPa). No surface field: sea
        surface temperature and sea ice are forcings.
@@ -73,6 +85,9 @@ Accumulations and mean rates refer to different periods, written to the
 * **AIFS** ``tp cp sf ro`` (m) and ``ssrd strd`` (J m⁻²) are totals over the 6 h
   model step ending at the valid time. With ``OUT_FREQ: daily`` they are summed
   over the periods ending in the day (00–24 UTC).
+* **WeatherNext** ``tp`` (m) is the total over the 6 h model step ending at the
+  valid time, as for AIFS. It is written as predicted and can be slightly
+  negative (a few tenths of a millimetre).
 * **NeuralGCM** returns precipitation as a running total since the start of the
   run; AIUQ writes ``tp`` as the total over each output step. The ``evap``
   checkpoint diagnoses precipitation from the water budget, which can be slightly

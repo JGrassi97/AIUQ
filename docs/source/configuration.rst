@@ -43,11 +43,13 @@ Model and initial conditions
 ----------------------------
 
 ``MODEL.NAME``
-   Model identifier used by the job configurations: ``aifs``, ``neuralgcm`` or
-   ``ms-aurora``. ACE appears in the support matrix as an integration in development.
+   Model identifier used by the job configurations: ``aifs``, ``neuralgcm``,
+   ``ms-aurora`` or ``weathernext``. ACE appears in the support matrix as an integration in development.
 ``MODEL.CHECKPOINT_NAME``
    Checkpoint filename. It must match the checkpoint installed under
-   ``<SUPPORT_FOLDER>/models/<MODEL.NAME>/``.
+   ``<SUPPORT_FOLDER>/models/<MODEL.NAME>/``. For ``weathernext`` it is a folder
+   (``WeatherNext2_2025``, ``WeatherNextCyclones_Mini_2024``) holding one weights
+   file per seed.
 ``MODEL.ICS``
    Initial-condition source: ``era5``, ``eerie``, ``ecmwf-an`` or ``ec-earth3``.
    Availability varies by checkpoint; see :doc:`models`.

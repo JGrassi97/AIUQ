@@ -149,6 +149,22 @@ The framework supports both deterministic and stochastic models. Deterministic m
 <td align="center">✅</td>
 </tr>
 <tr>
+<td rowspan="2"><b>WeatherNext</b></td>
+<td rowspan="2">hindcast</td>
+<td><a href="https://github.com/google-deepmind/weathernext">WeatherNext2_2025</a></td>
+<td align="center">⚠️</td>
+<td align="center">⚠️</td>
+<td align="center">⚠️</td>
+<td align="center">⚠️</td>
+</tr>
+<tr>
+<td><a href="https://github.com/google-deepmind/weathernext">WeatherNextCyclones_Mini_2024</a></td>
+<td align="center">⚠️</td>
+<td align="center">⚠️</td>
+<td align="center">⚠️</td>
+<td align="center">⚠️</td>
+</tr>
+<tr>
 <td rowspan="1"><b>ACE</b></td>
 <td rowspan="1">amip (planned)</td>
 <td><a href="https://huggingface.co/allenai/ACE2-ERA5">ACE2-ERA5</a></td>
@@ -208,10 +224,11 @@ To run the framework you need
 ├── models/
 │   ├── neuralgcm/       # *.pkl checkpoints
 │   ├── aifs/            # *.ckpt checkpoints
-│   └── ms-aurora/       # *.ckpt checkpoints
+│   ├── ms-aurora/       # *.ckpt checkpoints
+│   └── weathernext/     # one folder per checkpoint, with the seeds as model1.npz, model2.npz, ...
 ├── sif/                 # Singularity images: image_era.sif, image_eerie.sif (also used by ecmwf-an),
 │                        #   image_neuralgcm.sif, image_anemoi.sif (AIFS 1.x), image_anemoi-2.sif (AIFS 2.x),
-│                        #   image_aurora.sif
+│                        #   image_aurora.sif, image_weathernext.sif
 ├── static/              # AIUQ-static.nc (1st-level fallback: orography, land-sea mask, soil type, ...)
 │                        #   aurora-0.25-static.pickle, aurora-0.25-v1.5-static.pickle
 ├── climatology/         # AIUQ-climatology.nc (2nd-level fallback)

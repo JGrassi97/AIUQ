@@ -1,0 +1,33 @@
+# Resources for WeatherNext 2 on felipe (Slurm cgroup v2, RAM strictly enforced; jobs without MEMORY
+# get 1 GB per CPU). MEMORY is in MB. Outputs are streamed to disk, one step at a time.
+# Not yet measured on felipe: values to be revised after the first runs.
+JOBS:
+  PREPARE_ICS:
+    CHECK: on_submission
+    FILE: templates/prepare_ics.sh
+
+  SIM:
+    CHECK: on_submission
+    FILE: templates/sim_weathernext.sh,templates/config.yml
+    PLATFORM: FELIPE-INFERENCE
+    DEPENDENCIES: SIM-1 PREPARE_ICS
+    RUNNING: CHUNK
+    WALLCLOCK: "01:00"
+    NODES: 1
+    PROCESSORS: 1
+    THREADS: 20
+    MEMORY: 49152
+    CUSTOM_DIRECTIVES: "#SBATCH --gres=gpu:1"
+
+  ARCHIVE:
+    # Moves the outputs to OUTPUT_STORE.DIR (conf/general.yml). Runs on the Autosubmit host after
+    # every SIM job (all dates, members and chunks).
+    CHECK: on_submission
+    FILE: templates/archive.sh
+    PLATFORM: local
+    RUNNING: once
+    DEPENDENCIES:
+      SIM:
+        DATES_TO: all
+        MEMBERS_TO: all
+        CHUNKS_TO: all
