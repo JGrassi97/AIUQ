@@ -91,8 +91,10 @@ Monitor, and "Manage in Launcher" on an experiment page opens Launch & stop on t
 New experiment is a five-step form (start from blank or from an existing experiment · model & checkpoint · initial conditions & run type ·
 members & start dates · outputs). Choices come from the selected Git branch (a blob-less clone kept in
 `~/.local/share/aiuq-dashboard/repo.git`): models and ICS with a job configuration for the platform `AIUQ_LAUNCH_PLATFORM`, the model cards (variables,
-levels) and the AIUQ-st standard. Checkpoints are checked on the HPC (`<support folder>/models/<model>/`) and the README
-support matrix is shown as badges. The side panel shows the number of simulations, a recap of the five steps (click
+levels) and the AIUQ-st standard. The checkpoints offered are those of `docs/support-matrix.yml` (other files in the
+folder, such as download logs or copies, are ignored), checked on the HPC (`<support folder>/models/<model>/`): one
+missing there cannot be chosen. The matrix is shown as badges; initial conditions marked `not_implemented` for the
+chosen checkpoint are disabled and rejected, `wip` ones give a warning. The side panel shows the number of simulations, a recap of the five steps (click
 one to jump to it), a time estimate from finished experiments with the same model, errors/warnings, the exact
 `conf/main.yml` and the commands.
 

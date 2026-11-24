@@ -91,8 +91,10 @@ The Launcher has four views: **New experiment**, **Launch & stop**, **Delete** a
 **Activity**. New experiment is a five-step form (model and checkpoint, initial conditions and run type, members and
 start dates, outputs) that builds ``conf/main.yml`` from the selected Git branch: models and
 initial conditions with a job configuration for the platform, model cards and the
-AIUQ-st standard. Checkpoints are checked on the HPC and the support matrix is shown
-next to each choice.
+AIUQ-st standard. The checkpoints offered are those of the support matrix
+(``docs/support-matrix.yml``), checked on the HPC: one missing there cannot be chosen.
+The matrix is shown next to each choice; initial conditions marked as not implemented
+for the chosen checkpoint cannot be selected (work in progress gives a warning).
 
 .. list-table::
    :header-rows: 1

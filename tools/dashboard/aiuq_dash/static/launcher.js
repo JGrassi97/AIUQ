@@ -22,7 +22,7 @@ const L = {
 };
 const ICS_LABEL = { era5: ["ERA5", "Google Cloud · from 1940"], eerie: ["EERIE", "MARS · ECMWF Web API"],
   "ecmwf-an": ["ECMWF analysis", "Open Data · latest cycle"], "ec-earth3": ["EC-Earth3", "CMIP6 · ESGF · 1850-2100"] };
-const SUP = { ok: ["ok", "supported"], wip: ["wip", "work in progress"] };
+const SUP = { ok: ["ok", "supported"], wip: ["wip", "work in progress"], no: ["no", "not supported"] };
 
 async function lapi(path, body) {
   const r = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json", "X-AIUQ-Launcher": "1" }, body: JSON.stringify(body ?? {}) });
@@ -230,8 +230,10 @@ function fixCfg() {  // keep the form consistent with what the branch offers
   const o = L.opts, c = L.cfg;
   if (!model()) c.model = (o.models.find((m) => m.on_platform) || o.models[0])?.name;
   const m = model();
-  if (!ckpt()) c.checkpoint = (m.checkpoints.find((k) => k.present && k.ensemble) || m.checkpoints.find((k) => k.present) || m.checkpoints[0])?.name;
-  if (!o.ics.includes(c.ics)) c.ics = o.ics[0];
+  const usable = (k) => !o.checkpoints_checked || k.present;   // a checkpoint missing on the HPC cannot be chosen
+  if (!ckpt() || !usable(ckpt())) c.checkpoint = (m.checkpoints.find((k) => usable(k) && k.ensemble) || m.checkpoints.find(usable) || m.checkpoints[0])?.name;
+  const icsOk = (ic) => ckpt()?.support?.[ic] !== "no";        // 'not implemented' in the support matrix
+  if (!o.ics.includes(c.ics) || !icsOk(c.ics)) c.ics = o.ics.find(icsOk) || o.ics[0];
   if (c.run_type === "amip" && !m.amip) c.run_type = "hindcast";
   const names = new Set(outVars().map((v) => v.name)), levels = outLevels();
   c.out_vars = c.out_vars.filter((v) => names.has(v));
@@ -292,7 +294,8 @@ function buildForm() {
         o.checkpoints_checked && !kk.present)).join("")}</div>`)
     + step(3, "Initial conditions & run type", "", `
       <div class="choice-grid">${o.ics.map((ic) => choice("ics", ic, ic === c.ics,
-        `<b>${esc((ICS_LABEL[ic] || [ic])[0])}</b><small>${esc((ICS_LABEL[ic] || ["", ""])[1])}</small>${icsSup(ic) ? tag(SUP[icsSup(ic)]?.[0], SUP[icsSup(ic)]?.[1]) : ""}`)).join("")}</div>
+        `<b>${esc((ICS_LABEL[ic] || [ic])[0])}</b><small>${esc((ICS_LABEL[ic] || ["", ""])[1])}</small>${icsSup(ic) ? tag(SUP[icsSup(ic)]?.[0], SUP[icsSup(ic)]?.[1]) : ""}`,
+        icsSup(ic) === "no", icsSup(ic) === "no" ? `${k.name} does not support these initial conditions` : "")).join("")}</div>
       <div class="ln-row">
         <div class="ln-field">Run type ${seg("run_type", [["hindcast", "Hindcast"], ["amip", "AMIP"]], c.run_type)}</div>
         ${c.run_type === "amip" ? `<label class="ln-field">Forcing <select data-k="forcing">${o.forcings.map((f) => `<option ${f === c.forcing ? "selected" : ""}>${esc(f)}</option>`).join("")}</select></label>` : ""}

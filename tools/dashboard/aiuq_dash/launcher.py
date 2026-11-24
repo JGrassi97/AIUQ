@@ -53,13 +53,20 @@ def parse_support_matrix(matrix):
     return out
 
 
+def matrix_models(matrix):
+    """{checkpoint file: model} of every checkpoint listed in docs/support-matrix.yml."""
+    return {ck["label"]: m["label"] for m in matrix.get("models") or [] for ck in m.get("checkpoints") or []}
+
+
 def support_matrix(branch):
-    """Support table of a branch; empty (every combination 'unknown') when the branch has no matrix."""
+    """(support table, {checkpoint file: model}) of a branch; both empty (every combination 'unknown', checkpoints
+    taken from the HPC folder) when the branch has no matrix."""
     try:
-        return parse_support_matrix(repo_yaml(branch, "docs/support-matrix.yml"))
+        matrix = repo_yaml(branch, "docs/support-matrix.yml")
+        return parse_support_matrix(matrix), matrix_models(matrix)
     except (RuntimeError, yaml.YAMLError, KeyError, TypeError, AttributeError):
         log.warning("no usable docs/support-matrix.yml on %s", branch, exc_info=True)
-        return {}
+        return {}, {}
 
 
 AMIP_MODELS = {"neuralgcm"}
@@ -410,7 +417,7 @@ def options(branch):
     plat_ics = repo_ls(branch, f"conf/jobs/{PLATFORM}/ics")
     store_by_ics = output_store_defaults(branch, plat_ics)
     ckpts = checkpoints_on_hpc()
-    support = support_matrix(branch)
+    support, matrix_ck = support_matrix(branch)
     models = []
     for card in repo_ls(branch, "conf/cards/models"):
         c = repo_yaml(branch, f"conf/cards/models/{card}")
@@ -421,8 +428,11 @@ def options(branch):
         levels = (c.get("pressure_levels") or {}).get("values") or []
         on_hpc = ckpts.get(name)
         ck_blocks = {k: v for k, v in (c.get("checkpoints") or {}).items() if k != "default" and isinstance(v, dict)}
-        model_ck = sorted(set(on_hpc or []) | {k for k in support if _ckpt_model(k) == name and k.endswith((".pkl", ".ckpt"))}
-                          | {k for k, v in ck_blocks.items() if v.get("outputs")})
+        if matrix_ck:   # the checkpoints of the documentation, not whatever lies in the folder (logs, copies)
+            model_ck = sorted(k for k, mod in matrix_ck.items() if mod == name)
+        else:           # older branches: checkpoint files on the HPC and the checkpoints of the model card
+            model_ck = sorted({k for k in on_hpc or [] if k.endswith((".pkl", ".ckpt")) or k in ck_blocks}
+                              | {k for k, v in ck_blocks.items() if v.get("outputs")})
         checkpoints = []
         for k in model_ck:
             listed = (ck_blocks.get(k) or {}).get("outputs")
@@ -472,12 +482,6 @@ def card_variables(card, std_by_code):
                 "group": "period" if period else s.get("type", ""),
             }
     return out
-
-
-def _ckpt_model(ck):
-    if ck.startswith("WeatherNext"):
-        return "weathernext"
-    return "aifs" if ck.startswith("aifs") else "ms-aurora" if ck.startswith("aurora") else "neuralgcm"
 
 
 _ck_cache = {"t": 0, "data": {}}
@@ -535,7 +539,8 @@ def validate(cfg):
         if sup == "wip":
             warnings.append(f"{ck['name']} with {ics.upper()} is marked as work in progress in the support matrix.")
         elif sup == "no":
-            warnings.append(f"{ck['name']} with {ics.upper()} is marked as not implemented in the support matrix.")
+            errors.append(f"{ck['name']} does not support {ics.upper()} initial conditions (not implemented in the "
+                          "support matrix).")
         elif sup is None:
             warnings.append(f"No support information for {ck['name']} with {ics.upper()}.")
     run_type = cfg.get("run_type") or "hindcast"
@@ -697,13 +702,17 @@ def preview(cfg):
             "compression": {"preset": clean["out_compression"], "opts": clean["out_compression_opts"], "sizes": clean["sizes"]}}
 
 
+# Old names of checkpoints (copies on the HPC with a typo) -> the name the Launcher offers.
+CHECKPOINT_ALIASES = {"stochasti_evap_2_8_deg.pkl": "stochastic_evap_2_8_deg.pkl"}
+
+
 def template(expid):
     """Form values from an existing experiment, to start a new one from it."""
     if not EXPID_RE.match(expid):
         raise ValueError("bad expid")
     conf = local.read_conf(expid)
     lev = conf.get("out_levs")
-    return {"branch": conf.get("branch") or "main", "model": conf.get("model"), "checkpoint": conf.get("checkpoint"),
+    return {"branch": conf.get("branch") or "main", "model": conf.get("model"), "checkpoint": CHECKPOINT_ALIASES.get(conf.get("checkpoint"), conf.get("checkpoint")),
             "ics": conf.get("ics"), "run_type": conf.get("run_type") or "hindcast", "forcing": conf.get("forcing") or FORCINGS[0],
             "members": len(conf.get("members") or []) or 1, "dates": conf.get("dates") or [],
             "chunk_size": conf.get("chunk_size") or 1, "chunk_unit": conf.get("chunk_unit") or "day",
