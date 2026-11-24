@@ -1,0 +1,60 @@
+model : weathernext
+producer : google-deepmind
+
+# WeatherNext 2 (FGN, Functional Generative Network), Google DeepMind and Google Research:
+# https://github.com/google-deepmind/weathernext (code Apache 2.0, weights CC BY 4.0), paper
+# arXiv:2506.10772 and Nature doi:10.1038/s41586-026-10953-2.
+#
+# Standard ID -> WeatherNext name of the inputs, all also predicted except the two static fields
+# (surface geopotential, land-sea mask). Two input times, T-6h and T; 6-hourly steps. Sea surface temperature is NaN over
+# land in the initial conditions, as the model expects: the model's own NaN cleaner fills it and puts
+# the NaNs back in the outputs. 'orog' of the initial conditions is the surface geopotential
+# (m2 s-2), which is what geopotential_at_surface is.
+variables:
+  34  : sea_surface_temperature
+  129 : geopotential
+  130 : temperature
+  131 : u_component_of_wind
+  132 : v_component_of_wind
+  133 : specific_humidity
+  135 : vertical_velocity
+  151 : mean_sea_level_pressure
+  165 : 10m_u_component_of_wind
+  166 : 10m_v_component_of_wind
+  167 : 2m_temperature
+  172 : land_sea_mask
+  228246 : 100m_u_component_of_wind
+  228247 : 100m_v_component_of_wind
+  999999 : geopotential_at_surface
+
+# Output-only fields {AIUQ-st code: WeatherNext name}. total_precipitation_6hr is the total over the
+# 6-hour step ending at valid_time (m); as predicted, it can be slightly negative (about -0.2 mm at
+# most in the first tests). The cyclone fields of the model (cyclone_*) are not written.
+outputs:
+  228 : {name: total_precipitation_6hr, window: 6 h step ending at valid_time}
+
+pressure_levels :
+  values : [50, 100, 150, 200, 250, 300, 400, 500, 600, 700, 850, 925, 1000]
+  unit : hPa
+
+# Checkpoints. MODEL.CHECKPOINT_NAME is a folder under <support>/models/weathernext/ holding the
+# weights of the independently trained models ('seeds') as model1.npz, model2.npz, ... (see
+# remote_set/get_models.txt). As in the paper, the ensemble takes an equal number of members from each
+# seed, one seed for the whole trajectory: member m runs seed ((m - 1) mod n_seeds) + 1, with its own
+# noise (a new 32-dimensional draw at every step, from RNG key m).
+#   config      model configuration shipped with the weathernext package (weathernext2/configs/)
+#   resolution  grid of the model in degrees; the 0.25 deg initial conditions are subsampled for 1.0
+#   outputs     what SIM can write (AIUQ-st short names), all on the 13 levels above
+checkpoints:
+  # Operational WeatherNext 2: fine-tuned on HRES analyses (initialise from ecmwf-an for the
+  # intended use), trained on data up to 2024. 4 seeds, 0.25 deg. Upstream recommends an 80 GB GPU.
+  WeatherNext2_2025:
+    config: WeatherNext2
+    resolution: 0.25
+    outputs: [z, t, u, v, w, q, t2m, msl, u10, v10, u100, v100, sst, tp]
+  # WeatherNext Cyclones Mini: 1 deg, one seed, trained on data up to 2023; no 100 m wind.
+  # Lightweight (runs on small GPUs and on CPU), not expected to match the 0.25 deg model.
+  WeatherNextCyclones_Mini_2024:
+    config: WeatherNextCyclones_Mini
+    resolution: 1.0
+    outputs: [z, t, u, v, w, q, t2m, msl, u10, v10, sst, tp]

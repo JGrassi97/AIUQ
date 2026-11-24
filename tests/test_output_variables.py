@@ -16,7 +16,7 @@ from AIUQst_lib.variables import (checkpoint_entry, deaccumulate, output_specs, 
                                   resample_daily, resolve_outputs)
 
 STD = read_std_version(str(ROOT), "v100")
-MODELS = ("aifs", "ms-aurora", "neuralgcm")
+MODELS = ("aifs", "ms-aurora", "neuralgcm", "weathernext")
 
 
 def card(name):
@@ -52,7 +52,15 @@ NGCM_PRODUCED = {"deterministic_0_7_deg.pkl": NGCM_BASE, "deterministic_1_4_deg.
                  "deterministic_2_8_deg.pkl": NGCM_BASE, "stochastic_1_4_deg.pkl": NGCM_BASE,
                  "stochastic_precip_2_8_deg.pkl": NGCM_PRECIP, "stochastic_evap_2_8_deg.pkl": NGCM_PRECIP,
                  "stochasti_evap_2_8_deg.pkl": NGCM_PRECIP}
-PRODUCED = {"aifs": AIFS_PRODUCED, "ms-aurora": AURORA_PRODUCED, "neuralgcm": NGCM_PRODUCED}
+# WeatherNext: task.target_variables of the configs shipped with weathernext v0.3.0 (weathernext2/configs/*.json),
+# without the cyclone fields (cyclone_*), which are not written.
+WN_MINI = {"temperature", "geopotential", "u_component_of_wind", "v_component_of_wind", "vertical_velocity",
+           "specific_humidity", "2m_temperature", "mean_sea_level_pressure", "10m_u_component_of_wind",
+           "10m_v_component_of_wind", "sea_surface_temperature", "total_precipitation_6hr"}
+WN_PRODUCED = {"WeatherNext2_2025": WN_MINI | {"100m_u_component_of_wind", "100m_v_component_of_wind"},
+               "WeatherNextCyclones_Mini_2024": WN_MINI}
+PRODUCED = {"aifs": AIFS_PRODUCED, "ms-aurora": AURORA_PRODUCED, "neuralgcm": NGCM_PRODUCED,
+            "weathernext": WN_PRODUCED}
 
 
 def test_outputs_standard_is_separate_from_the_ic_variables():
@@ -91,6 +99,14 @@ def test_every_produced_field_is_offered(model):
     for ckpt, produced in PRODUCED[model].items():
         offered = {specs[n]["model"] for n in checkpoint_entry(c, ckpt)["outputs"]}
         assert produced - offered == set(), f"{model}/{ckpt}"
+
+
+def test_weathernext_checkpoints_name_config_and_grid():
+    c = card("weathernext")
+    for ckpt, config, resolution in [("WeatherNext2_2025", "WeatherNext2", 0.25),
+                                     ("WeatherNextCyclones_Mini_2024", "WeatherNextCyclones_Mini", 1.0)]:
+        entry = checkpoint_entry(c, f"/support/models/weathernext/{ckpt}")     # a folder, by base name
+        assert entry["config"] == config and float(entry["resolution"]) == resolution
 
 
 def test_checkpoint_levels():

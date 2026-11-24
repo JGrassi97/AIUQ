@@ -26,9 +26,11 @@ Use a shared support directory accessible from the compute nodes. Set
    ├── models/
    │   ├── neuralgcm/       # *.pkl checkpoints
    │   ├── aifs/            # *.ckpt checkpoints
-   │   └── ms-aurora/       # *.ckpt checkpoints
+   │   ├── ms-aurora/       # *.ckpt checkpoints
+   │   └── weathernext/     # one folder per checkpoint: model1.npz, model2.npz, ...
    ├── sif/                 # image_era.sif, image_eerie.sif (also ecmwf-an),
-   │                        # image_neuralgcm.sif, image_anemoi.sif (AIFS), image_aurora.sif
+   │                        # image_neuralgcm.sif, image_anemoi.sif (AIFS), image_aurora.sif,
+   │                        # image_weathernext.sif
    ├── static/              # AIUQ-static.nc, aurora-0.25-static.pickle,
    │                        # aurora-0.25-v1.5-static.pickle
    ├── climatology/         # AIUQ-climatology.nc
@@ -37,8 +39,9 @@ Use a shared support directory accessible from the compute nodes. Set
 
 Checkpoints are resolved as ``<SUPPORT_FOLDER>/models/<MODEL.NAME>/<CHECKPOINT_NAME>``,
 so file names must match :doc:`models`. ``remote_set/get_models.txt`` downloads every
-checkpoint and the Aurora static files, and ``remote_set/image_aurora.def`` is the
-recipe of the Aurora image. The remaining runtime paths are defined in
+checkpoint and the Aurora static files; ``remote_set/image_aurora.def`` and
+``remote_set/image_weathernext.def`` are the recipes of the Aurora and WeatherNext
+images. The remaining runtime paths are defined in
 ``templates/config.yml`` and the job templates.
 
 .. important::

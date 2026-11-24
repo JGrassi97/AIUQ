@@ -37,7 +37,7 @@ const SEC_NAME = {
   PREPARE_ICS: "Prepare ICs", SAVE_ICS: "Save ICs", SIM: "Simulation", POSTPROCESS: "Post-process", CLEAN: "Clean-up",
 };
 const SEC_SHORT = { PREPARE_ICS: "ICs", SAVE_ICS: "Save", SIM: "Sim", POSTPROCESS: "Post", CLEAN: "Clean" };
-const MODEL_NAMES = { aifs: "AIFS", "ms-aurora": "Aurora", neuralgcm: "NeuralGCM", ace: "ACE" };
+const MODEL_NAMES = { aifs: "AIFS", "ms-aurora": "Aurora", neuralgcm: "NeuralGCM", weathernext: "WeatherNext", ace: "ACE" };
 const ICS_INFO = { eerie: ["EERIE", "MARS · ECMWF Web API"], era5: ["ERA5", "Google Cloud · ARCO-ERA5"], climatology: ["Climatology", "local fallback"] };
 
 // ------------------------------------------------------------------ helpers

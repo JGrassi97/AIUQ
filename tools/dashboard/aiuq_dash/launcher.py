@@ -32,7 +32,7 @@ REPO_DIR = settings.STATE_DIR / "repo.git"
 AUDIT = settings.STATE_DIR / "launcher.log"
 AS_BIN = os.path.join(os.path.dirname(settings.AS_PYTHON), "autosubmit")
 
-MODEL_NAMES = {"aifs": "AIFS", "ms-aurora": "Aurora", "neuralgcm": "NeuralGCM", "ace": "ACE"}
+MODEL_NAMES = {"aifs": "AIFS", "ms-aurora": "Aurora", "neuralgcm": "NeuralGCM", "weathernext": "WeatherNext", "ace": "ACE"}
 # Support status per checkpoint and IC source (ok / wip / no), read from docs/support-matrix.yml of the chosen
 # branch (the file behind the README table), so the Launcher never disagrees with the documentation.
 MATRIX_ICS = {"ERA5": "era5", "EERIE (AMIP)": "eerie", "ECMWF analysis": "ecmwf-an", "EC-Earth3 (CMIP6)": "ec-earth3"}
@@ -88,10 +88,11 @@ CHUNK_NAMES = ("point", "map")
 PRECIPITATION = ("tp", "cp", "sf", "ro", "avg_tprate", "avg_tsrwe")
 # Size estimate: bytes per stored value, from the forecasts of November 2026 (0.25 degrees, 6-hourly) compressed
 # with each scheme. Rough: a smooth field compresses better than a noisy one.
-BYTES_UNCOMPRESSED = {"aifs": 4.0, "ms-aurora": 8.0, "neuralgcm": 8.0}      # the type each model writes
+BYTES_UNCOMPRESSED = {"aifs": 4.0, "ms-aurora": 8.0, "neuralgcm": 8.0, "weathernext": 4.0}      # the type each model writes
 BYTES_LOSSLESS, BYTES_INTEGER, BYTES_INTEGER_FINE = 2.7, 0.33, 0.5
 GRID_POINTS = {"0.25": 721 * 1440, "0.5": 361 * 720, "1": 181 * 360, "1.5": 121 * 240, "2": 91 * 180}
-NATIVE_POINTS = {"aifs": 542080, "ms-aurora": 721 * 1440, "deterministic_0_7": 256 * 512, "_1_4_": 128 * 256, "_2_8_": 64 * 128}
+NATIVE_POINTS = {"aifs": 542080, "ms-aurora": 721 * 1440, "deterministic_0_7": 256 * 512, "_1_4_": 128 * 256, "_2_8_": 64 * 128,
+                 "WeatherNext2": 721 * 1440, "WeatherNextCyclones_Mini": 181 * 360}
 BIG_RUN_BYTES = 20e9                         # 'none' above this size gets a warning
 
 
@@ -296,7 +297,7 @@ def compression_yaml(preset, opts):
 
 def is_ensemble(ckpt):
     c = (ckpt or "").lower()
-    return "ens" in c or "stochastic" in c or "stochasti_" in c
+    return "ens" in c or "stochastic" in c or "stochasti_" in c or c.startswith("weathernext")
 
 
 # ---------------------------------------------------------------------------- audit
@@ -474,6 +475,8 @@ def card_variables(card, std_by_code):
 
 
 def _ckpt_model(ck):
+    if ck.startswith("WeatherNext"):
+        return "weathernext"
     return "aifs" if ck.startswith("aifs") else "ms-aurora" if ck.startswith("aurora") else "neuralgcm"
 
 

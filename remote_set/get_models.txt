@@ -50,3 +50,15 @@ curl -fL "https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-stati
 
 curl -fL "https://huggingface.co/microsoft/aurora/resolve/main/aurora-0.25-v1.5-static.pickle" \
   -o "static/aurora-0.25-v1.5-static.pickle"
+
+# WeatherNext 2 (Google DeepMind; code Apache 2.0, weights CC BY 4.0). One folder per checkpoint
+# (MODEL.CHECKPOINT_NAME) with the independently trained seeds as model<k>.npz; the upstream names
+# (WeatherNext2_<2025_model1.npz, ...) contain '<', which the folders avoid. Needs image_weathernext.sif.
+WN=https://storage.googleapis.com/dm_graphcast/weathernext2/params
+mkdir -p models/weathernext/WeatherNext2_2025 models/weathernext/WeatherNextCyclones_Mini_2024
+for k in 1 2 3 4; do
+  curl -fL "$WN/WeatherNext2_%3C2025_model$k.npz" \
+    -o "models/weathernext/WeatherNext2_2025/model$k.npz"
+done
+curl -fL "$WN/WeatherNextCyclones_Mini_%3C2024.npz" \
+  -o "models/weathernext/WeatherNextCyclones_Mini_2024/model1.npz"
