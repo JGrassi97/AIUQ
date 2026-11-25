@@ -116,7 +116,9 @@ def _compression(experiment):
 
 
 def store_marker(expid):
-    """<expid>/OUTPUT_STORE.json written by the ARCHIVE job: {"status", "dir", "outputs", ...}, or None."""
+    """<expid>/OUTPUT_STORE.json written by the STORE and ARCHIVE jobs: {"status", "dir", ["outputs"], ...}, or None.
+
+    status "partial": STORE jobs moved some start dates, the rest is on the HPC; "done": all in the store."""
     try:
         with open(settings.AS_ROOT / expid / "OUTPUT_STORE.json") as fh:
             rec = json.load(fh)

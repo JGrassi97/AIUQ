@@ -357,4 +357,24 @@ def write_output(path: str, data, short_name: str, spec: dict, run: RunInfo, *, 
     finally:
         if os.path.exists(temporary):
             os.remove(temporary)
+    record_output(path)
     return path
+
+
+# Environment variable with the file in which a job lists the outputs it wrote (set by the job templates).
+RECORD_ENV = "AIUQ_OUTPUT_RECORD"
+
+
+def record_output(path: str) -> None:
+    """Add ``path`` (absolute) to the job's list of written outputs, when the job keeps one.
+
+    The templates of the jobs that write final outputs set ``AIUQ_OUTPUT_RECORD`` to
+    ``<HPCROOTDIR>/store_pending/<SDATE>/<job>.txt``; the STORE job of that start date moves exactly the files
+    listed there to the output store (``templates/store.sh``). Outside a job nothing is recorded.
+    """
+    record = os.environ.get(RECORD_ENV, "")
+    if not record:
+        return
+    os.makedirs(os.path.dirname(os.path.abspath(record)), exist_ok=True)
+    with open(record, "a") as fh:
+        fh.write(os.path.abspath(path) + "\n")

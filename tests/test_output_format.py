@@ -225,6 +225,26 @@ def test_a_failed_write_leaves_no_file(tmp_path):
     assert not list(tmp_path.iterdir())
 
 
+def test_jobs_list_the_outputs_they_write(tmp_path, monkeypatch):
+    # The STORE job of a start date moves exactly the files its jobs listed (templates/store.sh).
+    record = tmp_path / "store_pending" / "20261121" / "a0zz_20261121_1_1_SIM.txt"
+    monkeypatch.setenv("AIUQ_OUTPUT_RECORD", str(record))
+    first = write_output(str(tmp_path / "out" / "t2m.nc"), surface_field(), "t2m", specs("aifs")["t2m"], run(),
+                         step_hours=6)
+    second = write_output(str(tmp_path / "out" / "msl.nc"), surface_field(1e5), "msl", specs("aifs")["msl"], run(),
+                          step_hours=6)
+    assert record.read_text().splitlines() == [first, second]               # absolute paths, in order
+
+    bad = surface_field().isel(valid_time=[1, 0, 2])                       # a failed write is not listed
+    with pytest.raises(ValueError):
+        write_output(str(tmp_path / "out" / "bad.nc"), bad, "t2m", specs("aifs")["t2m"], run(), step_hours=6)
+    assert len(record.read_text().splitlines()) == 2
+
+    monkeypatch.delenv("AIUQ_OUTPUT_RECORD")                               # outside a job nothing is listed
+    write_output(str(tmp_path / "out" / "plain.nc"), surface_field(), "t2m", specs("aifs")["t2m"], run(), step_hours=6)
+    assert len(record.read_text().splitlines()) == 2
+
+
 @pytest.mark.skipif(shutil.which("compliance-checker") is None, reason="IOOS compliance-checker is not installed")
 def test_cf_compliance(tmp_path):
     """No CF-1.8 error in any kind of file; the only warnings are the two that are known and accepted."""

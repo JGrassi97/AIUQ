@@ -195,16 +195,35 @@ that names it. One more setting says who produced the data:
 Output store
 ------------
 
-On FELIPE the ``ARCHIVE`` job runs once, on the Autosubmit host, after every
-simulation job (and, for AIFS, every ``POSTPROCESS`` and ``CLEAN`` job). It copies
-the experiment folder of the HPC to ``<OUTPUT_STORE.DIR>/<expid>_<YYYYmmddTHHMMSS>/``
-(Autosubmit can reuse an expid, so the time of the first archive makes the name
-unique): ``outputs/`` (restart checkpoints included, temporary files excluded),
-the whole ``LOG_<expid>/``, ``runscripts/``, ``conf/`` and ``lib/``, the experiment's
-Autosubmit configuration in ``autosubmit/`` and an ``archive.json`` record (source,
-time, files, bytes, git commit). It records the folder in
-``~/autosubmit/<expid>/OUTPUT_STORE.json``, which the Monitor follows, and then
-removes ``<HPCROOTDIR>`` from the HPC (initial conditions included).
+On FELIPE the outputs leave the HPC while the experiment runs, so the scratch
+folder holds only the start dates being simulated:
+
+* ``STORE`` runs once per start date, on the Autosubmit host
+  (``templates/store.sh``), as soon as every simulation job of that date (and, for
+  AIFS, every ``POSTPROCESS`` and ``CLEAN`` job) is done. It moves the outputs of
+  that date to ``<OUTPUT_STORE.DIR>/<expid>_<YYYYmmddTHHMMSS>/outputs/`` and removes
+  the date's initial conditions. It moves exactly the files the jobs of that date
+  wrote: ``write_output`` lists each of them in
+  ``<HPCROOTDIR>/store_pending/<SDATE>/<job>.txt``.
+* ``PREPARE_ICS`` of a start date waits for every ``SIM`` job two start dates
+  earlier (``DEPENDENCIES: SIM-2`` in ``conf/jobs/FELIPE/models/``). Initial
+  conditions are prepared at most two dates ahead, and Slurm holds at most about
+  two start dates of ``SIM`` jobs instead of the whole experiment. For a stricter
+  limit set ``JOBS: {PREPARE_ICS: {DEPENDENCIES: SIM-1}}`` in ``main.yml``
+  (dependencies of the same job in several files add up, so the limit can only be
+  made stricter there).
+* ``ARCHIVE`` runs once, last, after every ``STORE`` job. It copies what is left:
+  outputs no ``STORE`` job moved (restart checkpoints), the whole ``LOG_<expid>/``,
+  ``runscripts/``, ``conf/`` and ``lib/``, the experiment's Autosubmit
+  configuration in ``autosubmit/`` and completes ``archive.json`` (source, time,
+  files, bytes, git commit, stored start dates). It then removes ``<HPCROOTDIR>``.
+
+Autosubmit can reuse an expid, so the time of the first copy makes the folder
+name unique. ``~/autosubmit/<expid>/OUTPUT_STORE.json`` records the folder:
+``partial`` while ``STORE`` jobs have moved some start dates (readers keep using
+the HPC folder), ``done`` once ``ARCHIVE`` has finished (the Monitor switches to
+the store). A store folder without ``LOG_<expid>/`` belongs to a running
+experiment; Compare and Weather skip it.
 
 .. list-table:: ``OUTPUT_STORE`` settings (defaults in ``conf/general.yml``)
    :header-rows: 1

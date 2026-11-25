@@ -8,8 +8,11 @@
 <root> = <SCRATCH_DIR>/<PROJECT>/<USER>/<expid>      # of the platform; `aiuq site` prints the base folder
 ```
 
-Once every simulation has finished, the `ARCHIVE` job (runs on the Autosubmit host) moves the whole experiment to the output
-store (`OUTPUT_STORE.DIR` in `main.yml`, default from `conf/general.yml`: `/data/users/<PLATFORM.USER_CODE>/AIUQ-outputs`), in a
+As soon as every simulation of a start date has finished, the `STORE` job of that date (Autosubmit host) moves its outputs to
+the output store; the `ARCHIVE` job moves what is left (checkpoints, logs, code) at the end. While the experiment runs,
+`OUTPUT_STORE.json` says `partial` and `aiuq outputs` lists only the dates still on the HPC; the dates already stored are
+in `<store>/<expid>_<time>/outputs/` (readable from the HPC at the same path). Once `ARCHIVE` is done the whole experiment
+is in the output store (`OUTPUT_STORE.DIR` in `main.yml`, default from `conf/general.yml`: `/data/users/<PLATFORM.USER_CODE>/AIUQ-outputs`), in a
 folder of its own because Autosubmit can reuse an expid:
 
 ```

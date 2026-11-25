@@ -5,6 +5,14 @@ All notable changes to AIUQ are listed here. Versions follow [semantic versionin
 ## [1.1.0] - unreleased
 
 ### Added
+- **Outputs stored while the experiment runs** (branch `workflow/rolling-archive`, FELIPE): a `STORE` job per start
+  date (Autosubmit host, `templates/store.sh`) moves the outputs of that date to the output store as soon as its
+  simulations are done and removes its initial conditions; `ARCHIVE` moves only what is left at the end. The jobs
+  list the files they write (`write_output` → `<HPCROOTDIR>/store_pending/<SDATE>/<job>.txt`), so `STORE` moves
+  exactly those. `PREPARE_ICS` of a start date now waits for the `SIM` jobs two dates earlier: a long experiment
+  (e.g. a 30-year climatology, 731 start dates) keeps the initial conditions and outputs of a few dates on the HPC
+  instead of ~1 TB, and Slurm holds about two dates of `SIM` jobs instead of thousands. `OUTPUT_STORE.json` says
+  `partial` while dates are being stored; shared code of the two jobs in `lib/output_store.sh`.
 - **WeatherNext 2** (`MODEL.NAME: weathernext`, branch `models/weathernext-2`): Google DeepMind's ensemble model
   (FGN, [github.com/google-deepmind/weathernext](https://github.com/google-deepmind/weathernext), code Apache 2.0,
   weights CC BY 4.0, released August 2026). Two checkpoints, each a folder with one weights file per

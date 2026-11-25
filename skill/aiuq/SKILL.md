@@ -22,7 +22,9 @@ config from `config.example` (and the notes from `site.example.md`) instead of g
 
 The workflow per experiment: `SYNCHRONIZE` (Autosubmit host → HPC rsync of `lib/ runscripts/ conf/`) →
 `PREPARE_ICS` (download initial conditions) → [AIFS: `WARMUP_REGRID*`, `SAVE_ICS`] → `SIM` (GPU, one per
-start date × member × chunk) → [AIFS: `POSTPROCESS` (cdo regrid), `CLEAN`] → `ARCHIVE` (Autosubmit host, on
+start date × member × chunk) → [AIFS: `POSTPROCESS` (cdo regrid), `CLEAN`] → `STORE` (Autosubmit host, one per start
+date: moves that date's outputs to the store and removes its ICs; `PREPARE_ICS` of a date waits for the `SIM` jobs two
+dates earlier, so only a few dates sit on the HPC and in Slurm) → `ARCHIVE` (Autosubmit host, on
 platforms that define it: moves the experiment folder to `<store>/<expid>_<time>/`, records it in
 `~/autosubmit/<expid>/OUTPUT_STORE.json` and removes `<root>` from the HPC; older experiments lack it). `aiuq logs/log/outputs/ncinfo/py/fetch` follow the record. Job names are
 `<expid>_<SDATE>_<member>_<chunk>_<SECTION>`, `<expid>_<SDATE>_<SECTION>` or `<expid>_<SECTION>`.

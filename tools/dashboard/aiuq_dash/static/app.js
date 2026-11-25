@@ -35,8 +35,9 @@ const STATUS_ORDER = ["COMPLETED", "RUNNING", "QUEUING", "SUBMITTED", "READY", "
 const SEC_NAME = {
   SYNCHRONIZE: "Sync project", WARMUP_REGRID: "Warm-up regrid", WARMUP_REGRID_ACC: "Warm-up regrid (GPU)",
   PREPARE_ICS: "Prepare ICs", SAVE_ICS: "Save ICs", SIM: "Simulation", POSTPROCESS: "Post-process", CLEAN: "Clean-up",
+  STORE: "Store outputs", ARCHIVE: "Archive",
 };
-const SEC_SHORT = { PREPARE_ICS: "ICs", SAVE_ICS: "Save", SIM: "Sim", POSTPROCESS: "Post", CLEAN: "Clean" };
+const SEC_SHORT = { PREPARE_ICS: "ICs", SAVE_ICS: "Save", SIM: "Sim", POSTPROCESS: "Post", CLEAN: "Clean", STORE: "Store" };
 const MODEL_NAMES = { aifs: "AIFS", "ms-aurora": "Aurora", neuralgcm: "NeuralGCM", weathernext: "WeatherNext", ace: "ACE" };
 const ICS_INFO = { eerie: ["EERIE", "MARS · ECMWF Web API"], era5: ["ERA5", "Google Cloud · ARCO-ERA5"], climatology: ["Climatology", "local fallback"] };
 

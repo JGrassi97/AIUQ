@@ -25,7 +25,11 @@ JOBS:
   PREPARE_ICS:
     CHECK: on_submission
     FILE: templates/prepare_ics.sh
-    DEPENDENCIES: WARMUP_REGRID_ACC
+    # At most two start dates ahead: the initial conditions of a date are prepared once every SIM job two
+    # dates earlier has finished, so the HPC holds the initial conditions and outputs of a few dates only and
+    # Slurm never sees more than about two dates of SIM jobs (members x chunks each). Adds to the dependency of
+    # conf/jobs/<platform>/ics/<ics>/<ics>.yml. A stricter limit in main.yml: DEPENDENCIES: SIM-1.
+    DEPENDENCIES: WARMUP_REGRID_ACC SIM-2
     PLATFORM: FELIPE
 
   SAVE_ICS:
@@ -80,21 +84,22 @@ JOBS:
     MEMORY: 8192
     WALLCLOCK: "00:30"
 
+  STORE:
+    # Moves the outputs of one start date to OUTPUT_STORE.DIR (conf/general.yml) and removes its initial
+    # conditions, as soon as every job of that date is done (templates/store.sh). Runs on the Autosubmit host.
+    CHECK: on_submission
+    FILE: templates/store.sh
+    PLATFORM: local
+    RUNNING: date
+    DEPENDENCIES: SIM POSTPROCESS CLEAN
+
   ARCHIVE:
-    # Moves the outputs to OUTPUT_STORE.DIR (conf/general.yml). Runs on the Autosubmit host after
-    # every SIM and POSTPROCESS job (all dates, members and chunks: AIFS chunks run in parallel).
+    # Moves what is left (logs, code, checkpoints) to OUTPUT_STORE.DIR (conf/general.yml) once every STORE job
+    # is done (templates/archive.sh). Runs on the Autosubmit host.
     CHECK: on_submission
     FILE: templates/archive.sh
     PLATFORM: local
     RUNNING: once
     DEPENDENCIES:
-      SIM:
-        DATES_TO: all
-        MEMBERS_TO: all
-        CHUNKS_TO: all
-      POSTPROCESS:
-        DATES_TO: all
-        MEMBERS_TO: all
-        CHUNKS_TO: all
-      CLEAN:
+      STORE:
         DATES_TO: all

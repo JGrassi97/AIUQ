@@ -331,7 +331,7 @@ function buildForm() {
       <div class="ln-row" style="margin-top:12px">
         <label class="ln-field grow">Output store <input type="text" class="mono" data-k="output_store" value="${esc(c.output_store || "")}" placeholder="${esc(o.store_by_ics?.[c.ics] || "no output store on this branch")}" spellcheck="false"></label>
       </div>
-      <div class="note">${o.store_by_ics?.[c.ics] ? `When every simulation has finished, the ARCHIVE job moves the outputs from the HPC to <span class="mono">&lt;output store&gt;/&lt;expid&gt;/outputs</span> on the Autosubmit host and removes them from the HPC. Choose the folder here, or leave it empty for the default of branch <span class="mono">${esc(c.branch)}</span> (shown in grey).` : `Branch <span class="mono">${esc(c.branch)}</span> has no ARCHIVE job: outputs stay on the HPC.`}</div>`);
+      <div class="note">${o.store_by_ics?.[c.ics] ? `As soon as the simulations of a start date have finished, the STORE job of that date moves its outputs from the HPC to <span class="mono">&lt;output store&gt;/&lt;expid&gt;_&lt;time&gt;/outputs</span> on the Autosubmit host and removes them from the HPC; the ARCHIVE job moves the logs and the rest at the end. Choose the folder here, or leave it empty for the default of branch <span class="mono">${esc(c.branch)}</span> (shown in grey).` : `Branch <span class="mono">${esc(c.branch)}</span> has no ARCHIVE job: outputs stay on the HPC.`}</div>`);
 }
 
 function onFormClick(e) {
