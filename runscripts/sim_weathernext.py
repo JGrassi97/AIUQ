@@ -35,6 +35,7 @@ from AIUQst_lib.functions import parse_arguments, read_config, normalize_out_var
 from AIUQst_lib.cards import read_model_card, read_std_version
 from AIUQst_lib.variables import checkpoint_entry, name_mapper_for_model, resample_daily, resolve_outputs
 from AIUQst_lib.streaming import StepBuffer
+from AIUQst_lib.support_data import static_fields_flipped
 from AIUQst_lib.regrid import OUT_RESOLUTIONS, regrid_latlon, target_grid
 from AIUQst_lib.output import RunInfo, write_output
 
@@ -110,6 +111,13 @@ def initial_state(path: str, mapper: dict, task, resolution: float) -> tuple[xr.
     variables (batch, time, [level,] lat, lon), static fields (lat, lon), time as lead time (-6h, 0) and the
     'datetime' coordinate. Returns (dataset, T)."""
     ic = xr.open_zarr(path, chunks=None)
+    # ERA5 initial conditions prepared before the fix in download_era5.py hold the static fields upside
+    # down; the land-sea mask tells (as for AIFS, ics_aifs.py).
+    if "lsm" in ic and static_fields_flipped(ic):
+        logging.info("Static fields of the initial conditions stored upside down: flipping orog and lsm")
+        for name in ("orog", "lsm"):
+            if name in ic:
+                ic[name] = (ic[name].dims, np.flip(ic[name].values, axis=ic[name].dims.index("latitude")))
     wanted = set(task.input_variables) | set(task.target_variables)
     rename = {short: name for short, name in mapper.items() if short in ic and name in wanted}
     ic = ic[list(rename)].rename(rename)

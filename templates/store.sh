@@ -56,8 +56,9 @@ PENDING="${HPCROOTDIR}/store_pending/${SDATE}"
 
 # ---- 1. outputs of this start date
 if is_true "$ENABLED"; then
+    # No EXIT trap here: it would replace the Autosubmit one (job header), which writes the end of the _STAT_
+    # file and the _COMPLETED flag, and Autosubmit would mark the job FAILED. The list is removed below.
     LIST=$(mktemp)
-    trap 'rm -f "$LIST"' EXIT
     # The recorded files that exist, relative to outputs/, once each (a job run twice lists its files twice).
     on_hpc "python3 - '${HPCROOTDIR}' '${SDATE}'" > "$LIST" <<'EOF'
 import glob, os, sys
@@ -118,6 +119,7 @@ EOF
     else
         echo "No recorded outputs of ${SDATE} on the HPC (none written, or already stored)."
     fi
+    rm -f "$LIST"
     on_hpc "rm -rf -- '${PENDING}'"
 else
     echo "OUTPUT_STORE.ENABLED is '${ENABLED}': the outputs of ${SDATE} stay in ${HPCROOTDIR}/outputs."

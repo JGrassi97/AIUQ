@@ -129,6 +129,16 @@ All notable changes to AIUQ are listed here. Versions follow [semantic versionin
   comes back.
 
 ### Fixed
+- **`STORE` marked FAILED after storing the outputs**: `templates/store.sh` set its own `EXIT` trap (to remove a
+  temporary file), which replaced the one of the Autosubmit job header that writes the end of the `_STAT_` file and
+  the `_COMPLETED` flag. The outputs were stored and the initial conditions removed, but `ARCHIVE` never started
+  (seen in a02g). The file is now removed without a trap.
+- **ERA5 initial conditions had their static fields upside down** (`orog lsm slor sdor slt`, from the static
+  support file): `download_era5.py` overwrote the coordinates of the south-to-north static file with the
+  north-to-south ERA5 ones instead of aligning by value, so mountains and land-sea mask were mirrored north to
+  south. Now aligned like the other sources (`align_support_grid`). AIFS already detected and undid the flip
+  (`ics_aifs.py`), and Aurora takes its static fields from its own files; WeatherNext used them as stored (seen in
+  a02g) and now undoes the flip of initial conditions prepared before the fix.
 - **Out of memory in the SIM post-processing with fine output grids**: NeuralGCM and Aurora regridded every model
   level to `OUT_RES` and only then selected `OUT_LEVS`. A 16-day NeuralGCM run with `OUT_RES: 0.25` and two levels
   needed about 60 GB and was killed (limit 48 GB). Levels are now selected first and the regridding works in blocks

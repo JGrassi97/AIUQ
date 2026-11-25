@@ -19,6 +19,7 @@ from AIUQst_lib.pressure_levels import check_pressure_levels
 from AIUQst_lib.cards import read_ic_card, read_std_version
 from AIUQst_lib.variables import reassign_long_names_units, define_ics_mappers, drop_optional_missing
 from AIUQst_lib.waves import wave_period_bands
+from AIUQst_lib.support_data import align_support_grid
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -147,8 +148,9 @@ def main() -> None:
             .compute()
         )
 
-        static_dataset['longitude'] = selected['longitude']
-        static_dataset['latitude'] = selected['latitude']
+        # Align by coordinate value: the static file runs south to north, ERA5 north to south. Overwriting
+        # the coordinates (as before) stored orog, lsm, slor, sdor and slt upside down.
+        static_dataset = align_support_grid(static_dataset, selected)
 
         selected = (
             xr.merge([selected, static_dataset], join="exact")
