@@ -30,7 +30,13 @@ Simulation modes
   (4 seeds for ``WeatherNext2_2025``): member *m* runs seed ((*m* − 1) mod 4) + 1
   with its own noise, drawn anew at every 6-hour step. The operational checkpoint
   was fine-tuned on HRES analyses, so ``ecmwf-an`` is the intended initial
-  condition. Integration in progress (branch ``models/weathernext-2``).
+  condition. Integration in progress.
+
+  .. warning::
+
+     ``WeatherNext2_2025`` (0.25°) does not run on FELIPE: one forecast step does
+     not fit in the 46 GB of an NVIDIA L40S (upstream recommends an 80 GB GPU).
+     ``WeatherNextCyclones_Mini_2024`` (1°) runs there.
 * **ACE:** AMIP integration in development; check the matrix before planning a run.
 
 Output variables

@@ -48,6 +48,8 @@ pressure_levels :
 checkpoints:
   # Operational WeatherNext 2: fine-tuned on HRES analyses (initialise from ecmwf-an for the
   # intended use), trained on data up to 2024. 4 seeds, 0.25 deg. Upstream recommends an 80 GB GPU.
+  # Does not run on FELIPE: one forecast step does not fit in the 46 GB of an L40S (out of GPU memory
+  # at the first step, 2026-11-25). Use the Mini checkpoint there.
   WeatherNext2_2025:
     config: WeatherNext2
     resolution: 0.25

@@ -1,6 +1,8 @@
 # Resources for WeatherNext 2 on felipe (Slurm cgroup v2, RAM strictly enforced; jobs without MEMORY
 # get 1 GB per CPU). MEMORY is in MB. Outputs are streamed to disk, one step at a time.
-# Not yet measured on felipe: values to be revised after the first runs.
+# Only WeatherNextCyclones_Mini_2024 runs on felipe (8 steps in under a minute on one L40S). WeatherNext2_2025
+# (0.25 deg) does NOT: one forecast step needs more than the 46 GB of an L40S (out of GPU memory at the first
+# step, 2026-11-25); upstream recommends an 80 GB GPU. Values below not yet measured on felipe.
 JOBS:
   PREPARE_ICS:
     CHECK: on_submission

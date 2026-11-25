@@ -262,6 +262,14 @@ def main() -> None:
                  f"{os.path.basename(weights)} on {backend} ({jax.devices()[0].device_kind}): "
                  f"{_START_TIME} to {_END_TIME}, {n_steps} steps at {resolution} deg")
 
+    try:
+        gpu_bytes = (jax.devices()[0].memory_stats() or {}).get("bytes_limit", 0) if backend == "gpu" else 0
+    except Exception:                                    # noqa: BLE001 - memory stats are informative only
+        gpu_bytes = 0
+    if resolution < 1.0 and 0 < gpu_bytes < 70 * 2**30:
+        logging.warning(f"The 0.25 deg model needs an 80 GB GPU; this one has {gpu_bytes / 2**30:.0f} GB. "
+                        "It does not fit on FELIPE's L40S (46 GB): expect out of GPU memory at the first step.")
+
     state, initial_time = initial_state(_INI_DATA_PATH, mapper, task, resolution)
     inputs, template, forcings = forecast_inputs(state, task, n_steps)
     lats, lons = state.lat.values, state.lon.values

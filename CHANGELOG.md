@@ -23,7 +23,10 @@ All notable changes to AIUQ are listed here. Versions follow [semantic versionin
   geopotential and land-sea mask); outputs the same fields plus `tp` (6 h totals). New image
   `remote_set/image_weathernext.def` (weathernext v0.3.0, JAX with CUDA 12). Verified so far on FELIPE on CPU: with
   the same inputs the AIUQ code gives the same forecast as the upstream demo, to the bit; the 1° model from the
-  ECMWF analysis gives physical fields. GPU runs and the Autosubmit chain are still to be tested.
+  ECMWF analysis gives physical fields. **`WeatherNext2_2025` does not run on FELIPE**: one 0.25° step does not
+  fit in the 46 GB of an L40S (upstream recommends an 80 GB GPU); it ran on CPU only, for tests.
+  `WeatherNextCyclones_Mini_2024` runs on an L40S (48 h in under a minute; same result as on CPU up to rounding).
+  The Autosubmit chain is still to be tested.
 - **Every output variable of every checkpoint** (branch `cards/output-variables`): the model cards list per checkpoint
   what `SIM` can write (`checkpoints` block), checked against the checkpoints themselves (AIFS metadata, Aurora model
   classes, NeuralGCM `data_to_xarray`) and the upstream documentation. New outputs: AIFS diagnostics `tp cp sf ro

@@ -33,7 +33,7 @@ followed by `autosubmit create <expid> -np`. Always run `aiuq preview` first; fi
 |---|---|
 | `branch` | A branch that exists on GitHub (`git ls-remote`); the experiment clones it. Default `main`. |
 | `description` | Required, one line, < 200 chars. Shows up in `aiuq list`. |
-| `model` | `neuralgcm`, `aifs`, `ms-aurora`, `weathernext` (branch `models/weathernext-2`; ACE is not implemented). |
+| `model` | `neuralgcm`, `aifs`, `ms-aurora`, `weathernext` (ACE is not implemented). |
 | `checkpoint` | Must exist in `<support>/models/<model>/` on the HPC (`aiuq options` shows ON HPC / MISSING). |
 | `ics` | `era5`, `eerie`, `ecmwf-an`, `ec-earth3` (see below). |
 | `run_type` | `hindcast` (all models) or `amip` (NeuralGCM only). |
@@ -89,7 +89,7 @@ the setting (older code) ignore the two keys and the Launcher says so. Existing 
 | | `aifs-ens-crps-2.0.ckpt` | ensemble | N320, 14 levels (10–1000 hPa), wave fields (`swh mwd mwp cdww h1012…h2530`) in output; needs `image_anemoi-2.sif`; not with EERIE or EC-Earth3 (no wave fields) | hindcast |
 | `ms-aurora` | `aurora-0.25-v1.5-ensemble.ckpt` | ensemble | 0.25°, 13 levels (50–1000 hPa) | hindcast |
 | | `aurora-0.25-pretrained.ckpt`, `aurora-0.25-finetuned.ckpt`, `aurora-0.25-v1.5.ckpt` | deterministic | | |
-| `weathernext` | `WeatherNext2_2025` (folder, 4 seeds) | ensemble | 0.25°, 13 levels (50–1000 hPa); outputs `z t u v w q t2m msl u10 v10 u100 v100 sst tp`; needs `image_weathernext.sif`; fine-tuned on HRES (use `ecmwf-an`) | hindcast |
+| `weathernext` | `WeatherNext2_2025` (folder, 4 seeds) | ensemble | 0.25°, 13 levels (50–1000 hPa); outputs `z t u v w q t2m msl u10 v10 u100 v100 sst tp`; needs `image_weathernext.sif`; fine-tuned on HRES (use `ecmwf-an`); **does not fit on FELIPE's L40S (46 GB), needs an 80 GB GPU** | hindcast |
 | | `WeatherNextCyclones_Mini_2024` (folder, 1 seed) | ensemble | 1°, 13 levels, no `u100 v100` | hindcast |
 
 Support status per IC lives in `docs/support-matrix.yml` (rendered in the README); the Launcher reads the same

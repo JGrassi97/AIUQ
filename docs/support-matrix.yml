@@ -130,7 +130,9 @@ models:
 #                     time (2026-11-21: temperature at 850 hPa up to 3199 K with deterministic_1_4, 380 K with
 #                     deterministic_2_8; a few points of geopotential height with deterministic_0_7). The same
 #                     checkpoints are clean from ERA5, and the stochastic checkpoints are clean from EC-Earth3.
-#                     WeatherNext 2 (branch models/weathernext-2): integration in progress.
+#                     WeatherNext 2: integration in progress. WeatherNext2_2025 (0.25 deg) does not run on
+#                     FELIPE (out of GPU memory on one L40S, 46 GB; upstream recommends 80 GB); the Mini
+#                     checkpoint runs there on GPU (2026-11-25, ECMWF analysis, outside Autosubmit).
 #   not_implemented = no integration. AIFS ENS 2.0 needs ocean-wave fields, which EERIE and EC-Earth3 do not have.
 status:
   ERA5:
